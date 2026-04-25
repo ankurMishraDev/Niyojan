@@ -1,0 +1,114 @@
+Smart Resource Allocation - APIs Built Till Phase 2
+
+Base URL:
+http://localhost:8080
+
+Important:
+1) Firebase is in mock mode (AUTH_MOCK_MODE=true).
+2) /health and /api/health require DB connectivity because they run DB health checks.
+3) /api/auth/me also requires DB connectivity because it creates/reads user profile from users table.
+
+------------------------------------------------------------
+1) Health Endpoint (public)
+------------------------------------------------------------
+Method: GET
+URL: /health
+
+PowerShell:
+Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:8080/health"
+
+curl:
+curl -i http://localhost:8080/health
+
+------------------------------------------------------------
+2) API Health Endpoint (public)
+------------------------------------------------------------
+Method: GET
+URL: /api/health
+
+PowerShell:
+Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:8080/api/health"
+
+curl:
+curl -i http://localhost:8080/api/health
+
+------------------------------------------------------------
+3) Get Current User (mock-auth protected)
+------------------------------------------------------------
+Method: GET
+URL: /api/auth/me
+
+Header options:
+- Uses defaults from .env if headers are not sent.
+- You can override per request with mock headers below.
+
+Required/Useful Mock Headers:
+x-mock-user-id: 10000000-0000-4000-8000-000000000002
+x-mock-org-id: 11111111-1111-4111-8111-111111111111
+x-mock-role: ngo_admin
+x-mock-firebase-uid: firebase-ngo-admin-a-001
+x-mock-name: Anita Sharma
+x-mock-email: anita@hopebridge.demo
+
+PowerShell:
+Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:8080/api/auth/me" -Headers @{
+  "x-mock-user-id"="10000000-0000-4000-8000-000000000002";
+  "x-mock-org-id"="11111111-1111-4111-8111-111111111111";
+  "x-mock-role"="ngo_admin";
+  "x-mock-firebase-uid"="firebase-ngo-admin-a-001";
+  "x-mock-name"="Anita Sharma";
+  "x-mock-email"="anita@hopebridge.demo"
+}
+
+curl:
+curl -i \
+  -H "x-mock-user-id: 10000000-0000-4000-8000-000000000002" \
+  -H "x-mock-org-id: 11111111-1111-4111-8111-111111111111" \
+  -H "x-mock-role: ngo_admin" \
+  -H "x-mock-firebase-uid: firebase-ngo-admin-a-001" \
+  -H "x-mock-name: Anita Sharma" \
+  -H "x-mock-email: anita@hopebridge.demo" \
+  http://localhost:8080/api/auth/me
+
+------------------------------------------------------------
+Server Run
+------------------------------------------------------------
+npm run dev
+
+------------------------------------------------------------
+DB Setup Commands (after Cloud SQL access is fixed)
+------------------------------------------------------------
+npm run migrate
+npm run seed
+
+------------------------------------------------------------
+Timeout Troubleshooting (ETIMEDOUT 136.119.28.83:5432)
+------------------------------------------------------------
+Reason:
+- Backend can start without DB, but these APIs require DB and will fail if Cloud SQL is unreachable.
+- Most common cause is public IP change on local network (authorized network no longer matches).
+
+Quick checks:
+1) Current public IP:
+  PowerShell: Invoke-RestMethod -Uri "https://api.ipify.org"
+
+2) Confirm Cloud SQL authorized networks:
+  gcloud sql instances describe niyojan-database --project helical-button-486909-m8 --format="value(settings.ipConfiguration.authorizedNetworks[].value)"
+
+3) Port reachability test:
+  Test-NetConnection -ComputerName 136.119.28.83 -Port 5432
+
+If current IP is missing, patch allowlist:
+gcloud sql instances patch niyojan-database --project helical-button-486909-m8 --authorized-networks="YOUR_IP/32,106.219.84.106/32,106.219.85.252/32" --quiet
+
+------------------------------------------------------------
+Frontend Start (when frontend is built)
+------------------------------------------------------------
+- Backend (this repo): npm run dev
+- Frontend: run from frontend project directory using its dev command.
+
+Common examples:
+- Vite React: npm run dev (default port 5173)
+- Next.js: npm run dev (default port 3000)
+
+You run backend and frontend in separate terminals.
