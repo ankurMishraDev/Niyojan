@@ -362,6 +362,7 @@
         <div class="row"><label for="varAssignmentId">assignmentId</label><input id="varAssignmentId" value="92000000-0000-4000-8000-000000000001" /></div>
         <div class="row"><label for="varFeedbackId">feedbackId</label><input id="varFeedbackId" /></div>
         <div class="row"><label for="varGcsPath">gcsPath</label><input id="varGcsPath" /></div>
+        <div class="row"><label for="varPipelineManifestId">pipelineManifestId</label><input id="varPipelineManifestId" /></div>
       </div>
       <div class="panel-body tiny">Tip: created ids and upload paths are auto-captured from successful responses where possible.</div>
     </section>
@@ -555,6 +556,37 @@
           { name: "Trigger Extraction", method: "POST", path: "/documents/{{documentId}}/extract-fields" },
           { name: "AI Provider Status", method: "GET", path: "/ai/status" },
           { name: "AI Extraction Preview", method: "POST", path: "/ai/documents/{{documentId}}/preview-extraction" }
+        ]
+      },
+      {
+        group: "Pipeline",
+        items: [
+          { name: "Start Document Pipeline", method: "POST", path: "/documents/{{documentId}}/pipeline/start" },
+          { name: "Get Document Pipeline Status", method: "GET", path: "/documents/{{documentId}}/pipeline/status", capture: { "data.manifest.id": "pipelineManifestId" } },
+          { name: "Get Document Review Package", method: "GET", path: "/documents/{{documentId}}/review-package" },
+          {
+            name: "Submit Human Review",
+            method: "POST",
+            path: "/documents/{{documentId}}/review",
+            body: {
+              review_action: "approved",
+              field_corrections: {},
+              review_notes: "Approved through the browser workbench.",
+              approved_fields: {}
+            }
+          },
+          {
+            name: "Create Draft Form From Pipeline",
+            method: "POST",
+            path: "/documents/{{documentId}}/create-form",
+            body: { name: "Pipeline Draft Form" },
+            capture: {
+              "data.template.id": "templateId",
+              "data.version.id": "versionId"
+            }
+          },
+          { name: "List Pipeline Queue", method: "GET", path: "/pipeline/queue" },
+          { name: "Get Pipeline Manifest", method: "GET", path: "/pipeline/manifests/{{pipelineManifestId}}" }
         ]
       },
       {
@@ -790,7 +822,8 @@
         needId: document.getElementById("varNeedId"),
         assignmentId: document.getElementById("varAssignmentId"),
         feedbackId: document.getElementById("varFeedbackId"),
-        gcsPath: document.getElementById("varGcsPath")
+        gcsPath: document.getElementById("varGcsPath"),
+        pipelineManifestId: document.getElementById("varPipelineManifestId")
       }
     };
 
@@ -904,6 +937,7 @@
       if (data.id && lower.includes("assignment") && !lower.includes("feedback")) setVariable("assignmentId", data.id);
       if (data.id && lower.includes("feedback")) setVariable("feedbackId", data.id);
       if (data.gcsPath) setVariable("gcsPath", data.gcsPath);
+      if (data.manifest && data.manifest.id) setVariable("pipelineManifestId", data.manifest.id);
     };
 
     const buildHeaders = () => {
