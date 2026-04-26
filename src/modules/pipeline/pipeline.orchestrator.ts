@@ -92,6 +92,15 @@ const getLatestHumanReview = async (documentId: string) => {
 		.first()) as HumanReviewRow | undefined;
 };
 
+const clearPipelineArtifacts = async (documentId: string, trx: Parameters<typeof db.transaction>[0] extends (arg: infer T) => any ? T : never) => {
+	await trx("human_reviews").where({ document_id: documentId }).del();
+	await trx("ai_reasoning_outputs").where({ document_id: documentId }).del();
+	await trx("validated_candidates").where({ document_id: documentId }).del();
+	await trx("ai_extractions").where({ document_id: documentId }).del();
+	await trx("pii_token_maps").where({ document_id: documentId }).del();
+	await trx("canonical_projections").where({ document_id: documentId }).del();
+};
+
 const mapManifest = (manifest: ManifestRow) => ({
 	id: manifest.id,
 	documentId: manifest.document_id,
@@ -120,7 +129,7 @@ const mapManifest = (manifest: ManifestRow) => ({
 	updatedAt: manifest.updated_at,
 });
 
-export class PipelineOrchestrator {
+	export class PipelineOrchestrator {
 	async startDocumentPipeline(documentId: string, user: AuthenticatedUser) {
 		const document = await getDocumentById(documentId);
 		if (!document) throw new AppError(404, "Document not found");
@@ -150,9 +159,12 @@ export class PipelineOrchestrator {
 		});
 
 		const result = await db.transaction(async (trx) => {
+			if (existingManifest) {
+				await clearPipelineArtifacts(document.id, trx);
+			}
+
 			const manifestPayload = {
 				...stage1Ingestion(document.id),
-				...existingManifest ? {} : {},
 				current_stage: reviewPrep.pipelineStatus === "requires_human" ? "review_prep" : "review_prep",
 				pipeline_status: reviewPrep.pipelineStatus,
 				semantic_loss_detected: semantic.semanticLossDetected,
@@ -470,6 +482,10 @@ export class PipelineOrchestrator {
 				extraction_result_json: input.review_action === "requested_reextraction" ? null : document.extraction_result_json,
 				updated_at: new Date(),
 			});
+
+			if (input.review_action === "requested_reextraction") {
+				await clearPipelineArtifacts(documentId, trx);
+			}
 
 			if (manifest) {
 				await trx("pipeline_routing_manifests").where({ id: manifest.id }).update({
