@@ -1,0 +1,164 @@
+Smart Resource Allocation - APIs Built Till Phase 4
+
+Base URL:
+http://localhost:8080/api
+
+Auth mode for local testing:
+- AUTH_MOCK_MODE=true
+- Pass mock headers shown below.
+
+Common NGO Admin Mock Headers:
+x-mock-user-id: 10000000-0000-4000-8000-000000000002
+x-mock-org-id: 11111111-1111-4111-8111-111111111111
+x-mock-role: ngo_admin
+x-mock-firebase-uid: firebase-ngo-admin-a-001
+
+Common Superadmin Mock Headers:
+x-mock-user-id: 10000000-0000-4000-8000-000000000001
+x-mock-role: superadmin
+x-mock-firebase-uid: firebase-superadmin-001
+
+------------------------------------------------------------
+1) Documents - Signed URL + Metadata
+------------------------------------------------------------
+Create signed upload URL
+POST /documents/upload-url
+Body:
+{
+  "file_name": "household_assessment_april.pdf",
+  "file_type": "application/pdf"
+}
+
+Expected response keys:
+- uploadUrl
+- gcsPath
+- method (PUT)
+- requiredHeaders.Content-Type
+
+Create document metadata row after upload
+POST /documents
+Body:
+{
+  "file_name": "household_assessment_april.pdf",
+  "gcs_path": "orgs/{orgId}/documents/{generated-object-name}.pdf",
+  "file_type": "application/pdf",
+  "status": "uploaded"
+}
+
+List documents
+GET /documents?page=1&pageSize=10
+
+Optional filters:
+GET /documents?page=1&pageSize=10&status=review_pending
+GET /documents?page=1&pageSize=10&file_type=application/pdf
+
+Get document by id
+GET /documents/{documentId}
+
+Get signed read URL
+GET /documents/{documentId}/read-url
+
+Update document status (ngo_admin or superadmin)
+PATCH /documents/{documentId}/status
+Body:
+{
+  "status": "approved"
+}
+
+------------------------------------------------------------
+2) Documents - Extraction Trigger
+------------------------------------------------------------
+Trigger extraction + field mapping
+POST /documents/{documentId}/extract-fields
+
+Expected result:
+- document.status should become review_pending on success
+- extractionResult should include:
+  - extractedFields
+  - mappedFields
+  - summary
+  - models
+
+------------------------------------------------------------
+3) AI Pipeline Utility Endpoints
+------------------------------------------------------------
+Get AI provider status
+GET /ai/status
+
+Preview extraction without changing document status
+POST /ai/documents/{documentId}/preview-extraction
+
+------------------------------------------------------------
+PowerShell Smoke Flow (recommended)
+------------------------------------------------------------
+1) Start backend:
+npm run dev
+
+2) Request upload URL:
+$uploadBody = @{
+  file_name = "household_assessment_april.pdf"
+  file_type = "application/pdf"
+} | ConvertTo-Json
+
+$uploadResp = Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/documents/upload-url" -ContentType "application/json" -Headers @{
+  "x-mock-user-id"="10000000-0000-4000-8000-000000000002"
+  "x-mock-org-id"="11111111-1111-4111-8111-111111111111"
+  "x-mock-role"="ngo_admin"
+  "x-mock-firebase-uid"="firebase-ngo-admin-a-001"
+} -Body $uploadBody
+
+$uploadResp
+
+3) Register document metadata using returned gcsPath:
+$docBody = @{
+  file_name = "household_assessment_april.pdf"
+  gcs_path = $uploadResp.data.gcsPath
+  file_type = "application/pdf"
+  status = "uploaded"
+} | ConvertTo-Json
+
+$docResp = Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/documents" -ContentType "application/json" -Headers @{
+  "x-mock-user-id"="10000000-0000-4000-8000-000000000002"
+  "x-mock-org-id"="11111111-1111-4111-8111-111111111111"
+  "x-mock-role"="ngo_admin"
+  "x-mock-firebase-uid"="firebase-ngo-admin-a-001"
+} -Body $docBody
+
+$docResp
+
+4) Trigger extraction:
+Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/documents/$($docResp.data.id)/extract-fields" -Headers @{
+  "x-mock-user-id"="10000000-0000-4000-8000-000000000002"
+  "x-mock-org-id"="11111111-1111-4111-8111-111111111111"
+  "x-mock-role"="ngo_admin"
+  "x-mock-firebase-uid"="firebase-ngo-admin-a-001"
+}
+
+5) Read extraction result:
+Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/documents/$($docResp.data.id)" -Headers @{
+  "x-mock-user-id"="10000000-0000-4000-8000-000000000002"
+  "x-mock-org-id"="11111111-1111-4111-8111-111111111111"
+  "x-mock-role"="ngo_admin"
+  "x-mock-firebase-uid"="firebase-ngo-admin-a-001"
+}
+
+------------------------------------------------------------
+Live mode secrets checklist
+------------------------------------------------------------
+For fully live cloud integrations set these:
+- AUTH_MOCK_MODE=false
+- GCP_MOCK_MODE=false
+- AI_PROVIDER_MODE=live
+
+Required secrets/credentials:
+- Firebase Admin credentials:
+  - FIREBASE_PROJECT_ID
+  - FIREBASE_CLIENT_EMAIL
+  - FIREBASE_PRIVATE_KEY
+- GCP project setup:
+  - GCP_PROJECT_ID
+  - GCS_BUCKET_NAME
+  - GOOGLE_APPLICATION_CREDENTIALS (service account JSON path)
+- AI provider setup:
+  - GEMINI_API_KEY (if Gemini direct API is used)
+  - VERTEX_LOCATION (for Vertex-backed routing)

@@ -1,0 +1,168 @@
+Smart Resource Allocation - APIs Built Till Phase 3
+
+Base URL:
+http://localhost:8080/api
+
+Auth mode for local testing:
+- AUTH_MOCK_MODE=true
+- Pass mock headers shown below.
+
+Common NGO Admin Mock Headers:
+x-mock-user-id: 10000000-0000-4000-8000-000000000002
+x-mock-org-id: 11111111-1111-4111-8111-111111111111
+x-mock-role: ngo_admin
+x-mock-firebase-uid: firebase-ngo-admin-a-001
+
+Common Superadmin Mock Headers:
+x-mock-user-id: 10000000-0000-4000-8000-000000000001
+x-mock-role: superadmin
+x-mock-firebase-uid: firebase-superadmin-001
+
+------------------------------------------------------------
+1) Organizations
+------------------------------------------------------------
+Create organization (superadmin)
+POST /organizations
+Body:
+{
+  "name": "Phase3 Org Demo",
+  "type": "NGO",
+  "region": "Demo Region"
+}
+
+Get organization
+GET /organizations/11111111-1111-4111-8111-111111111111
+
+Update organization
+PATCH /organizations/11111111-1111-4111-8111-111111111111
+Body:
+{
+  "region": "Updated Region"
+}
+
+List organization users
+GET /organizations/11111111-1111-4111-8111-111111111111/users?page=1&pageSize=10
+
+------------------------------------------------------------
+2) Field Catalog
+------------------------------------------------------------
+List fields
+GET /field-catalog?page=1&pageSize=10
+
+Filter by category
+GET /field-catalog?page=1&pageSize=10&category=health
+
+Create custom field
+POST /field-catalog
+Body:
+{
+  "key": "phase3_custom_field_demo",
+  "name": "Phase3 Custom Field",
+  "category": "general",
+  "input_type": "text",
+  "is_system": false
+}
+
+Get field by id
+GET /field-catalog/{fieldId}
+
+Update field
+PATCH /field-catalog/{fieldId}
+Body:
+{
+  "name": "Phase3 Custom Field Updated"
+}
+
+Delete field (only non-system)
+DELETE /field-catalog/{fieldId}
+
+------------------------------------------------------------
+3) Skills
+------------------------------------------------------------
+List skills
+GET /skills?page=1&pageSize=10
+
+Create skill
+POST /skills
+Body:
+{
+  "key": "phase3_skill_demo",
+  "name": "Phase3 Skill",
+  "category": "operations"
+}
+
+Get skill by id
+GET /skills/{skillId}
+
+Update skill
+PATCH /skills/{skillId}
+Body:
+{
+  "name": "Phase3 Skill Updated"
+}
+
+Delete skill
+DELETE /skills/{skillId}
+
+------------------------------------------------------------
+4) Volunteers
+------------------------------------------------------------
+List volunteers
+GET /volunteers?page=1&pageSize=10
+
+List volunteers by skill
+GET /volunteers?page=1&pageSize=10&skill_id=40000000-0000-4000-8000-000000000006
+
+Create volunteer profile
+POST /volunteers
+Body:
+{
+  "user_id": "10000000-0000-4000-8000-000000000003",
+  "availability_status": "available",
+  "location_text": "Bhopal HQ",
+  "latitude": 23.25,
+  "longitude": 77.41
+}
+
+Get volunteer
+GET /volunteers/70000000-0000-4000-8000-000000000001
+
+Update volunteer
+PATCH /volunteers/70000000-0000-4000-8000-000000000001
+Body:
+{
+  "availability_status": "part_time"
+}
+
+Attach skills to volunteer (upsert)
+POST /volunteers/70000000-0000-4000-8000-000000000001/skills
+Body:
+{
+  "replace": false,
+  "skills": [
+    {
+      "skill_id": "40000000-0000-4000-8000-000000000006",
+      "proficiency": 5
+    }
+  ]
+}
+
+------------------------------------------------------------
+PowerShell examples
+------------------------------------------------------------
+Start backend:
+npm run dev
+
+Run migrations:
+npm run migrate
+
+Run seeds:
+npm run seed
+
+Sample GET with headers:
+Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:8080/api/skills?page=1&pageSize=5" -Headers @{
+  "x-mock-user-id"="10000000-0000-4000-8000-000000000002";
+  "x-mock-org-id"="11111111-1111-4111-8111-111111111111";
+  "x-mock-role"="ngo_admin";
+  "x-mock-firebase-uid"="firebase-ngo-admin-a-001"
+}

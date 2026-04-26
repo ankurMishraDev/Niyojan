@@ -1,5 +1,5 @@
 import { NextFunction, Request, RequestHandler, Response } from "express";
-import { ZodTypeAny } from "zod";
+import { ZodError, ZodTypeAny } from "zod";
 import { AppError } from "./errorHandler";
 
 type ValidationSchema = {
@@ -16,16 +16,29 @@ export const validate = (schema: ValidationSchema): RequestHandler => {
       }
 
       if (schema.query) {
-        req.query = schema.query.parse(req.query) as Request["query"];
+        schema.query.parse(req.query);
       }
 
       if (schema.params) {
-        req.params = schema.params.parse(req.params) as Request["params"];
+        schema.params.parse(req.params);
       }
 
       next();
     } catch (error) {
-      next(new AppError(400, "Request validation failed", error));
+      if (error instanceof ZodError) {
+        const details = error.issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
+          code: issue.code,
+        }));
+
+        return next(new AppError(400, "Request validation failed", details));
+      }
+
+      const errorDetails =
+        error instanceof Error ? { message: error.message } : { message: "Unknown validation error" };
+
+      next(new AppError(400, "Request validation failed", errorDetails));
     }
   };
 };

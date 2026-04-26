@@ -112,3 +112,806 @@ Common examples:
 - Next.js: npm run dev (default port 3000)
 
 You run backend and frontend in separate terminals.
+
+backend building plan phases
+You are a senior backend engineer. Build a backend-only MVP for a hackathon project called:
+
+Smart Resource Allocation — Data-Driven Volunteer Coordination for Social Impact
+
+Goal:
+Build a working backend prototype where NGOs can:
+1. upload a blank paper form image,
+2. extract candidate fields using AI,
+3. map those fields to a master field catalog,
+4. generate a draft survey form,
+5. review and publish the form,
+6. submit surveys using that form,
+7. analyze submitted survey data into urgent community needs,
+8. match volunteers to those needs based on skills, availability, and location.
+
+Important:
+This is a prototype. Keep the design simple, correct, and demoable. Do not overengineer. Use practical defaults and make reasonable implementation decisions without asking too many questions.
+
+==================================================
+1. TECH STACK AND ARCHITECTURE
+==================================================
+
+Use:
+- Node.js
+- Express.js
+- PostgreSQL
+- Google Cloud SQL for Postgres
+- Google Cloud Storage for uploaded images/docs
+- Firebase Auth / Google Identity Platform for authentication
+- Vertex AI / Gemini service abstraction for AI features
+- MVC architecture
+- Postman-friendly REST APIs
+- Redis optional for queue/cache; if not available, keep async jobs DB-driven
+
+Preferred implementation choices:
+- TypeScript preferred; plain JavaScript is acceptable if it speeds up delivery
+- Use Knex or Sequelize for migrations and DB access
+- Use Firebase Admin SDK for token verification
+- Use Google Cloud client libraries for GCS
+- Use dotenv for config
+- Use Joi/Zod/express-validator for request validation
+- Use multer only if needed for local multipart fallback, but prefer signed GCS upload URL flow
+
+Architecture principles:
+- simple MVP first
+- multi-tenant by org_id
+- one user belongs to one NGO for prototype
+- dynamic forms with template versioning
+- EAV response storage for flexible survey fields
+- AI pipeline must be async-capable
+- all cloud and AI integrations must be behind service classes so mock mode is possible
+
+==================================================
+2. SIMPLE PROTOTYPE DESIGN DECISIONS
+==================================================
+
+Use these simplified rules:
+- One user belongs to one organization
+- Role is stored directly in users.role
+- Supported roles: superadmin, ngo_admin, field_worker, volunteer
+- One user may optionally have one volunteer profile
+- Location can be stored as:
+  - location_text
+  - latitude
+  - longitude
+- Keep document review simple with a status field
+- Matching logic can be weighted scoring:
+  - skill overlap
+  - availability
+  - location proximity
+- Keep AI services abstracted so real integrations can be swapped with stub/mock mode
+- Keep one main database, no microservices
+- No websockets needed
+- No advanced geospatial engine required for MVP
+
+==================================================
+3. REQUIRED PROJECT STRUCTURE
+==================================================
+
+Create this structure or a very close equivalent:
+
+src/
+  config/
+    db.ts
+    firebase.ts
+    gcp.ts
+    env.ts
+  middleware/
+    auth.ts
+    roleGuard.ts
+    tenantGuard.ts
+    validate.ts
+    errorHandler.ts
+  utils/
+    apiResponse.ts
+    logger.ts
+    pagination.ts
+    scoring.ts
+  db/
+    migrations/
+    seeds/
+  modules/
+    auth/
+      auth.routes.ts
+      auth.controller.ts
+      auth.service.ts
+    organizations/
+      organizations.routes.ts
+      organizations.controller.ts
+      organizations.service.ts
+    fieldCatalog/
+      fieldCatalog.routes.ts
+      fieldCatalog.controller.ts
+      fieldCatalog.service.ts
+    documents/
+      documents.routes.ts
+      documents.controller.ts
+      documents.service.ts
+    formBuilder/
+      formTemplates.routes.ts
+      formTemplates.controller.ts
+      formTemplates.service.ts
+    surveys/
+      surveys.routes.ts
+      surveys.controller.ts
+      surveys.service.ts
+    volunteers/
+      volunteers.routes.ts
+      volunteers.controller.ts
+      volunteers.service.ts
+    skills/
+      skills.routes.ts
+      skills.controller.ts
+      skills.service.ts
+    matching/
+      matching.routes.ts
+      matching.controller.ts
+      matching.service.ts
+    aiPipeline/
+      ai.routes.ts
+      ai.controller.ts
+      documentAi.service.ts
+      gemini.service.ts
+      vertex.service.ts
+      aiOrchestrator.service.ts
+  jobs/
+    jobRunner.ts
+    job.service.ts
+  app.ts
+  server.ts
+
+Also include:
+- package.json
+- .env.example
+- README.md
+- Postman collection or equivalent API doc
+- Dockerfile
+- docker-compose.yml if useful for local Postgres/Redis
+- SQL seed data for demo catalog and skills
+
+==================================================
+4. REQUIRED DATABASE SCHEMA
+==================================================
+
+Create migrations with foreign keys, indexes, timestamps, and sensible constraints.
+
+Tables required:
+
+1. organizations
+- id (uuid pk)
+- name
+- type
+- region
+- status
+- created_at
+- updated_at
+
+2. users
+- id (uuid pk)
+- org_id (fk -> organizations.id, nullable only for superadmin if needed)
+- firebase_uid (unique)
+- name
+- email (unique or org-scoped unique based on your design)
+- role
+- status
+- created_at
+- updated_at
+
+3. field_catalog
+- id (uuid pk)
+- key (unique)
+- name
+- category
+- input_type
+- options_json (jsonb nullable)
+- validation_json (jsonb nullable)
+- is_system (boolean default false)
+- created_at
+- updated_at
+
+4. documents
+- id (uuid pk)
+- org_id (fk)
+- uploaded_by (fk -> users.id)
+- file_name
+- gcs_path
+- file_type
+- status
+- extraction_result_json (jsonb nullable)
+- created_at
+- updated_at
+
+Suggested document statuses:
+- uploaded
+- processing
+- review_pending
+- approved
+- failed
+
+5. form_templates
+- id (uuid pk)
+- org_id (fk)
+- created_by (fk -> users.id)
+- source_document_id (fk -> documents.id nullable)
+- name
+- status
+- created_at
+- updated_at
+
+6. form_template_versions
+- id (uuid pk)
+- template_id (fk -> form_templates.id)
+- version_no (integer)
+- status
+- is_published (boolean)
+- created_at
+- updated_at
+
+Constraint:
+- unique(template_id, version_no)
+
+Suggested version statuses:
+- draft
+- review_pending
+- published
+- archived
+
+7. form_fields
+- id (uuid pk)
+- template_version_id (fk -> form_template_versions.id)
+- field_catalog_id (fk -> field_catalog.id nullable for custom fields)
+- label
+- input_type
+- options_json (jsonb nullable)
+- is_required (boolean)
+- display_order (integer)
+- is_custom (boolean default false)
+- created_at
+- updated_at
+
+8. surveys
+- id (uuid pk)
+- org_id (fk)
+- template_version_id (fk -> form_template_versions.id)
+- conducted_by (fk -> users.id)
+- respondent_name (nullable if privacy-sensitive)
+- location_text
+- latitude
+- longitude
+- status
+- submitted_at
+- created_at
+- updated_at
+
+Suggested survey statuses:
+- draft
+- submitted
+- validated
+
+9. survey_responses
+- id (uuid pk)
+- survey_id (fk -> surveys.id)
+- form_field_id (fk -> form_fields.id)
+- input_type
+- value_text (nullable)
+- value_number (nullable)
+- value_bool (nullable)
+- value_json (nullable)
+- created_at
+- updated_at
+
+Important:
+This is EAV. One answer = one row.
+Do not create one column per dynamic field.
+
+10. volunteers
+- id (uuid pk)
+- org_id (fk)
+- user_id (fk -> users.id unique if one profile per user)
+- availability_status
+- location_text
+- latitude
+- longitude
+- is_active
+- created_at
+- updated_at
+
+11. skills
+- id (uuid pk)
+- key (unique)
+- name
+- category
+- created_at
+- updated_at
+
+12. volunteer_skills
+- id (uuid pk)
+- volunteer_id (fk -> volunteers.id)
+- skill_id (fk -> skills.id)
+- proficiency
+- created_at
+- updated_at
+
+Constraint:
+- unique(volunteer_id, skill_id)
+
+13. needs_analysis
+- id (uuid pk)
+- org_id (fk)
+- survey_id (fk -> surveys.id)
+- category
+- summary
+- urgency_score
+- priority_level
+- status
+- created_at
+- updated_at
+
+Suggested statuses:
+- detected
+- open
+- matched
+- assigned
+- resolved
+
+14. need_skills
+- id (uuid pk)
+- need_id (fk -> needs_analysis.id)
+- skill_id (fk -> skills.id)
+- created_at
+- updated_at
+
+Constraint:
+- unique(need_id, skill_id)
+
+15. task_assignments
+- id (uuid pk)
+- org_id (fk)
+- need_id (fk -> needs_analysis.id)
+- volunteer_id (fk -> volunteers.id)
+- match_score
+- match_reason_json (jsonb)
+- status
+- assigned_at
+- completed_at
+- created_at
+- updated_at
+
+Suggested statuses:
+- suggested
+- accepted
+- in_progress
+- completed
+- cancelled
+
+Optional but recommended for prototype:
+16. jobs
+- id (uuid pk)
+- org_id (nullable)
+- type
+- entity_type
+- entity_id
+- payload_json
+- result_json
+- status
+- attempts
+- error_message
+- run_at
+- created_at
+- updated_at
+
+Suggested job statuses:
+- pending
+- running
+- completed
+- failed
+
+==================================================
+5. REQUIRED RELATIONSHIPS
+==================================================
+
+Implement these relationships:
+- organization has many users
+- organization has many documents
+- organization has many form_templates
+- organization has many surveys
+- organization has many volunteers
+- organization has many needs_analysis
+- organization has many task_assignments
+- form_template has many form_template_versions
+- form_template_version has many form_fields
+- form_template_version has many surveys
+- survey has many survey_responses
+- survey may generate many needs_analysis
+- volunteer has many volunteer_skills
+- need may require many skills through need_skills
+- need may have many task_assignments
+- volunteer may receive many task_assignments
+
+==================================================
+6. AUTH, TENANCY, AND SECURITY
+==================================================
+
+Implement:
+- Firebase JWT verification middleware
+- role-based authorization middleware
+- tenant guard so org-scoped users only access their own org data
+- superadmin bypass only where needed
+- request validation on all write APIs
+- centralized error handling
+- no public file URLs for uploaded docs
+- signed URL generation for GCS upload and read
+- env-based secrets/config
+- basic rate limiting on sensitive endpoints if easy to add
+
+Critical rule:
+Every tenant-owned query must be org-scoped.
+
+==================================================
+7. REQUIRED MODULES AND FUNCTIONALITY
+==================================================
+
+A. Auth
+- verify Firebase token
+- create/get current user profile from decoded token
+- current user endpoint
+- role-based access helpers
+
+B. Organizations
+- create org
+- get org details
+- update org details
+- list org users if useful for admin
+
+C. Field Catalog
+- seed 40-60 standard fields
+- CRUD endpoints for master fields
+- list by category
+- filter by input_type
+- support system and custom fields
+
+D. Documents
+- generate signed upload URL
+- save uploaded document metadata
+- get document by id
+- list organization documents
+- trigger AI extraction job for a document
+- update document status
+
+E. Form Builder
+- create form template
+- create new template version
+- add/edit/remove fields in draft version
+- publish a version
+- get template versions
+- get fields for a version
+- create template from AI extraction result
+
+F. Surveys
+- create survey draft
+- submit survey
+- store answers using EAV
+- get survey details with resolved answers
+- list surveys by org/template/status
+- get survey responses in a usable JSON output format
+
+G. Skills
+- seed standard skills list
+- CRUD/list skills
+
+H. Volunteers
+- create/update volunteer profile
+- attach skills to volunteer
+- list volunteers with filters
+- get volunteer details
+
+I. Needs Analysis
+- create need records from survey data
+- list needs by org/status/category
+- get need details
+- attach required skills to need
+
+J. Matching
+- compute volunteer matches for a need
+- scoring factors:
+  - skill overlap
+  - availability
+  - distance/location
+- save suggestions/assignments
+- assignment endpoints:
+  - create assignment
+  - update status
+  - list assignments
+  - get assignment details
+
+K. AI Pipeline
+Implement service abstractions for:
+- Document AI extraction
+- Gemini field normalization / field-catalog mapping
+- survey response analysis
+- urgency scoring
+- volunteer matching assistance
+
+Important:
+If live AI credentials are unavailable, provide mock/stub mode with realistic sample responses so the system remains demoable.
+
+==================================================
+8. AI FLOW TO SUPPORT
+==================================================
+
+Support this full workflow:
+
+1. NGO admin requests signed upload URL for a blank form image
+2. frontend uploads file directly to GCS
+3. backend stores metadata in documents
+4. admin triggers extraction
+5. AI extracts candidate fields from uploaded form
+6. AI maps extracted fields to field_catalog when possible
+7. backend creates a draft form_template + form_template_version + form_fields
+8. admin reviews and edits fields
+9. admin publishes the version
+10. field worker submits surveys using that version
+11. backend stores survey answers in survey_responses EAV format
+12. AI analyzes survey and creates needs_analysis records
+13. AI or business logic maps required skills
+14. matching service ranks volunteers
+15. NGO admin assigns a volunteer
+16. assignment status can be updated
+
+==================================================
+9. REQUIRED REST API ENDPOINTS
+==================================================
+
+Design clean REST APIs. Exact naming can vary slightly, but implement roughly these:
+
+Auth
+- GET /api/auth/me
+
+Organizations
+- POST /api/organizations
+- GET /api/organizations/:id
+- PATCH /api/organizations/:id
+
+Field Catalog
+- GET /api/field-catalog
+- POST /api/field-catalog
+- GET /api/field-catalog/:id
+- PATCH /api/field-catalog/:id
+- DELETE /api/field-catalog/:id
+
+Documents
+- POST /api/documents/upload-url
+- POST /api/documents
+- GET /api/documents
+- GET /api/documents/:id
+- POST /api/documents/:id/extract-fields
+
+Form Templates
+- POST /api/form-templates
+- GET /api/form-templates
+- GET /api/form-templates/:id
+- POST /api/form-templates/:id/versions
+- GET /api/form-templates/:id/versions
+- GET /api/form-template-versions/:id
+- PATCH /api/form-template-versions/:id
+- POST /api/form-template-versions/:id/fields
+- PATCH /api/form-fields/:id
+- DELETE /api/form-fields/:id
+- POST /api/form-template-versions/:id/publish
+
+Surveys
+- POST /api/surveys
+- GET /api/surveys
+- GET /api/surveys/:id
+- POST /api/surveys/:id/submit
+
+Skills
+- GET /api/skills
+- POST /api/skills
+
+Volunteers
+- POST /api/volunteers
+- GET /api/volunteers
+- GET /api/volunteers/:id
+- PATCH /api/volunteers/:id
+- POST /api/volunteers/:id/skills
+
+Needs
+- GET /api/needs
+- GET /api/needs/:id
+- POST /api/surveys/:id/analyze-needs
+- POST /api/needs/:id/skills
+
+Matching
+- GET /api/needs/:id/matches
+- POST /api/assignments
+- GET /api/assignments
+- GET /api/assignments/:id
+- PATCH /api/assignments/:id/status
+
+Optional dashboard endpoints
+- GET /api/dashboard/summary
+- GET /api/dashboard/urgent-needs
+- GET /api/dashboard/volunteer-availability
+
+==================================================
+10. BUSINESS LOGIC REQUIREMENTS
+==================================================
+
+Implement these important rules:
+
+- form_template_version must be immutable after publish
+- survey must always reference a specific template_version_id
+- survey responses must reference form_field_id from that version
+- only one published version per form template at a time
+- when publishing a new version, previous published version can remain historical but not editable
+- EAV response insert/update must validate value type against input_type
+- volunteer matching must return explanation details, not just a score
+- tenant guard must prevent cross-org access
+- document extraction should not directly auto-publish forms
+- extracted forms should start as draft/review state
+
+==================================================
+11. SEED DATA REQUIRED
+==================================================
+
+Provide seed data for:
+- 1-2 sample organizations
+- 4-6 sample users across roles
+- 40-60 field_catalog entries covering common NGO survey needs such as:
+  - household size
+  - age
+  - gender
+  - water access
+  - medical need
+  - disability
+  - education status
+  - livelihood status
+  - income bracket
+  - housing condition
+  - urgent assistance required
+  - notes
+- 20-30 skills such as:
+  - first_aid
+  - nursing
+  - counseling
+  - logistics
+  - food_distribution
+  - data_collection
+  - teaching
+  - translation
+  - sanitation_support
+  - child_support
+- a sample form template and version
+- sample volunteers with skills
+- a few sample surveys, needs, and assignments for demo
+
+==================================================
+12. IMPLEMENTATION ORDER
+==================================================
+
+Work in this order:
+
+Phase 1
+- project scaffold
+- config
+- DB connection
+- migrations
+- seeds
+- app bootstrap
+- error handling
+
+Phase 2
+- auth middleware
+- role guard
+- tenant guard
+- auth/me endpoint
+
+Phase 3
+- organizations
+- field catalog
+- skills
+- volunteers
+
+Phase 4
+- documents module
+- signed GCS upload URL flow
+- documents CRUD
+- AI extraction stub/service abstraction
+
+Phase 5
+- form templates
+- versions
+- fields
+- publish flow
+
+Phase 6
+- surveys
+- EAV response storage
+- survey retrieval formatter
+
+Phase 7
+- needs analysis
+- matching engine
+- assignments
+
+Phase 8
+- dashboard summary endpoints
+- Postman collection
+- README
+- demo polish
+
+==================================================
+13. CODE QUALITY REQUIREMENTS
+==================================================
+
+Write clean, maintainable code:
+- modular controllers/services/repositories if useful
+- consistent response format
+- clear validation messages
+- proper HTTP status codes
+- no duplicated business logic
+- comments only where useful
+- readable naming
+- safe async/await usage
+- handle null/edge cases carefully
+
+Also include:
+- indexes on all foreign keys
+- unique constraints where appropriate
+- soft-delete only if truly needed; otherwise skip for MVP
+- transactions for publish flow and survey submit flow if needed
+- example env file
+- startup instructions
+- migration and seed commands
+
+==================================================
+14. TESTING AND DEMO READINESS
+==================================================
+
+Minimum test/demo support:
+- working local startup
+- migrations run successfully
+- seeds run successfully
+- API examples for all important routes
+- Postman collection or equivalent
+- mock AI mode so the full flow is demoable without live credentials
+
+At minimum, make these flows work end-to-end:
+1. auth/me
+2. create org user context
+3. create/list field catalog
+4. upload document metadata
+5. create template from extracted fields
+6. publish template version
+7. submit survey with EAV answers
+8. analyze survey into need
+9. create/list volunteer with skills
+10. get volunteer matches for a need
+11. assign volunteer
+
+==================================================
+15. WHAT TO RETURN
+==================================================
+
+Build the codebase and present output in this format:
+1. short architecture summary
+2. project tree
+3. all migrations
+4. all core modules
+5. env setup
+6. run instructions
+7. seed instructions
+8. API route summary
+9. Postman testing notes
+10. known simplifications for prototype
+
+Do not spend time on fancy extras.
+Prioritize correctness, working CRUD, tenant safety, EAV survey handling, form versioning, and demoable AI-assisted workflow.
+
+If you need to choose between “more features” and “working core flow,” choose working core flow.
