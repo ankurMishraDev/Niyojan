@@ -17,6 +17,7 @@ import formTemplatesRouter from "./modules/formBuilder/formTemplates.routes";
 import assignmentsRouter from "./modules/assignments/assignments.routes";
 import matchingRouter from "./modules/matching/matching.routes";
 import needsRouter from "./modules/needs/needs.routes";
+import pipelineRouter from "./modules/pipeline/pipeline.routes";
 import organizationsRouter from "./modules/organizations/organizations.routes";
 import skillsRouter from "./modules/skills/skills.routes";
 import surveysRouter from "./modules/surveys/surveys.routes";
@@ -55,6 +56,7 @@ app.use(`${env.API_PREFIX}/dashboard`, dashboardRouter);
 app.use(env.API_PREFIX, feedbackRouter);
 app.use(env.API_PREFIX, matchingRouter);
 app.use(env.API_PREFIX, assignmentsRouter);
+app.use(env.API_PREFIX, pipelineRouter);
 app.use(env.API_PREFIX, formTemplatesRouter);
 
 app.get("/api-console", (_req, res) => {
