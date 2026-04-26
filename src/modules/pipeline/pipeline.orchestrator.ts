@@ -56,6 +56,12 @@ type ManifestRow = {
 	updated_at: Date;
 };
 
+type HumanReviewRow = {
+	id: string;
+	review_action: string;
+	reviewed_at: Date;
+};
+
 const fromJson = (value: unknown) => {
 	if (value === null || value === undefined) return null;
 	if (typeof value === "string") {
@@ -77,6 +83,13 @@ const getManifestByDocumentId = async (documentId: string) => {
 		.where({ document_id: documentId })
 		.orderBy("created_at", "desc")
 		.first()) as ManifestRow | undefined;
+};
+
+const getLatestHumanReview = async (documentId: string) => {
+	return (await db("human_reviews")
+		.where({ document_id: documentId })
+		.orderBy("reviewed_at", "desc")
+		.first()) as HumanReviewRow | undefined;
 };
 
 const mapManifest = (manifest: ManifestRow) => ({
@@ -264,6 +277,24 @@ export class PipelineOrchestrator {
 					untrusted_fields: JSON.stringify(trust.untrustedFields),
 					reasoning_invoked: Boolean(reasoning),
 				})
+				.onConflict(["document_id"])
+				.merge({
+					extraction_id: aiExtraction.id,
+					manifest_id: manifest.id,
+					field_trust_map: JSON.stringify(trust.fieldTrustMap),
+					composite_confidence: trust.compositeConfidence,
+					field_completeness_score: trust.fieldCompletenessScore,
+					evidence_strength_score: trust.evidenceStrengthScore,
+					rule_consistency_score: trust.ruleConsistencyScore,
+					model_signal_score: trust.modelSignalScore,
+					validation_status: trust.validationStatus,
+					validation_flags: JSON.stringify(trust.validationFlags),
+					trusted_fields: JSON.stringify(trust.trustedFields),
+					untrusted_fields: JSON.stringify(trust.untrustedFields),
+					reasoning_invoked: Boolean(reasoning),
+					reasoning_extraction_id: null,
+					updated_at: new Date(),
+				})
 				.returning("*")) as Array<{ id: string }>;
 
 			let reasoningRow = null;
@@ -407,6 +438,7 @@ export class PipelineOrchestrator {
 		if (user.role !== "superadmin" && user.orgId !== document.org_id) throw new AppError(403, "Cross-organization access is not allowed");
 
 		const validated = await db("validated_candidates").where({ document_id: documentId }).first();
+		const manifest = await getManifestByDocumentId(documentId);
 		const [review] = await db.transaction(async (trx) => {
 			const [createdReview] = (await trx("human_reviews")
 				.insert({
@@ -426,11 +458,27 @@ export class PipelineOrchestrator {
 				: input.review_action === "requested_reextraction"
 					? "uploaded"
 					: "failed";
+			const nextPipelineStatus = input.review_action === "requested_reextraction"
+				? "failed"
+				: input.review_action === "rejected"
+					? "failed"
+					: "completed";
+			const nextPipelineStage = input.review_action === "requested_reextraction" ? "ingestion" : "review_prep";
 
 			await trx("documents").where({ id: documentId }).update({
 				status: nextStatus,
+				extraction_result_json: input.review_action === "requested_reextraction" ? null : document.extraction_result_json,
 				updated_at: new Date(),
 			});
+
+			if (manifest) {
+				await trx("pipeline_routing_manifests").where({ id: manifest.id }).update({
+					current_stage: nextPipelineStage,
+					pipeline_status: nextPipelineStatus,
+					completed_at: input.review_action === "requested_reextraction" ? null : new Date(),
+					updated_at: new Date(),
+				});
+			}
 
 			await auditService.writeEvent(trx, {
 				orgId: document.org_id,
@@ -439,7 +487,12 @@ export class PipelineOrchestrator {
 				entityId: document.id,
 				actorId: user.id,
 				oldValue: { status: document.status },
-				newValue: { status: nextStatus, reviewAction: input.review_action },
+				newValue: {
+					status: nextStatus,
+					reviewAction: input.review_action,
+					pipelineStatus: nextPipelineStatus,
+					pipelineStage: nextPipelineStage,
+				},
 				expectedNextState: nextStatus,
 			});
 
@@ -453,6 +506,12 @@ export class PipelineOrchestrator {
 		const document = await getDocumentById(documentId);
 		if (!document) throw new AppError(404, "Document not found");
 		if (user.role !== "superadmin" && user.orgId !== document.org_id) throw new AppError(403, "Cross-organization access is not allowed");
+		const latestReview = await getLatestHumanReview(documentId);
+		const isReviewApproved = latestReview?.review_action === "approved" || latestReview?.review_action === "edited";
+
+		if (document.status !== "approved" && !isReviewApproved) {
+			throw new AppError(409, "Draft form creation requires an approved pipeline review");
+		}
 
 		const result = await formTemplatesService.createTemplateFromDocument(documentId, { name: input.name }, user);
 		await auditService.logEvent({
