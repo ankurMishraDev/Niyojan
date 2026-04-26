@@ -184,7 +184,17 @@ Seed data includes:
 - `GET /api/ai/status`
 - `POST /api/ai/documents/:id/preview-extraction`
 
-### 4. Form builder
+### 4. Pipeline scaffold
+
+- `POST /api/documents/:id/pipeline/start`
+- `GET /api/documents/:id/pipeline/status`
+- `GET /api/documents/:id/review-package`
+- `POST /api/documents/:id/review`
+- `POST /api/documents/:id/create-form`
+- `GET /api/pipeline/queue`
+- `GET /api/pipeline/manifests/:id`
+
+### 5. Form builder
 
 - `POST /api/form-templates`
 - `GET /api/form-templates`
@@ -199,7 +209,7 @@ Seed data includes:
 - `POST /api/form-template-versions/:id/publish`
 - `POST /api/form-templates/from-document/:documentId`
 
-### 5. Surveys and needs analysis
+### 6. Surveys and needs analysis
 
 - `POST /api/surveys`
 - `GET /api/surveys`
@@ -210,7 +220,7 @@ Seed data includes:
 - `GET /api/needs/:id`
 - `POST /api/needs/:id/skills`
 
-### 6. Matching and assignments
+### 7. Matching and assignments
 
 - `GET /api/needs/:id/matches`
 - `POST /api/assignments`
@@ -218,14 +228,14 @@ Seed data includes:
 - `GET /api/assignments/:id`
 - `PATCH /api/assignments/:id/status`
 
-### 7. Feedback and case closure
+### 8. Feedback and case closure
 
 - `POST /api/assignments/:id/feedback`
 - `GET /api/assignments/:id/feedback`
 - `POST /api/assignments/:id/feedback/evidence-url`
 - `POST /api/needs/:id/close`
 
-### 8. Dashboard
+### 9. Dashboard
 
 - `GET /api/dashboard/summary`
 - `GET /api/dashboard/urgent-needs`

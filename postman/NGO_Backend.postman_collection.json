@@ -132,6 +132,63 @@
       ]
     },
     {
+      "name": "Pipeline",
+      "item": [
+        {
+          "name": "Start Document Pipeline",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "x-mock-user-id", "value": "{{mockUserId}}" },
+              { "key": "x-mock-org-id", "value": "{{mockOrgId}}" },
+              { "key": "x-mock-role", "value": "{{mockRole}}" },
+              { "key": "x-mock-firebase-uid", "value": "{{mockFirebaseUid}}" }
+            ],
+            "url": "{{baseUrl}}/documents/{{documentId}}/pipeline/start"
+          }
+        },
+        {
+          "name": "Get Pipeline Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-mock-user-id", "value": "{{mockUserId}}" },
+              { "key": "x-mock-org-id", "value": "{{mockOrgId}}" },
+              { "key": "x-mock-role", "value": "{{mockRole}}" },
+              { "key": "x-mock-firebase-uid", "value": "{{mockFirebaseUid}}" }
+            ],
+            "url": "{{baseUrl}}/documents/{{documentId}}/pipeline/status"
+          }
+        },
+        {
+          "name": "Get Review Package",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-mock-user-id", "value": "{{mockUserId}}" },
+              { "key": "x-mock-org-id", "value": "{{mockOrgId}}" },
+              { "key": "x-mock-role", "value": "{{mockRole}}" },
+              { "key": "x-mock-firebase-uid", "value": "{{mockFirebaseUid}}" }
+            ],
+            "url": "{{baseUrl}}/documents/{{documentId}}/review-package"
+          }
+        },
+        {
+          "name": "List Pipeline Queue",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "x-mock-user-id", "value": "{{mockUserId}}" },
+              { "key": "x-mock-org-id", "value": "{{mockOrgId}}" },
+              { "key": "x-mock-role", "value": "{{mockRole}}" },
+              { "key": "x-mock-firebase-uid", "value": "{{mockFirebaseUid}}" }
+            ],
+            "url": "{{baseUrl}}/pipeline/queue"
+          }
+        }
+      ]
+    },
+    {
       "name": "Surveys and Needs",
       "item": [
         {
