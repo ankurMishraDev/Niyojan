@@ -10,10 +10,16 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import aiRouter from "./modules/aiPipeline/ai.routes";
 import authRouter from "./modules/auth/auth.routes";
 import documentsRouter from "./modules/documents/documents.routes";
+import dashboardRouter from "./modules/dashboard/dashboard.routes";
+import feedbackRouter from "./modules/feedback/feedback.routes";
 import fieldCatalogRouter from "./modules/fieldCatalog/fieldCatalog.routes";
 import formTemplatesRouter from "./modules/formBuilder/formTemplates.routes";
+import assignmentsRouter from "./modules/assignments/assignments.routes";
+import matchingRouter from "./modules/matching/matching.routes";
+import needsRouter from "./modules/needs/needs.routes";
 import organizationsRouter from "./modules/organizations/organizations.routes";
 import skillsRouter from "./modules/skills/skills.routes";
+import surveysRouter from "./modules/surveys/surveys.routes";
 import volunteersRouter from "./modules/volunteers/volunteers.routes";
 import { sendSuccess } from "./utils/apiResponse";
 
@@ -41,8 +47,14 @@ app.use(`${env.API_PREFIX}/organizations`, organizationsRouter);
 app.use(`${env.API_PREFIX}/field-catalog`, fieldCatalogRouter);
 app.use(`${env.API_PREFIX}/skills`, skillsRouter);
 app.use(`${env.API_PREFIX}/volunteers`, volunteersRouter);
+app.use(`${env.API_PREFIX}/surveys`, surveysRouter);
+app.use(`${env.API_PREFIX}/needs`, needsRouter);
 app.use(`${env.API_PREFIX}/documents`, documentsRouter);
 app.use(`${env.API_PREFIX}/ai`, aiRouter);
+app.use(`${env.API_PREFIX}/dashboard`, dashboardRouter);
+app.use(env.API_PREFIX, feedbackRouter);
+app.use(env.API_PREFIX, matchingRouter);
+app.use(env.API_PREFIX, assignmentsRouter);
 app.use(env.API_PREFIX, formTemplatesRouter);
 
 app.get("/api-console", (_req, res) => {
