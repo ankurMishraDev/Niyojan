@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Niyojan API Browser Console</title>
+  <title>Niyojan API Workbench</title>
   <style>
     :root {
       --bg-a: #f5f2ea;
       --bg-b: #d8e2dc;
-      --panel: rgba(255, 255, 255, 0.9);
+      --panel: rgba(255, 255, 255, 0.92);
       --ink: #1b2a2f;
       --muted: #52636b;
       --accent: #2d6a4f;
@@ -20,9 +20,7 @@
       --shadow: 0 12px 24px rgba(27, 42, 47, 0.12);
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -39,7 +37,7 @@
       padding: 20px;
       border-bottom: 1px solid rgba(27, 42, 47, 0.12);
       backdrop-filter: blur(8px);
-      background: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.55);
       position: sticky;
       top: 0;
       z-index: 10;
@@ -55,6 +53,7 @@
       margin: 0;
       color: var(--muted);
       font-size: 14px;
+      max-width: 1000px;
     }
 
     .layout {
@@ -65,7 +64,8 @@
       align-items: start;
     }
 
-    .panel {
+    .panel,
+    .group {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -73,18 +73,29 @@
       overflow: hidden;
     }
 
-    .panel-head {
+    .panel-head,
+    .group-head {
       padding: 12px 14px;
       border-bottom: 1px solid var(--line);
       background: linear-gradient(180deg, rgba(45, 106, 79, 0.08), rgba(45, 106, 79, 0));
-      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-head,
+    .group-head,
+    .row label {
+      font-size: 12px;
       font-weight: 700;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.35px;
       text-transform: uppercase;
       color: #264653;
     }
 
-    .panel-body {
+    .panel-body,
+    .endpoint-list {
       padding: 12px 14px;
     }
 
@@ -92,14 +103,6 @@
       display: grid;
       gap: 8px;
       margin-bottom: 12px;
-    }
-
-    .row label {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.35px;
     }
 
     input,
@@ -110,21 +113,23 @@
     }
 
     input,
-    textarea {
+    textarea,
+    select {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 10px;
       padding: 9px 10px;
       font-size: 14px;
       color: var(--ink);
-      background: rgba(255, 255, 255, 0.92);
+      background: rgba(255, 255, 255, 0.95);
     }
 
     textarea {
-      min-height: 88px;
+      min-height: 110px;
       resize: vertical;
       font-family: "Cascadia Code", "Consolas", monospace;
       font-size: 13px;
+      line-height: 1.5;
     }
 
     .chips {
@@ -134,19 +139,37 @@
       margin-bottom: 10px;
     }
 
-    .chip {
+    .chip,
+    .run-btn,
+    .mini-btn {
+      cursor: pointer;
+      border: 0;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-weight: 700;
+    }
+
+    .chip,
+    .mini-btn {
       border: 1px solid var(--line);
       background: #f7faf7;
       color: var(--ink);
-      border-radius: 999px;
-      padding: 6px 10px;
-      font-size: 12px;
-      cursor: pointer;
     }
 
-    .chip:hover {
+    .chip:hover,
+    .mini-btn:hover {
       border-color: var(--accent);
       color: var(--accent);
+    }
+
+    .run-btn {
+      background: linear-gradient(135deg, var(--accent), #1f5f47);
+      color: #fff;
+      letter-spacing: 0.2px;
+    }
+
+    .run-btn:hover {
+      filter: brightness(1.04);
     }
 
     .vars {
@@ -164,39 +187,16 @@
       gap: 12px;
     }
 
-    .group {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .group-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.82);
-    }
-
-    .group-head h2 {
-      margin: 0;
-      font-size: 15px;
-    }
-
     .endpoint-list {
       display: grid;
       gap: 10px;
-      padding: 12px;
     }
 
     .endpoint {
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 10px;
-      background: rgba(255, 255, 255, 0.86);
+      background: rgba(255, 255, 255, 0.88);
     }
 
     .endpoint-top {
@@ -231,26 +231,13 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 8px;
       gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
     }
 
-    .run-btn {
-      border: 0;
-      border-radius: 10px;
-      padding: 8px 12px;
-      background: linear-gradient(135deg, var(--accent), #1f5f47);
-      color: #fff;
-      cursor: pointer;
-      font-weight: 700;
-      letter-spacing: 0.2px;
-    }
-
-    .run-btn:hover {
-      filter: brightness(1.04);
-    }
-
-    .hint {
+    .hint,
+    .tiny {
       font-size: 12px;
       color: var(--muted);
     }
@@ -305,13 +292,18 @@
       font-family: "Cascadia Code", "Consolas", monospace;
     }
 
-    .tiny {
-      font-size: 11px;
-      color: var(--muted);
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     @media (max-width: 1080px) {
       .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .vars {
         grid-template-columns: 1fr;
       }
 
@@ -324,8 +316,12 @@
 </head>
 <body>
   <header class="top">
-    <h1>Niyojan Backend Test Console (Phase 1-5)</h1>
-    <p>Single-file browser client for health, auth, organizations, field catalog, skills, volunteers, documents, AI, and form builder APIs.</p>
+    <h1>Niyojan API Workbench</h1>
+    <p>
+      In-repo browser client for the currently implemented backend: auth, organizations, field catalog, skills,
+      volunteers, documents, AI preview, form builder, surveys, needs, matching, assignments, feedback, case closure,
+      and dashboard.
+    </p>
   </header>
 
   <main class="layout">
@@ -340,6 +336,7 @@
         <div class="chips">
           <button class="chip" id="presetNgo">Use NGO Admin Mock</button>
           <button class="chip" id="presetSuper">Use Superadmin Mock</button>
+          <button class="chip" id="presetVolunteer">Use Volunteer Mock</button>
           <button class="chip" id="clearHeaders">Clear Headers</button>
         </div>
 
@@ -353,23 +350,30 @@
       <div class="panel-head">Runtime Variables ({{variableName}})</div>
       <div class="panel-body vars">
         <div class="row"><label for="varOrgId">orgId</label><input id="varOrgId" value="11111111-1111-4111-8111-111111111111" /></div>
-        <div class="row"><label for="varDocumentId">documentId</label><input id="varDocumentId" /></div>
-        <div class="row"><label for="varTemplateId">templateId</label><input id="varTemplateId" /></div>
-        <div class="row"><label for="varVersionId">versionId</label><input id="varVersionId" /></div>
+        <div class="row"><label for="varDocumentId">documentId</label><input id="varDocumentId" value="50000000-0000-4000-8000-000000000001" /></div>
+        <div class="row"><label for="varTemplateId">templateId</label><input id="varTemplateId" value="60000000-0000-4000-8000-000000000001" /></div>
+        <div class="row"><label for="varVersionId">versionId</label><input id="varVersionId" value="61000000-0000-4000-8000-000000000001" /></div>
         <div class="row"><label for="varFieldId">fieldId</label><input id="varFieldId" /></div>
         <div class="row"><label for="varSkillId">skillId</label><input id="varSkillId" value="40000000-0000-4000-8000-000000000006" /></div>
         <div class="row"><label for="varVolunteerId">volunteerId</label><input id="varVolunteerId" value="70000000-0000-4000-8000-000000000001" /></div>
         <div class="row"><label for="varFieldCatalogId">fieldCatalogId</label><input id="varFieldCatalogId" value="30000000-0000-4000-8000-000000000040" /></div>
+        <div class="row"><label for="varSurveyId">surveyId</label><input id="varSurveyId" value="80000000-0000-4000-8000-000000000001" /></div>
+        <div class="row"><label for="varNeedId">needId</label><input id="varNeedId" value="90000000-0000-4000-8000-000000000001" /></div>
+        <div class="row"><label for="varAssignmentId">assignmentId</label><input id="varAssignmentId" value="92000000-0000-4000-8000-000000000001" /></div>
+        <div class="row"><label for="varFeedbackId">feedbackId</label><input id="varFeedbackId" /></div>
         <div class="row"><label for="varGcsPath">gcsPath</label><input id="varGcsPath" /></div>
       </div>
-      <div class="panel-body tiny">Tip: Variables are auto-captured from selected responses (for example created ids and gcsPath).</div>
+      <div class="panel-body tiny">Tip: created ids and upload paths are auto-captured from successful responses where possible.</div>
     </section>
 
     <section class="groups">
       <section class="group">
         <div class="group-head">
           <h2>API Runner</h2>
-          <span class="tiny">Click Run on any endpoint card</span>
+          <div class="toolbar">
+            <button class="mini-btn" id="expandAll">Expand bodies</button>
+            <button class="mini-btn" id="collapseBodies">Collapse GET/DELETE bodies</button>
+          </div>
         </div>
         <div id="endpointContainer" class="endpoint-list"></div>
       </section>
@@ -395,6 +399,7 @@
       {
         group: "Health and Auth",
         items: [
+          { name: "Public Health", method: "GET", path: "/health", useRawBase: true },
           { name: "API Health", method: "GET", path: "/health" },
           { name: "Auth Me", method: "GET", path: "/auth/me" }
         ]
@@ -418,7 +423,7 @@
             name: "Update Organization",
             method: "PATCH",
             path: "/organizations/{{orgId}}",
-            body: { region: "Updated from Browser Console" }
+            body: { region: "Updated from API Workbench" }
           },
           { name: "List Organization Users", method: "GET", path: "/organizations/{{orgId}}/users?page=1&pageSize=10" }
         ]
@@ -427,6 +432,7 @@
         group: "Field Catalog",
         items: [
           { name: "List Field Catalog", method: "GET", path: "/field-catalog?page=1&pageSize=10" },
+          { name: "Filter Field Catalog By Category", method: "GET", path: "/field-catalog?page=1&pageSize=10&category=health" },
           {
             name: "Create Custom Field",
             method: "POST",
@@ -440,7 +446,14 @@
             },
             capture: { "data.id": "fieldCatalogId" }
           },
-          { name: "Get Field By Id", method: "GET", path: "/field-catalog/{{fieldCatalogId}}" }
+          { name: "Get Field By Id", method: "GET", path: "/field-catalog/{{fieldCatalogId}}" },
+          {
+            name: "Update Field",
+            method: "PATCH",
+            path: "/field-catalog/{{fieldCatalogId}}",
+            body: { name: "Browser Updated Field" }
+          },
+          { name: "Delete Field", method: "DELETE", path: "/field-catalog/{{fieldCatalogId}}" }
         ]
       },
       {
@@ -458,13 +471,33 @@
             },
             capture: { "data.id": "skillId" }
           },
-          { name: "Get Skill By Id", method: "GET", path: "/skills/{{skillId}}" }
+          { name: "Get Skill By Id", method: "GET", path: "/skills/{{skillId}}" },
+          {
+            name: "Update Skill",
+            method: "PATCH",
+            path: "/skills/{{skillId}}",
+            body: { name: "Browser Skill Demo Updated" }
+          },
+          { name: "Delete Skill", method: "DELETE", path: "/skills/{{skillId}}" }
         ]
       },
       {
         group: "Volunteers",
         items: [
+          {
+            name: "Create Volunteer",
+            method: "POST",
+            path: "/volunteers",
+            body: {
+              user_id: "10000000-0000-4000-8000-000000000003",
+              availability_status: "available",
+              location_text: "Bhopal HQ",
+              latitude: 23.25,
+              longitude: 77.41
+            }
+          },
           { name: "List Volunteers", method: "GET", path: "/volunteers?page=1&pageSize=10" },
+          { name: "List Volunteers By Skill", method: "GET", path: "/volunteers?page=1&pageSize=10&skill_id={{skillId}}" },
           { name: "Get Volunteer", method: "GET", path: "/volunteers/{{volunteerId}}" },
           {
             name: "Update Volunteer",
@@ -496,9 +529,7 @@
               file_name: "household_assessment_browser.pdf",
               file_type: "application/pdf"
             },
-            capture: {
-              "data.gcsPath": "gcsPath"
-            }
+            capture: { "data.gcsPath": "gcsPath" }
           },
           {
             name: "Create Document Metadata",
@@ -512,15 +543,22 @@
             },
             capture: { "data.id": "documentId" }
           },
+          { name: "List Documents", method: "GET", path: "/documents?page=1&pageSize=10" },
           { name: "Get Document", method: "GET", path: "/documents/{{documentId}}" },
           { name: "Get Document Read URL", method: "GET", path: "/documents/{{documentId}}/read-url" },
+          {
+            name: "Update Document Status",
+            method: "PATCH",
+            path: "/documents/{{documentId}}/status",
+            body: { status: "approved" }
+          },
           { name: "Trigger Extraction", method: "POST", path: "/documents/{{documentId}}/extract-fields" },
           { name: "AI Provider Status", method: "GET", path: "/ai/status" },
           { name: "AI Extraction Preview", method: "POST", path: "/ai/documents/{{documentId}}/preview-extraction" }
         ]
       },
       {
-        group: "Form Builder (Phase 5)",
+        group: "Form Builder",
         items: [
           {
             name: "Create Form Template",
@@ -544,6 +582,12 @@
           },
           { name: "List Template Versions", method: "GET", path: "/form-templates/{{templateId}}/versions" },
           { name: "Get Template Version", method: "GET", path: "/form-template-versions/{{versionId}}" },
+          {
+            name: "Update Template Version Status",
+            method: "PATCH",
+            path: "/form-template-versions/{{versionId}}",
+            body: { status: "review_pending" }
+          },
           {
             name: "Add Field To Version",
             method: "POST",
@@ -579,6 +623,145 @@
             }
           }
         ]
+      },
+      {
+        group: "Surveys and Needs",
+        items: [
+          { name: "List Surveys", method: "GET", path: "/surveys?page=1&pageSize=10" },
+          { name: "Get Survey", method: "GET", path: "/surveys/{{surveyId}}" },
+          {
+            name: "Create Survey Draft",
+            method: "POST",
+            path: "/surveys",
+            body: {
+              template_version_id: "{{versionId}}",
+              respondent_name: "Browser Survey Household",
+              location_text: "Village Browser",
+              latitude: 23.2,
+              longitude: 77.43
+            },
+            capture: { "data.id": "surveyId" }
+          },
+          {
+            name: "Submit Survey",
+            method: "POST",
+            path: "/surveys/{{surveyId}}/submit",
+            body: {
+              responses: [
+                { "form_field_id": "62000000-0000-4000-8000-000000000001", "input_type": "number", "value_number": 5 },
+                { "form_field_id": "62000000-0000-4000-8000-000000000002", "input_type": "number", "value_number": 30 },
+                { "form_field_id": "62000000-0000-4000-8000-000000000003", "input_type": "select", "value_text": "female" },
+                { "form_field_id": "62000000-0000-4000-8000-000000000004", "input_type": "select", "value_text": "well" },
+                { "form_field_id": "62000000-0000-4000-8000-000000000005", "input_type": "boolean", "value_bool": true },
+                { "form_field_id": "62000000-0000-4000-8000-000000000006", "input_type": "multiselect", "value_json": ["medical", "water"] },
+                { "form_field_id": "62000000-0000-4000-8000-000000000008", "input_type": "boolean", "value_bool": true }
+              ]
+            }
+          },
+          {
+            name: "Analyze Survey Needs",
+            method: "POST",
+            path: "/surveys/{{surveyId}}/analyze-needs",
+            capture: {
+              "data.needs.0.id": "needId"
+            }
+          },
+          { name: "List Needs", method: "GET", path: "/needs?page=1&pageSize=10" },
+          { name: "Get Need", method: "GET", path: "/needs/{{needId}}" },
+          {
+            name: "Attach Need Skills",
+            method: "POST",
+            path: "/needs/{{needId}}/skills",
+            body: {
+              replace: false,
+              skill_ids: ["{{skillId}}"]
+            }
+          }
+        ]
+      },
+      {
+        group: "Matching and Assignments",
+        items: [
+          { name: "Get Volunteer Matches For Need", method: "GET", path: "/needs/{{needId}}/matches" },
+          {
+            name: "Create Assignment",
+            method: "POST",
+            path: "/assignments",
+            body: {
+              need_id: "{{needId}}",
+              volunteer_id: "{{volunteerId}}"
+            },
+            capture: { "data.id": "assignmentId" }
+          },
+          { name: "List Assignments", method: "GET", path: "/assignments?page=1&pageSize=10" },
+          { name: "Get Assignment", method: "GET", path: "/assignments/{{assignmentId}}" },
+          {
+            name: "Update Assignment Status",
+            method: "PATCH",
+            path: "/assignments/{{assignmentId}}/status",
+            body: { status: "in_progress" }
+          }
+        ]
+      },
+      {
+        group: "Feedback and Closure",
+        items: [
+          {
+            name: "Submit Assignment Feedback (Volunteer)",
+            method: "POST",
+            path: "/assignments/{{assignmentId}}/feedback",
+            useVolunteerPreset: true,
+            body: {
+              visit_completed: true,
+              visit_date: "2026-04-26",
+              need_confirmed: true,
+              actual_situation_summary: "Visited the location and verified the reported situation.",
+              actual_urgency_assessment: "correct",
+              actual_affected_count: 6,
+              was_ai_extraction_accurate: true,
+              evidence_gcs_paths: ["orgs/demo/evidence/photo1.jpg"],
+              action_taken: "Completed first response and documented the case.",
+              resolution_status: "partially_resolved"
+            },
+            capture: { "data.id": "feedbackId" }
+          },
+          { name: "Get Assignment Feedback", method: "GET", path: "/assignments/{{assignmentId}}/feedback" },
+          {
+            name: "Create Feedback Evidence Upload URL (Volunteer)",
+            method: "POST",
+            path: "/assignments/{{assignmentId}}/feedback/evidence-url",
+            useVolunteerPreset: true,
+            body: {
+              file_name: "visit-photo.jpg",
+              file_type: "image/jpeg"
+            },
+            capture: { "data.gcsPath": "gcsPath" }
+          },
+          {
+            name: "Close Need With Outcome",
+            method: "POST",
+            path: "/needs/{{needId}}/close",
+            body: {
+              assignment_id: "{{assignmentId}}",
+              feedback_id: "{{feedbackId}}",
+              outcome: "partially_resolved",
+              extraction_was_accurate: true,
+              urgency_was_accurate: true,
+              category_was_accurate: true,
+              matching_was_appropriate: true,
+              coordinator_notes: "Coordinator reviewed the field feedback and closed this case."
+            }
+          }
+        ]
+      },
+      {
+        group: "Dashboard",
+        items: [
+          { name: "Dashboard Summary", method: "GET", path: "/dashboard/summary" },
+          { name: "Dashboard Urgent Needs", method: "GET", path: "/dashboard/urgent-needs" },
+          { name: "Dashboard Volunteer Availability", method: "GET", path: "/dashboard/volunteer-availability" },
+          { name: "Dashboard Pipeline Health", method: "GET", path: "/dashboard/pipeline-health" }
+        ]
       }
     ];
 
@@ -603,23 +786,43 @@
         skillId: document.getElementById("varSkillId"),
         volunteerId: document.getElementById("varVolunteerId"),
         fieldCatalogId: document.getElementById("varFieldCatalogId"),
+        surveyId: document.getElementById("varSurveyId"),
+        needId: document.getElementById("varNeedId"),
+        assignmentId: document.getElementById("varAssignmentId"),
+        feedbackId: document.getElementById("varFeedbackId"),
         gcsPath: document.getElementById("varGcsPath")
       }
     };
 
-    const setNgoPreset = () => {
-      refs.mockUserId.value = "10000000-0000-4000-8000-000000000002";
-      refs.mockOrgId.value = "11111111-1111-4111-8111-111111111111";
-      refs.mockRole.value = "ngo_admin";
-      refs.mockFirebaseUid.value = "firebase-ngo-admin-a-001";
-      refs.vars.orgId.value = "11111111-1111-4111-8111-111111111111";
+    const presets = {
+      ngo: {
+        userId: "10000000-0000-4000-8000-000000000002",
+        orgId: "11111111-1111-4111-8111-111111111111",
+        role: "ngo_admin",
+        firebaseUid: "firebase-ngo-admin-a-001"
+      },
+      super: {
+        userId: "10000000-0000-4000-8000-000000000001",
+        orgId: "",
+        role: "superadmin",
+        firebaseUid: "firebase-superadmin-001"
+      },
+      volunteer: {
+        userId: "10000000-0000-4000-8000-000000000004",
+        orgId: "11111111-1111-4111-8111-111111111111",
+        role: "volunteer",
+        firebaseUid: "firebase-volunteer-a-001"
+      }
     };
 
-    const setSuperPreset = () => {
-      refs.mockUserId.value = "10000000-0000-4000-8000-000000000001";
-      refs.mockOrgId.value = "";
-      refs.mockRole.value = "superadmin";
-      refs.mockFirebaseUid.value = "firebase-superadmin-001";
+    const applyPreset = (preset) => {
+      refs.mockUserId.value = preset.userId;
+      refs.mockOrgId.value = preset.orgId;
+      refs.mockRole.value = preset.role;
+      refs.mockFirebaseUid.value = preset.firebaseUid;
+      if (preset.orgId) {
+        refs.vars.orgId.value = preset.orgId;
+      }
     };
 
     const clearHeaders = () => {
@@ -630,11 +833,18 @@
       refs.mockFirebaseUid.value = "";
     };
 
-    document.getElementById("presetNgo").addEventListener("click", setNgoPreset);
-    document.getElementById("presetSuper").addEventListener("click", setSuperPreset);
+    document.getElementById("presetNgo").addEventListener("click", () => applyPreset(presets.ngo));
+    document.getElementById("presetSuper").addEventListener("click", () => applyPreset(presets.super));
+    document.getElementById("presetVolunteer").addEventListener("click", () => applyPreset(presets.volunteer));
     document.getElementById("clearHeaders").addEventListener("click", clearHeaders);
+    document.getElementById("expandAll").addEventListener("click", () => {
+      document.querySelectorAll("textarea").forEach((el) => { el.style.display = "block"; });
+    });
+    document.getElementById("collapseBodies").addEventListener("click", () => {
+      document.querySelectorAll("textarea[data-hideable='true']").forEach((el) => { el.style.display = "none"; });
+    });
 
-    setNgoPreset();
+    applyPreset(presets.ngo);
 
     const getVariables = () => {
       const out = {};
@@ -645,45 +855,65 @@
     };
 
     const setVariable = (key, value) => {
-      if (!refs.vars[key]) {
+      if (!refs.vars[key] || value === null || value === undefined) {
         return;
       }
-
-      if (value === null || value === undefined) {
-        return;
-      }
-
       refs.vars[key].value = String(value);
     };
 
     const interpolate = (raw) => {
       const variables = getVariables();
-      return String(raw).replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, token) => {
-        return variables[token] ?? "";
-      });
+      return String(raw).replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, token) => variables[token] ?? "");
     };
 
-    const normalizeBase = (value) => {
-      return value.replace(/\/+$/, "");
-    };
+    const normalizeBase = (value) => value.replace(/\/+$/, "");
+    const rootBase = () => normalizeBase(refs.baseUrl.value.trim()).replace(/\/api$/, "");
 
     const readPath = (obj, path) => {
       return path.split(".").reduce((acc, key) => {
         if (acc === null || acc === undefined) {
           return undefined;
         }
+        if (/^\d+$/.test(key)) {
+          return acc[Number(key)];
+        }
         return acc[key];
       }, obj);
     };
 
     const statusClass = (status) => {
-      if (status >= 200 && status < 300) {
-        return "ok";
-      }
-      if (status >= 400) {
-        return "bad";
-      }
+      if (status >= 200 && status < 300) return "ok";
+      if (status >= 400) return "bad";
       return "warn";
+    };
+
+    const maybeAutoCapture = (itemName, parsed) => {
+      if (!parsed || !parsed.data || typeof parsed.data !== "object") {
+        return;
+      }
+
+      const lower = itemName.toLowerCase();
+      const data = parsed.data;
+
+      if (data.id && lower.includes("document")) setVariable("documentId", data.id);
+      if (data.id && lower.includes("template version")) setVariable("versionId", data.id);
+      if (data.id && lower.includes("form template")) setVariable("templateId", data.id);
+      if (data.id && lower.includes("field")) setVariable("fieldId", data.id);
+      if (data.id && lower.includes("survey") && !lower.includes("analyze")) setVariable("surveyId", data.id);
+      if (data.id && lower.includes("need") && !lower.includes("close")) setVariable("needId", data.id);
+      if (data.id && lower.includes("assignment") && !lower.includes("feedback")) setVariable("assignmentId", data.id);
+      if (data.id && lower.includes("feedback")) setVariable("feedbackId", data.id);
+      if (data.gcsPath) setVariable("gcsPath", data.gcsPath);
+    };
+
+    const buildHeaders = () => {
+      const headers = { "Content-Type": "application/json" };
+      if (refs.authToken.value.trim()) headers.Authorization = `Bearer ${refs.authToken.value.trim()}`;
+      if (refs.mockUserId.value.trim()) headers["x-mock-user-id"] = refs.mockUserId.value.trim();
+      if (refs.mockOrgId.value.trim()) headers["x-mock-org-id"] = refs.mockOrgId.value.trim();
+      if (refs.mockRole.value.trim()) headers["x-mock-role"] = refs.mockRole.value.trim();
+      if (refs.mockFirebaseUid.value.trim()) headers["x-mock-firebase-uid"] = refs.mockFirebaseUid.value.trim();
+      return headers;
     };
 
     const createEndpointCard = (item) => {
@@ -707,13 +937,16 @@
 
       const bodyArea = document.createElement("textarea");
       bodyArea.value = item.body ? JSON.stringify(item.body, null, 2) : "";
-      bodyArea.style.display = item.method === "GET" || item.method === "DELETE" ? "none" : "block";
+      if (item.method === "GET" || item.method === "DELETE") {
+        bodyArea.style.display = "none";
+        bodyArea.dataset.hideable = "true";
+      }
 
       const actions = document.createElement("div");
       actions.className = "endpoint-actions";
       const hint = document.createElement("span");
       hint.className = "hint";
-      hint.textContent = "Variables like {{documentId}} are auto-replaced.";
+      hint.textContent = "Variables like {{needId}} are interpolated before sending.";
       const runBtn = document.createElement("button");
       runBtn.className = "run-btn";
       runBtn.textContent = "Run";
@@ -721,34 +954,23 @@
       actions.appendChild(runBtn);
 
       runBtn.addEventListener("click", async () => {
+        const previousHeaderState = {
+          userId: refs.mockUserId.value,
+          orgId: refs.mockOrgId.value,
+          role: refs.mockRole.value,
+          firebaseUid: refs.mockFirebaseUid.value
+        };
+
+        if (item.useVolunteerPreset) {
+          applyPreset(presets.volunteer);
+        }
+
         const started = performance.now();
         const methodValue = item.method;
         const pathValue = interpolate(pathInput.value.trim());
-        const url = `${normalizeBase(refs.baseUrl.value.trim())}${pathValue.startsWith("/") ? "" : "/"}${pathValue}`;
-
-        const headers = {
-          "Content-Type": "application/json"
-        };
-
-        if (refs.authToken.value.trim()) {
-          headers.Authorization = `Bearer ${refs.authToken.value.trim()}`;
-        }
-
-        if (refs.mockUserId.value.trim()) {
-          headers["x-mock-user-id"] = refs.mockUserId.value.trim();
-        }
-
-        if (refs.mockOrgId.value.trim()) {
-          headers["x-mock-org-id"] = refs.mockOrgId.value.trim();
-        }
-
-        if (refs.mockRole.value.trim()) {
-          headers["x-mock-role"] = refs.mockRole.value.trim();
-        }
-
-        if (refs.mockFirebaseUid.value.trim()) {
-          headers["x-mock-firebase-uid"] = refs.mockFirebaseUid.value.trim();
-        }
+        const base = item.useRawBase ? rootBase() : normalizeBase(refs.baseUrl.value.trim());
+        const url = `${base}${pathValue.startsWith("/") ? "" : "/"}${pathValue}`;
+        const headers = buildHeaders();
 
         let bodyPayload;
         if (methodValue !== "GET" && methodValue !== "DELETE") {
@@ -762,6 +984,12 @@
               refs.statusPill.className = "status-pill bad";
               refs.responseOutput.textContent = `Body JSON is invalid:\n${err.message}`;
               refs.timing.textContent = "";
+              if (item.useVolunteerPreset) {
+                refs.mockUserId.value = previousHeaderState.userId;
+                refs.mockOrgId.value = previousHeaderState.orgId;
+                refs.mockRole.value = previousHeaderState.role;
+                refs.mockFirebaseUid.value = previousHeaderState.firebaseUid;
+              }
               return;
             }
           }
@@ -777,7 +1005,6 @@
           const elapsed = Math.round(performance.now() - started);
           const text = await response.text();
           let parsed;
-
           try {
             parsed = text ? JSON.parse(text) : null;
           } catch {
@@ -789,7 +1016,7 @@
           refs.statusPill.className = `status-pill ${statusClass(response.status)}`;
           refs.timing.textContent = `${elapsed} ms`;
 
-          const envelope = {
+          refs.responseOutput.textContent = JSON.stringify({
             request: {
               method: methodValue,
               url,
@@ -797,9 +1024,7 @@
               body: bodyPayload ?? null
             },
             response: parsed
-          };
-
-          refs.responseOutput.textContent = JSON.stringify(envelope, null, 2);
+          }, null, 2);
 
           if (item.capture && parsed) {
             Object.entries(item.capture).forEach(([path, variableName]) => {
@@ -810,23 +1035,7 @@
             });
           }
 
-          if (parsed && parsed.data && typeof parsed.data === "object") {
-            if (parsed.data.id && item.name.toLowerCase().includes("document")) {
-              setVariable("documentId", parsed.data.id);
-            }
-            if (parsed.data.id && item.name.toLowerCase().includes("template version")) {
-              setVariable("versionId", parsed.data.id);
-            }
-            if (parsed.data.id && item.name.toLowerCase().includes("form template")) {
-              setVariable("templateId", parsed.data.id);
-            }
-            if (parsed.data.id && item.name.toLowerCase().includes("field")) {
-              setVariable("fieldId", parsed.data.id);
-            }
-            if (parsed.data.gcsPath) {
-              setVariable("gcsPath", parsed.data.gcsPath);
-            }
-          }
+          maybeAutoCapture(item.name, parsed);
         } catch (error) {
           const elapsed = Math.round(performance.now() - started);
           refs.responsePath.textContent = `${methodValue} ${url}`;
@@ -834,12 +1043,16 @@
           refs.statusPill.className = "status-pill bad";
           refs.timing.textContent = `${elapsed} ms`;
           refs.responseOutput.textContent = JSON.stringify({
-            request: {
-              method: methodValue,
-              url
-            },
+            request: { method: methodValue, url },
             error: String(error)
           }, null, 2);
+        } finally {
+          if (item.useVolunteerPreset) {
+            refs.mockUserId.value = previousHeaderState.userId;
+            refs.mockOrgId.value = previousHeaderState.orgId;
+            refs.mockRole.value = previousHeaderState.role;
+            refs.mockFirebaseUid.value = previousHeaderState.firebaseUid;
+          }
         }
       });
 
@@ -852,7 +1065,6 @@
 
     const render = () => {
       refs.endpointContainer.innerHTML = "";
-
       endpoints.forEach((group) => {
         const section = document.createElement("section");
         section.className = "group";
