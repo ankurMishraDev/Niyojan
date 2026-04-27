@@ -76,6 +76,32 @@ npm run seed
 npm run dev
 ```
 
+## Frontend
+
+A new React + Vite frontend now lives in `frontend/`.
+
+### Frontend environment
+
+```bash
+cp frontend/.env.example frontend/.env.local
+```
+
+Key variables:
+
+- `VITE_API_BASE_URL=http://localhost:8080/api`
+- Firebase web config values for production-style auth
+- `VITE_ENABLE_DEV_MOCK_AUTH=true` for local backend mock-header mode
+
+### Frontend commands
+
+```bash
+npm run frontend:dev
+npm run frontend:build
+npm run frontend:test
+```
+
+The frontend is designed against the existing backend API contracts and the Stitch references in `stitch_niyojan/`.
+
 ### Validation commands
 
 ```bash
