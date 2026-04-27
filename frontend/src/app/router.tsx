@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppShell } from "@/app/AppShell";
 import { RouteGuard } from "@/app/RouteGuard";
+import { LandingPage } from "@/pages/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { PipelinePage } from "@/pages/PipelinePage";
@@ -14,6 +15,10 @@ import { ProfilePage } from "@/pages/ProfilePage";
 
 export const router = createBrowserRouter([
   {
+    path: "/",
+    element: <LandingPage />,
+  },
+  {
     path: "/login",
     element: <LoginPage />,
   },
@@ -24,7 +29,7 @@ export const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { index: true, element: <Navigate to="/dashboard" replace /> },
+          { path: "app", element: <Navigate to="/dashboard" replace /> },
           { path: "dashboard", element: <DashboardPage /> },
           { path: "pipeline", element: <PipelinePage /> },
           { path: "ai-review", element: <AiReviewIndexPage /> },

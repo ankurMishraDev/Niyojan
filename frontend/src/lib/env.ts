@@ -9,8 +9,32 @@ const get = (key: string, fallback = "") => {
 
 const truthy = (value: string) => value.toLowerCase() === "true";
 
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
+
+const normalizeApiBaseUrl = (value: string) => {
+  const fallback = value.trim() || "/api";
+
+  if (!import.meta.env.DEV || typeof window === "undefined" || !/^https?:\/\//i.test(fallback)) {
+    return trimTrailingSlash(fallback);
+  }
+
+  try {
+    const target = new URL(fallback);
+    const current = new URL(window.location.href);
+    const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+
+    if (localHosts.has(target.hostname) && localHosts.has(current.hostname)) {
+      return "/api";
+    }
+  } catch {
+    return trimTrailingSlash(fallback);
+  }
+
+  return trimTrailingSlash(fallback);
+};
+
 export const env = {
-  apiBaseUrl: get("VITE_API_BASE_URL", "http://localhost:8080/api"),
+  apiBaseUrl: normalizeApiBaseUrl(get("VITE_API_BASE_URL", "/api")),
   enableDevMockAuth: truthy(get("VITE_ENABLE_DEV_MOCK_AUTH", "true")),
   mockUserId: get("VITE_MOCK_USER_ID", "10000000-0000-4000-8000-000000000002"),
   mockRole: get("VITE_MOCK_USER_ROLE", "ngo_admin"),

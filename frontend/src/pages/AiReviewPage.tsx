@@ -136,7 +136,7 @@ export function AiReviewPage() {
             </StatusBadge>
           </div>
 
-          <div className="h-[680px] overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
+          <div className="h-[min(58vh,540px)] overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
             {reviewPackage.document.fileType.includes("pdf") ? (
               <iframe className="h-full w-full" src={reviewPackage.document.readUrl} title="Document preview" />
             ) : (

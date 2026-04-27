@@ -21,6 +21,8 @@ type RequestOptions = {
   signal?: AbortSignal;
 };
 
+const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
 const isAbsoluteUrl = (value: string) => /^https?:\/\//i.test(value);
 
 const buildUrl = (path: string) => {
@@ -49,7 +51,7 @@ const toQueryString = (query?: Record<string, unknown>) => {
   return rendered ? `?${rendered}` : "";
 };
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<ApiEnvelope<T>> {
+async function requestOnce<T>(path: string, options: RequestOptions = {}): Promise<ApiEnvelope<T>> {
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
 
@@ -62,17 +64,26 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(buildUrl(path), {
-    method: options.method ?? "GET",
-    headers,
-    body:
-      options.body === undefined
-        ? undefined
-        : options.body instanceof FormData
-          ? options.body
-          : JSON.stringify(options.body),
-    signal: options.signal,
-  });
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path), {
+      method: options.method ?? "GET",
+      headers,
+      body:
+        options.body === undefined
+          ? undefined
+          : options.body instanceof FormData
+            ? options.body
+            : JSON.stringify(options.body),
+      signal: options.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+
+    throw new ApiError("Unable to reach the API server. Check that the backend is running and that the frontend is using the /api proxy.", 0, error);
+  }
 
   const contentType = response.headers.get("content-type") ?? "";
   const isJson = contentType.includes("application/json");
@@ -91,6 +102,30 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
   }
 
   return payload as ApiEnvelope<T>;
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<ApiEnvelope<T>> {
+  const method = options.method ?? "GET";
+  const maxAttempts = method === "GET" ? 3 : 1;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await requestOnce<T>(path, options);
+    } catch (error) {
+      const isRetryable =
+        error instanceof ApiError &&
+        method === "GET" &&
+        (error.status === 0 || error.status >= 500);
+
+      if (!isRetryable || attempt === maxAttempts) {
+        throw error;
+      }
+
+      await delay(200 * attempt);
+    }
+  }
+
+  throw new ApiError("Request failed after retrying", 0);
 }
 
 const paginated = <T>(envelope: ApiEnvelope<T[]>) => ({
@@ -119,4 +154,18 @@ export const api = {
       throw new ApiError("Signed upload failed", response.status);
     }
   },
+};
+
+export const getApiErrorMessage = (error: unknown) => {
+  if (error instanceof ApiError) {
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message === "Failed to fetch"
+      ? "Unable to reach the API server. Check the backend terminal and the Vite /api proxy."
+      : error.message;
+  }
+
+  return "Request failed.";
 };

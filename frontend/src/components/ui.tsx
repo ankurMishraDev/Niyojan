@@ -14,7 +14,7 @@ export function Panel({
 }: PropsWithChildren<{
   className?: string;
 }>) {
-  return <section className={cn("panel p-5", className)}>{children}</section>;
+  return <section className={cn("panel p-4", className)}>{children}</section>;
 }
 
 export function PageHeader({
@@ -29,12 +29,12 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-      <div className="space-y-2">
+    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <div className="space-y-1.5">
         {eyebrow ? <p className="label-caps text-primary">{eyebrow}</p> : null}
-        <h1 className="text-3xl font-black tracking-tight text-white">{title}</h1>
+        <h1 className="text-2xl font-black text-white">{title}</h1>
         {description ? (
-          <p className="max-w-3xl text-sm text-on-surface-variant">{description}</p>
+          <p className="max-w-3xl text-[13px] leading-5 text-on-surface-variant">{description}</p>
         ) : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
@@ -107,10 +107,10 @@ export function MetricCard({
   accent?: ReactNode;
 }) {
   return (
-    <Panel className="space-y-3">
+    <Panel className="space-y-2">
       <p className="label-caps">{label}</p>
       <div className="flex items-end justify-between gap-3">
-        <div className="text-4xl font-black text-white">{value}</div>
+        <div className="text-3xl font-black text-white">{value}</div>
         {accent ? <div className="text-sm font-semibold text-primary">{accent}</div> : null}
       </div>
     </Panel>
@@ -127,7 +127,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <Panel className="flex min-h-[200px] flex-col items-center justify-center gap-3 text-center">
+    <Panel className="flex min-h-[150px] flex-col items-center justify-center gap-3 text-center">
       <p className="text-xl font-bold text-white">{title}</p>
       <p className="max-w-lg text-sm text-on-surface-variant">{description}</p>
       {action}
@@ -137,11 +137,30 @@ export function EmptyState({
 
 export function LoaderBlock({ label = "Loading..." }: { label?: string }) {
   return (
-    <Panel className="flex min-h-[160px] items-center justify-center">
+    <Panel className="flex min-h-[120px] items-center justify-center">
       <div className="space-y-3 text-center">
-        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-outline-variant border-t-primary" />
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-outline-variant border-t-primary" />
         <p className="text-sm text-on-surface-variant">{label}</p>
       </div>
     </Panel>
+  );
+}
+
+export function InlineError({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-danger/50 bg-danger/10 px-3 py-2 text-xs text-danger">
+      <span>{message}</span>
+      {onRetry ? (
+        <button className="font-bold uppercase tracking-[0.14em] text-danger" onClick={onRetry} type="button">
+          Retry
+        </button>
+      ) : null}
+    </div>
   );
 }

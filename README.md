@@ -88,7 +88,7 @@ cp frontend/.env.example frontend/.env.local
 
 Key variables:
 
-- `VITE_API_BASE_URL=http://localhost:8080/api`
+- `VITE_API_BASE_URL=/api`
 - Firebase web config values for production-style auth
 - `VITE_ENABLE_DEV_MOCK_AUTH=true` for local backend mock-header mode
 
@@ -100,7 +100,7 @@ npm run frontend:build
 npm run frontend:test
 ```
 
-The frontend is designed against the existing backend API contracts and the Stitch references in `stitch_niyojan/`.
+The frontend uses the Vite `/api` proxy in local development to avoid browser CORS differences between `localhost` and `127.0.0.1`. It is designed against the existing backend API contracts and the Stitch references in `stitch_niyojan/`.
 
 ### Validation commands
 

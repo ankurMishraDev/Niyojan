@@ -262,7 +262,7 @@ export function FormBuilderPage() {
               >
                 <p className="font-semibold text-white">{item.name}</p>
                 <p className="mt-1 text-xs text-on-surface-variant">
-                  {item.key} · {item.category} · {item.inputType}
+                  {item.key} - {item.category} - {item.inputType}
                 </p>
               </div>
             ))}
@@ -353,7 +353,7 @@ function FieldEditorCard({
         </div>
       </div>
       <p className="mt-3 text-xs text-on-surface-variant">
-        {field.isCustom ? "Custom field" : "Catalog field"} · id {field.id}
+        {field.isCustom ? "Custom field" : "Catalog field"} - id {field.id}
       </p>
     </div>
   );

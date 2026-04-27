@@ -251,7 +251,7 @@ export function PipelinePage() {
                     <div>
                       <p className="font-semibold text-white">{item.fileName}</p>
                       <p className="mt-1 text-xs text-on-surface-variant">
-                        {item.currentStage} · {formatDateTime(item.startedAt)}
+                        {item.currentStage} - {formatDateTime(item.startedAt)}
                       </p>
                     </div>
                     <StatusBadge tone={toneForStatus(item.pipelineStatus)}>

@@ -49,7 +49,7 @@ export function MatchingPage() {
       <PageHeader
         eyebrow="Critical Deployment"
         title="Volunteer Matching"
-        description="Match open needs to volunteer availability, proximity, and skill overlap using the backend’s deterministic scoring model."
+        description="Match open needs to volunteer availability, proximity, and skill overlap using the backend's deterministic scoring model."
       />
 
       <div className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">

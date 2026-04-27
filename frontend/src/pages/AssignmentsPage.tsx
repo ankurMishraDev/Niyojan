@@ -70,7 +70,7 @@ export function AssignmentsPage() {
                   <div>
                     <p className="font-semibold text-white">{assignment.needSummary}</p>
                     <p className="mt-1 text-xs text-on-surface-variant">
-                      {assignment.volunteerName} · {assignment.volunteerAvailabilityStatus}
+                      {assignment.volunteerName} - {assignment.volunteerAvailabilityStatus}
                     </p>
                   </div>
                   <StatusBadge tone={toneForStatus(assignment.status)}>{assignment.status}</StatusBadge>

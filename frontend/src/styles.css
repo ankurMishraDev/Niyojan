@@ -13,7 +13,7 @@
 html,
 body,
 #root {
-  min-height: 100%;
+  height: 100%;
 }
 
 body {
@@ -40,15 +40,15 @@ body {
   }
 
   .label-caps {
-    @apply text-[11px] font-bold uppercase tracking-[0.18em] text-on-surface-variant;
+    @apply text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant;
   }
 
   .field-control {
-    @apply w-full rounded-md border border-outline-variant bg-surface-container-lowest px-4 py-3 text-sm text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20;
+    @apply w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20;
   }
 
   .action-button {
-    @apply inline-flex items-center justify-center rounded-md border border-outline-variant px-4 py-2 text-sm font-semibold transition;
+    @apply inline-flex items-center justify-center rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold transition;
   }
 
   .action-button-primary {

@@ -50,31 +50,29 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(120,220,119,0.08),transparent_20%),linear-gradient(180deg,#121414_0%,#0d0e0f_100%)] px-4 py-10">
-      <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <Panel className="flex min-h-[720px] flex-col justify-between overflow-hidden bg-black/25">
-          <div className="space-y-8">
+    <div className="min-h-screen bg-surface px-4 py-5">
+      <div className="mx-auto grid min-h-[calc(100vh-40px)] max-w-6xl gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+        <Panel className="flex flex-col justify-between overflow-hidden bg-black/25">
+          <div className="space-y-5">
             <div>
-              <p className="text-4xl font-black tracking-tight text-white">HUMANITY OPS</p>
-              <p className="mt-3 max-w-md text-sm leading-7 text-on-surface-variant">
-                Secure terminal access for Niyojan administrators, field coordinators, and
-                volunteers. This frontend talks directly to the current Express backend and mirrors
-                the operational console designs in the Stitch references.
+              <p className="text-4xl font-black text-white">NIYOJAN</p>
+              <p className="mt-3 max-w-md text-sm leading-6 text-on-surface-variant">
+                Secure access for administrators, field coordinators, and volunteers.
               </p>
             </div>
-            <div className="rounded-xl border border-outline-variant bg-surface-container-low p-6">
+            <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
               <p className="label-caps text-primary">System Status</p>
-              <h2 className="mt-3 text-3xl font-black text-white">Secure Terminal Field Operations</h2>
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <h2 className="mt-2 text-2xl font-black text-white">Secure resource operations</h2>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <div className="rounded-md border border-outline-variant bg-surface-container p-4">
                   <p className="text-sm font-bold text-white">Backend contract preserved</p>
-                  <p className="mt-2 text-xs leading-6 text-on-surface-variant">
+                  <p className="mt-2 text-xs leading-5 text-on-surface-variant">
                     All workflows remain aligned to the existing `/api` routes and response envelope.
                   </p>
                 </div>
                 <div className="rounded-md border border-outline-variant bg-surface-container p-4">
                   <p className="text-sm font-bold text-white">Dual-path authentication</p>
-                  <p className="mt-2 text-xs leading-6 text-on-surface-variant">
+                  <p className="mt-2 text-xs leading-5 text-on-surface-variant">
                     Firebase is primary. Mock headers remain available for local backend integration.
                   </p>
                 </div>
@@ -88,13 +86,12 @@ export function LoginPage() {
           </div>
         </Panel>
 
-        <Panel className="min-h-[720px] space-y-8">
+        <Panel className="space-y-5">
           <div>
             <p className="label-caps text-primary">Command Access</p>
-            <h1 className="mt-3 text-4xl font-black text-white">Authorize Frontend Session</h1>
-            <p className="mt-3 text-sm leading-7 text-on-surface-variant">
-              Sign in with Firebase for production-grade auth or use development mock mode against
-              the backend’s header-based local workflow.
+            <h1 className="mt-2 text-3xl font-black text-white">Authorize NIYOJAN session</h1>
+            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+              Sign in with Firebase or use local mock access during backend development.
             </p>
           </div>
 
@@ -127,7 +124,7 @@ export function LoginPage() {
               <div>
                 <p className="label-caps text-primary">Development Mock Access</p>
                 <p className="mt-2 text-sm text-on-surface-variant">
-                  Uses the backend’s existing `x-mock-*` headers for local integration and seeded demo flows.
+                  Uses the backend's existing `x-mock-*` headers for local integration and seeded demo flows.
                 </p>
               </div>
               <Input
