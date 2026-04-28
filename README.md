@@ -1,13 +1,13 @@
 # Smart Resource Allocation Backend (MVP)
 
-Backend-only prototype for NGO volunteer coordination, survey capture, need detection, volunteer matching, and assignment tracking.
+NIYOJAN prototype for NGO volunteer coordination, survey capture, need detection, volunteer matching, and assignment tracking.
 
 ## Current implementation status
 
 Implemented:
 
 - Foundation: Express + TypeScript + Knex + Docker
-- Auth/security: Firebase token verification, resolved DB-backed app users, approval-based NGO onboarding, role guard, tenant-aware service checks
+- Auth/security: Firebase token verification, resolved DB-backed app users, NGO self-registration, role guard, tenant-aware service checks
 - Core data modules: organizations, field catalog, skills, volunteers
 - Document flow: signed upload/read URL generation, document metadata, live-or-fallback extraction trigger, AI preview endpoints
 - Form builder: templates, versions, fields, publish flow, create template from extracted fields
@@ -84,7 +84,6 @@ Key variables:
 
 - `VITE_API_BASE_URL=/api`
 - Firebase web config values for production-style auth
-- `VITE_ENABLE_DEV_MOCK_AUTH=true` for local backend mock-header mode
 
 ### Frontend commands
 
@@ -117,23 +116,9 @@ Use `.env.example` as the source of truth.
 
 or a single `DATABASE_URL`.
 
-### Mock mode defaults
+### Required live integration settings
 
-For local demo runs, keep:
-
-- `AUTH_MOCK_MODE=true`
-- `GCP_MOCK_MODE=true`
-- `AI_PROVIDER_MODE=mock`
-
-### Live integration settings
-
-To switch to live providers, set:
-
-- `AUTH_MOCK_MODE=false`
-- `GCP_MOCK_MODE=false`
-- `AI_PROVIDER_MODE=live`
-
-and provide:
+The backend always uses Firebase, Google Cloud Storage, Document AI, and Vertex AI Gemini. Provide:
 
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_CLIENT_EMAIL`
@@ -295,24 +280,11 @@ Seeded live-login accounts include:
 
 ## Demo and testing notes
 
-### Mock auth headers
+### Seeded identities
 
-Common NGO admin:
-
-```text
-x-mock-user-id: 10000000-0000-4000-8000-000000000002
-x-mock-org-id: 11111111-1111-4111-8111-111111111111
-x-mock-role: ngo_admin
-x-mock-firebase-uid: firebase-ngo-admin-a-001
-```
-
-Common superadmin:
-
-```text
-x-mock-user-id: 10000000-0000-4000-8000-000000000001
-x-mock-role: superadmin
-x-mock-firebase-uid: firebase-superadmin-001
-```
+- Superadmin: `niyojanAdmin@gmail.com` / `asdf@1234`
+- Demo NGO and volunteer identities are created with `npm run seed:demo:identity`.
+- Demo database users, organizations, volunteers, skills, forms, surveys, needs, and assignments are created with `npm run seed:demo:data`.
 
 ### Manual API docs in repo
 

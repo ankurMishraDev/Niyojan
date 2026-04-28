@@ -9,14 +9,72 @@ const ORG_A = "11111111-1111-4111-8111-111111111111";
 const ORG_B = "22222222-2222-4222-8222-222222222222";
 const ORG_C = "33333333-3333-4333-8333-333333333333";
 const ORG_D = "44444444-4444-4444-8444-444444444444";
-const ORG_E = "55555555-5555-4555-8555-555555555555";
 
 const organizations = [
-  { id: ORG_A, name: "HopeBridge Foundation", type: "NGO", region: "Bhopal Rural Belt", status: "active" },
-  { id: ORG_B, name: "Seva Junction Trust", type: "NGO", region: "Indore Urban Fringe", status: "active" },
-  { id: ORG_C, name: "Arogya Reach Collective", type: "NGO", region: "Vidisha Corridor", status: "active" },
-  { id: ORG_D, name: "Udaan Relief Network", type: "NGO", region: "Sagar Relief Cluster", status: "active" },
-  { id: ORG_E, name: "JanSahay Alliance", type: "NGO", region: "Narmadapuram Response Belt", status: "active" },
+  {
+    id: ORG_A,
+    name: "HopeBridge Foundation",
+    type: "NGO",
+    region: "Bhopal Rural Belt",
+    status: "active",
+    registration_id: "HB-MP-2024-001",
+    contact_email: "ops@hopebridge.demo",
+    contact_phone: "+91-755-410-1201",
+    website: "https://hopebridge.demo",
+    address_text: "Block 4, Community Resource Center, Bhopal Rural Belt",
+    focus_areas: ["food", "shelter", "water"],
+    operating_regions: ["Bhopal", "Berasia", "Kolar"],
+    team_size: 42,
+    founded_year: 2016,
+  },
+  {
+    id: ORG_B,
+    name: "Seva Junction Trust",
+    type: "NGO",
+    region: "Indore Urban Fringe",
+    status: "active",
+    registration_id: "SJT-MP-2023-014",
+    contact_email: "admin@sevajunction.demo",
+    contact_phone: "+91-731-420-7791",
+    website: "https://sevajunction.demo",
+    address_text: "Relief Coordination Office, Vijay Nagar, Indore",
+    focus_areas: ["medical", "livelihood", "education"],
+    operating_regions: ["Indore", "Mhow", "Lasudia"],
+    team_size: 36,
+    founded_year: 2018,
+  },
+  {
+    id: ORG_C,
+    name: "Arogya Reach Collective",
+    type: "NGO",
+    region: "Vidisha Corridor",
+    status: "active",
+    registration_id: "ARC-MP-2022-009",
+    contact_email: "coordination@arogyareach.demo",
+    contact_phone: "+91-7592-240-884",
+    website: "https://arogyareach.demo",
+    address_text: "Health Outreach Hub, Vidisha Main Road",
+    focus_areas: ["health", "eldercare", "counseling"],
+    operating_regions: ["Vidisha", "Lateri", "Sironj"],
+    team_size: 29,
+    founded_year: 2019,
+  },
+  {
+    id: ORG_D,
+    name: "Udaan Relief Network",
+    type: "NGO",
+    region: "Sagar Relief Cluster",
+    status: "active",
+    registration_id: "URN-MP-2021-027",
+    contact_email: "fielddesk@udaanrelief.demo",
+    contact_phone: "+91-7582-330-645",
+    website: "https://udaanrelief.demo",
+    address_text: "District Response Center, Civil Lines, Sagar",
+    focus_areas: ["disaster_response", "transport", "shelter"],
+    operating_regions: ["Sagar", "Bina", "Khurai", "Rahli"],
+    team_size: 51,
+    founded_year: 2015,
+  },
 ];
 
 const orgRoster = [
@@ -96,25 +154,6 @@ const orgRoster = [
       createFirebaseUser: true,
     },
   },
-  {
-    orgId: ORG_E,
-    ngoAdmin: {
-      id: userId(12),
-      firebase_uid: "firebase-ngo-admin-e-001",
-      name: "Farah Siddiqui",
-      email: "farah@jansahay.demo",
-      password: "Niyojan@1234",
-      createFirebaseUser: true,
-    },
-    fieldWorker: {
-      id: userId(13),
-      firebase_uid: "firebase-field-worker-e-001",
-      name: "Nitin Tiwari",
-      email: "nitin@jansahay.demo",
-      password: "Niyojan@1234",
-      createFirebaseUser: true,
-    },
-  },
 ];
 
 const skillIds = [
@@ -180,8 +219,9 @@ const volunteerProfiles = [
   ["Garima Chaturvedi", "Timarni Belt", 22.3904, 77.3341],
 ];
 
+const activeVolunteerProfiles = volunteerProfiles.slice(0, 24);
 const availabilityStatuses = ["available", "available", "part_time", "busy"];
-const orgIdsForVolunteers = [ORG_A, ORG_B, ORG_C, ORG_D, ORG_E];
+const orgIdsForVolunteers = [ORG_A, ORG_B, ORG_C, ORG_D];
 
 const existingVolunteerUsers = [
   {
@@ -204,7 +244,7 @@ const existingVolunteerUsers = [
   },
 ];
 
-const extraVolunteerUsers = volunteerProfiles.slice(2).map((profile, index) => {
+const extraVolunteerUsers = activeVolunteerProfiles.slice(2).map((profile, index) => {
   const [name] = profile;
   const orgId = orgIdsForVolunteers[index % orgIdsForVolunteers.length];
   const normalized = name.toLowerCase().replace(/[^a-z]+/g, "");
@@ -226,7 +266,7 @@ const extraVolunteerUsers = volunteerProfiles.slice(2).map((profile, index) => {
 const volunteerUsers = [...existingVolunteerUsers, ...extraVolunteerUsers];
 
 const volunteerRecords = volunteerUsers.map((user, index) => {
-  const locationProfile = volunteerProfiles[index];
+  const locationProfile = activeVolunteerProfiles[index];
   const orgId = user.org_id;
   return {
     id: volunteerId(index + 1),
@@ -290,7 +330,6 @@ module.exports = {
     ORG_B,
     ORG_C,
     ORG_D,
-    ORG_E,
     USER_SUPERADMIN: userId(1),
     USER_NGO_ADMIN_A: userId(2),
     USER_FIELD_WORKER_A: userId(3),

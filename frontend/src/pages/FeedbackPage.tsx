@@ -8,13 +8,35 @@ import { Button, Input, LoaderBlock, PageHeader, Panel, Select, Textarea } from 
 import { formatDateTime } from "@/lib/format";
 
 export function FeedbackIndexPage() {
+  const { user } = useAuth();
+  const canListAssignments = user?.role === "superadmin" || user?.role === "volunteer";
   const assignmentsQuery = useQuery({
+    enabled: canListAssignments,
     queryKey: ["feedback-assignments"],
     queryFn: () => assignmentsApi.list({ page: 1, pageSize: 20 }),
   });
 
-  if (assignmentsQuery.isLoading) {
+  if (assignmentsQuery.isLoading && canListAssignments) {
     return <LoaderBlock label="Loading feedback workspace..." />;
+  }
+
+  if (!canListAssignments) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          eyebrow="Feedback"
+          title="Feedback workspace"
+          description="NGO accounts can submit and review feedback when an admin-created assignment is opened for follow-up."
+        />
+        <Panel className="space-y-3">
+          <p className="text-lg font-bold text-white">No direct assignment controls</p>
+          <p className="text-sm leading-6 text-on-surface-variant">
+            Matching and assignment management are reserved for the NIYOJAN superadmin.
+            Use this section for feedback records linked from an assigned case.
+          </p>
+        </Panel>
+      </div>
+    );
   }
 
   return (
@@ -115,8 +137,8 @@ export function FeedbackPage() {
         title={assignment.needSummary}
         description="Field verification against the original need and AI-derived routing decision."
         actions={
-          <Link className="action-button-secondary" to="/assignments">
-            Back to assignments
+          <Link className="action-button-secondary" to={user?.role === "superadmin" ? "/assignments" : "/feedback"}>
+            Back
           </Link>
         }
       />

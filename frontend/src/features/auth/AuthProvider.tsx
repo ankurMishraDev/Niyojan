@@ -14,15 +14,9 @@ import {
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import { authApi } from "@/lib/services";
-import { env } from "@/lib/env";
 import { firebaseAuth } from "@/lib/firebase";
 import {
-  clearDevMockSession,
-  defaultMockSession,
-  getDevMockSession,
   setAccessToken,
-  setDevMockSession,
-  type DevMockSession,
 } from "@/features/auth/authSession";
 import type { UserProfile } from "@/types/api";
 import type { NgoRegistrationPayload } from "@/types/api";
@@ -33,10 +27,8 @@ type AuthContextValue = {
   status: AuthStatus;
   user: UserProfile | null;
   usingFirebase: boolean;
-  devMockEnabled: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpNgo: (email: string, password: string, payload: NgoRegistrationPayload) => Promise<void>;
-  signInWithDevMock: (session?: Partial<DevMockSession>) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -49,10 +41,17 @@ async function loadProfile() {
   return profile;
 }
 
+async function syncAccessToken(firebaseUser: { getIdToken: (forceRefresh?: boolean) => Promise<string> }) {
+  const token = await firebaseUser.getIdToken(true);
+  setAccessToken(token);
+  return token;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<UserProfile | null>(null);
   const mounted = useRef(true);
+  const registrationInFlight = useRef(false);
 
   useEffect(() => {
     mounted.current = true;
@@ -68,30 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     };
 
-    const bootstrapDevMock = async () => {
-      if (!env.enableDevMockAuth) {
-        applyProfile(null);
-        return;
-      }
-
-      const session = getDevMockSession();
-      if (!session) {
-        applyProfile(null);
-        return;
-      }
-
-      try {
-        setAccessToken(null);
-        const profile = await loadProfile();
-        applyProfile(profile);
-      } catch {
-        clearDevMockSession();
-        applyProfile(null);
-      }
-    };
-
     if (!firebaseAuth) {
-      void bootstrapDevMock();
+      applyProfile(null);
 
       return () => {
         mounted.current = false;
@@ -103,15 +80,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus("loading");
 
         if (firebaseUser) {
-          clearDevMockSession();
-          setAccessToken(await firebaseUser.getIdToken());
+          await syncAccessToken(firebaseUser);
+          if (registrationInFlight.current) {
+            return;
+          }
           const profile = await loadProfile();
           applyProfile(profile);
           return;
         }
 
         setAccessToken(null);
-        await bootstrapDevMock();
+        applyProfile(null);
       } catch {
         applyProfile(null);
       }
@@ -125,12 +104,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmail = async (email: string, password: string) => {
     if (!firebaseAuth) {
-      throw new Error("Firebase auth is not configured.");
+      throw new Error("Firebase web config is not configured. Add the VITE_FIREBASE_* values.");
     }
 
     try {
       const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-      setAccessToken(await credential.user.getIdToken());
+      await syncAccessToken(credential.user);
       const profile = await loadProfile();
       setUser(profile);
       setStatus("authenticated");
@@ -149,12 +128,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     payload: NgoRegistrationPayload,
   ) => {
     if (!firebaseAuth) {
-      throw new Error("Firebase auth is not configured.");
+      throw new Error("Firebase web config is not configured. Add the VITE_FIREBASE_* values.");
     }
 
     try {
+      registrationInFlight.current = true;
       const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-      setAccessToken(await credential.user.getIdToken());
+      await syncAccessToken(credential.user);
       const profile = await authApi.registerNgo(payload);
       setUser(profile);
       setStatus("authenticated");
@@ -164,32 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await firebaseSignOut(firebaseAuth);
       }
       throw error;
+    } finally {
+      registrationInFlight.current = false;
     }
-  };
-
-  const signInWithDevMock = async (partial?: Partial<DevMockSession>) => {
-    if (!env.enableDevMockAuth) {
-      throw new Error("Development mock auth is disabled.");
-    }
-
-    if (firebaseAuth?.currentUser) {
-      await firebaseSignOut(firebaseAuth);
-    }
-
-    const session = {
-      ...defaultMockSession(),
-      ...partial,
-    };
-    setDevMockSession(session);
-    setAccessToken(null);
-    setStatus("loading");
-    const profile = await loadProfile();
-    setUser(profile);
-    setStatus("authenticated");
   };
 
   const signOut = async () => {
-    clearDevMockSession();
     setAccessToken(null);
 
     if (firebaseAuth?.currentUser) {
@@ -213,10 +173,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         status,
         user,
         usingFirebase: Boolean(firebaseAuth),
-        devMockEnabled: env.enableDevMockAuth,
         signInWithEmail,
         signUpNgo,
-        signInWithDevMock,
         signOut,
         refreshProfile,
       }}

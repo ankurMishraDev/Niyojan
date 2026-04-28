@@ -1,20 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError } from "@/lib/api";
-import { clearDevMockSession, setDevMockSession } from "@/features/auth/authSession";
+import { setAccessToken } from "@/features/auth/authSession";
 
 describe("api client", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    clearDevMockSession();
+    setAccessToken(null);
   });
 
-  it("attaches mock headers and parses envelopes", async () => {
-    setDevMockSession({
-      userId: "user-1",
-      orgId: "org-1",
-      role: "ngo_admin",
-      firebaseUid: "firebase-user-1",
-    });
+  it("attaches bearer tokens and parses envelopes", async () => {
+    setAccessToken("token-123");
 
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
@@ -38,7 +33,7 @@ describe("api client", () => {
     expect(result.data.id).toBe("123");
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const request = fetchMock.mock.calls[0]?.[1];
-    expect((request?.headers as Headers).get("x-mock-role")).toBe("ngo_admin");
+    expect((request?.headers as Headers).get("Authorization")).toBe("Bearer token-123");
   });
 
   it("throws ApiError on failed responses", async () => {

@@ -3,7 +3,7 @@ import { geminiService } from "./gemini.service";
 import { vertexService } from "./vertex.service";
 
 export type DocumentExtractionOrchestrationOutput = {
-	providerMode: "mock" | "live";
+	providerMode: "live";
 	document: {
 		id: string;
 		gcsPath: string;

@@ -37,6 +37,6 @@ export const stage9Reasoning = async (fields: ReasoningField[], canonicalText: s
 		validationErrors: result.validationErrors,
 		fallbackReason: result.fallbackReason,
 		reviewRequired: result.reviewRequired,
-		isMock: result.providerName.startsWith("mock"),
+		isMock: false,
 	};
 };

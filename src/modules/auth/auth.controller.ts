@@ -1,5 +1,4 @@
 import { NextFunction, Request, Response } from "express";
-import { env } from "../../config/env";
 import { AppError } from "../../middleware/errorHandler";
 import { sendSuccess } from "../../utils/apiResponse";
 import { authService } from "./auth.service";
@@ -9,11 +8,6 @@ class AuthController {
 		try {
 			if (req.user) {
 				const profile = await authService.getCurrentUserProfile(req.user);
-				return sendSuccess(res, profile, "Current user profile");
-			}
-
-			if (env.AUTH_MOCK_MODE && req.authClaims) {
-				const profile = await authService.getOrCreateMockUserFromClaims(req.authClaims);
 				return sendSuccess(res, profile, "Current user profile");
 			}
 
@@ -32,7 +26,7 @@ class AuthController {
 			}
 
 			const profile = await authService.registerNgo(req.authClaims, req.body);
-			return sendSuccess(res, profile, "NGO registration submitted", 201);
+			return sendSuccess(res, profile, "NGO account created", 201);
 		} catch (error) {
 			next(error);
 		}

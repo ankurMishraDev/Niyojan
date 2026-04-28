@@ -23,9 +23,9 @@ export function AccountStatusPage() {
         <h1 className="text-3xl font-black text-white">Account status</h1>
         <p className="text-sm leading-6 text-on-surface-variant">
           {user.status === "pending"
-            ? "Your NGO registration is waiting for NIYOJAN superadmin approval. Operational routes remain locked until the organization is activated."
+            ? "This account is pending activation. Operational routes remain locked until the account is active."
             : user.status === "rejected"
-              ? "This NGO registration was rejected. Review the organization details with the NIYOJAN admin before attempting access again."
+              ? "This account was rejected. Review the organization details with the NIYOJAN admin before attempting access again."
               : "This account is inactive and cannot access operational routes."}
         </p>
 

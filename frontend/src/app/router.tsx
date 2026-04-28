@@ -38,17 +38,32 @@ export const router = createBrowserRouter([
         children: [
           { path: "app", element: <Navigate to="/dashboard" replace /> },
           { path: "dashboard", element: <DashboardPage /> },
-          { path: "pipeline", element: <PipelinePage /> },
-          { path: "ai-review", element: <AiReviewIndexPage /> },
-          { path: "ai-review/:documentId", element: <AiReviewPage /> },
-          { path: "form-builder", element: <FormBuilderPage /> },
-          { path: "surveys/new", element: <SurveyNewPage /> },
-          { path: "surveys/:surveyId", element: <SurveyDetailPage /> },
-          { path: "matching", element: <MatchingPage /> },
-          { path: "assignments", element: <AssignmentsPage /> },
-          { path: "feedback", element: <FeedbackIndexPage /> },
-          { path: "feedback/assignments/:assignmentId", element: <FeedbackPage /> },
-          { path: "profile", element: <ProfilePage /> },
+          {
+            element: <RouteGuard roles={["superadmin"]} />,
+            children: [
+              { path: "pipeline", element: <PipelinePage /> },
+              { path: "ai-review", element: <AiReviewIndexPage /> },
+              { path: "ai-review/:documentId", element: <AiReviewPage /> },
+              { path: "matching", element: <MatchingPage /> },
+              { path: "assignments", element: <AssignmentsPage /> },
+            ],
+          },
+          {
+            element: <RouteGuard roles={["superadmin", "ngo_admin", "field_worker"]} />,
+            children: [
+              { path: "form-builder", element: <FormBuilderPage /> },
+              { path: "surveys/new", element: <SurveyNewPage /> },
+              { path: "surveys/:surveyId", element: <SurveyDetailPage /> },
+            ],
+          },
+          {
+            element: <RouteGuard roles={["superadmin", "ngo_admin", "field_worker", "volunteer"]} />,
+            children: [
+              { path: "feedback", element: <FeedbackIndexPage /> },
+              { path: "feedback/assignments/:assignmentId", element: <FeedbackPage /> },
+              { path: "profile", element: <ProfilePage /> },
+            ],
+          },
         ],
       },
     ],

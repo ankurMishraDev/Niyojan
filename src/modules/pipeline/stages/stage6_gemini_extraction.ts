@@ -19,6 +19,6 @@ export const stage6GeminiExtraction = (extraction: DocumentExtractionOrchestrati
 		validationErrors: extraction.fieldMapping.validationErrors,
 		fallbackReason: extraction.fieldMapping.fallbackReason,
 		reviewRequired: extraction.fieldMapping.reviewRequired,
-		isMock: extraction.providerMode === "mock",
+		isMock: false,
 	};
 };

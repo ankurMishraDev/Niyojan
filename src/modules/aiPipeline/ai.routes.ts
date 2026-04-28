@@ -15,13 +15,13 @@ router.use(requireAuth);
 
 router.get(
 	"/status",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin"]),
 	aiController.getStatus,
 );
 
 router.post(
 	"/documents/:id/preview-extraction",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin"]),
 	validate({ params: paramsSchema }),
 	aiController.previewDocumentExtraction,
 );

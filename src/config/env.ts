@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import dotenv from "dotenv";
 import { z } from "zod";
 
@@ -18,19 +19,10 @@ const envSchema = z.object({
   DB_PASSWORD: z.string().optional(),
   DB_SSL: z.string().optional().default("false"),
 
-  AUTH_MOCK_MODE: z.string().optional().default("true"),
-  MOCK_USER_ID: z.string().uuid().optional(),
-  MOCK_USER_ROLE: z
-    .enum(["superadmin", "ngo_admin", "field_worker", "volunteer"])
-    .optional()
-    .default("ngo_admin"),
-  MOCK_USER_ORG_ID: z.string().uuid().optional(),
-
   FIREBASE_PROJECT_ID: z.string().optional(),
   FIREBASE_CLIENT_EMAIL: z.string().optional(),
   FIREBASE_PRIVATE_KEY: z.string().optional(),
 
-  GCP_MOCK_MODE: z.string().optional().default("true"),
   GCP_PROJECT_ID: z.string().optional(),
   GCS_BUCKET_NAME: z.string().default("niyojan-prototype"),
   GCP_SIGNED_URL_EXPIRY_SECONDS: z.coerce.number().int().positive().default(900),
@@ -38,9 +30,6 @@ const envSchema = z.object({
   DOCUMENT_AI_LOCATION: z.string().default("us"),
   DOCUMENT_AI_PROCESSOR_ID: z.string().optional(),
 
-  AI_PROVIDER_MODE: z.enum(["mock", "live"]).optional(),
-  AI_MODE: z.enum(["mock", "live"]).optional(),
-  GEMINI_API_KEY: z.string().optional(),
   VERTEX_LOCATION: z.string().default("us-central1"),
   VERTEX_DOCUMENT_MODEL: z.string().default("gemini-2.0-flash-001"),
   VERTEX_REASONING_MODEL: z.string().default("gemini-2.0-flash-001"),
@@ -77,21 +66,6 @@ const splitCsv = (value?: string) => {
     .filter(Boolean);
 };
 
-const resolveAiProviderMode = (
-  aiProviderMode?: "mock" | "live",
-  aiMode?: "mock" | "live",
-) => {
-  if (aiProviderMode) {
-    return aiProviderMode;
-  }
-
-  if (aiMode) {
-    return aiMode;
-  }
-
-  return "mock";
-};
-
 if (
   !parsed.data.DATABASE_URL &&
   (!parsed.data.DB_HOST || !parsed.data.DB_NAME || !parsed.data.DB_USER || !parsed.data.DB_PASSWORD)
@@ -104,10 +78,7 @@ if (
 export const env = {
   ...parsed.data,
   DB_SSL: toBool(parsed.data.DB_SSL),
-  AUTH_MOCK_MODE: toBool(parsed.data.AUTH_MOCK_MODE),
-  GCP_MOCK_MODE: toBool(parsed.data.GCP_MOCK_MODE),
   CORS_ORIGINS: splitCsv(parsed.data.CORS_ORIGINS),
-  AI_PROVIDER_MODE: resolveAiProviderMode(parsed.data.AI_PROVIDER_MODE, parsed.data.AI_MODE),
 } as const;
 
 const hasInlineFirebaseCreds = Boolean(
@@ -116,33 +87,30 @@ const hasInlineFirebaseCreds = Boolean(
 const hasAnyGoogleCredentialSource = Boolean(
   env.GOOGLE_APPLICATION_CREDENTIALS || hasInlineFirebaseCreds,
 );
+const isTestEnv = env.NODE_ENV === "test";
 
-if (!env.AUTH_MOCK_MODE && !hasAnyGoogleCredentialSource) {
+if (env.GOOGLE_APPLICATION_CREDENTIALS && !fs.existsSync(env.GOOGLE_APPLICATION_CREDENTIALS)) {
   throw new Error(
-    "Environment validation failed: live auth requires FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY or GOOGLE_APPLICATION_CREDENTIALS",
+    `Environment validation failed: GOOGLE_APPLICATION_CREDENTIALS path not found: ${env.GOOGLE_APPLICATION_CREDENTIALS}`,
   );
 }
 
-if (!env.GCP_MOCK_MODE && !hasAnyGoogleCredentialSource) {
+if (!isTestEnv && !hasAnyGoogleCredentialSource) {
   throw new Error(
-    "Environment validation failed: live GCP access requires FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY or GOOGLE_APPLICATION_CREDENTIALS",
+    "Environment validation failed: Firebase/GCP access requires FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY or GOOGLE_APPLICATION_CREDENTIALS",
   );
 }
 
-if (env.AI_PROVIDER_MODE === "live") {
-  if (!env.GCP_PROJECT_ID) {
-    throw new Error("Environment validation failed: AI live mode requires GCP_PROJECT_ID");
-  }
+if (!isTestEnv && !env.GCP_PROJECT_ID) {
+  throw new Error("Environment validation failed: GCP_PROJECT_ID is required");
+}
 
-  if (!env.DOCUMENT_AI_PROCESSOR_ID) {
-    throw new Error("Environment validation failed: AI live mode requires DOCUMENT_AI_PROCESSOR_ID");
-  }
+if (!isTestEnv && !env.DOCUMENT_AI_PROCESSOR_ID) {
+  throw new Error("Environment validation failed: DOCUMENT_AI_PROCESSOR_ID is required");
+}
 
-  if (!hasAnyGoogleCredentialSource) {
-    throw new Error(
-      "Environment validation failed: AI live mode requires FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY or GOOGLE_APPLICATION_CREDENTIALS",
-    );
-  }
+if (!env.GCS_BUCKET_NAME) {
+  throw new Error("Environment validation failed: GCS_BUCKET_NAME is required");
 }
 
 export type AppEnv = typeof env;

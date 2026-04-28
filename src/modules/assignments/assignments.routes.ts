@@ -38,28 +38,28 @@ assignmentsRouter.use(requireAuth);
 
 assignmentsRouter.post(
 	"/assignments",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin"]),
 	validate({ body: createAssignmentBodySchema }),
 	assignmentsController.createAssignment,
 );
 
 assignmentsRouter.get(
 	"/assignments",
-	allowRoles(["superadmin", "ngo_admin", "field_worker", "volunteer"]),
+	allowRoles(["superadmin", "volunteer"]),
 	validate({ query: listAssignmentsQuerySchema }),
 	assignmentsController.listAssignments,
 );
 
 assignmentsRouter.get(
 	"/assignments/:id",
-	allowRoles(["superadmin", "ngo_admin", "field_worker", "volunteer"]),
+	allowRoles(["superadmin", "volunteer"]),
 	validate({ params: assignmentIdParamsSchema }),
 	assignmentsController.getAssignmentById,
 );
 
 assignmentsRouter.patch(
 	"/assignments/:id/status",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin"]),
 	validate({ params: assignmentIdParamsSchema, body: updateAssignmentStatusBodySchema }),
 	assignmentsController.updateAssignmentStatus,
 );

@@ -31,7 +31,7 @@ export type MappedField = {
 
 export type FieldMappingResult = {
 	providerName: string;
-	mode: "mock" | "live";
+	mode: "live";
 	model: string;
 	promptVersion: string;
 	mappedFields: MappedField[];
@@ -134,25 +134,6 @@ export class GeminiService {
 
 		const deterministicMapping = buildDeterministicMapping(candidates, catalogRows);
 
-		if (env.AI_PROVIDER_MODE === "mock") {
-			return {
-				providerName: "mock-gemini",
-				mode: "mock",
-				model: "mock-gemini-normalizer-v1",
-				promptVersion: "field_mapping_v1",
-				mappedFields: deterministicMapping,
-				contradictions: [],
-				modelQualityFlags: [],
-				inputTokenCount: null,
-				outputTokenCount: null,
-				latencyMs: 0,
-				validationStatus: "fallback",
-				validationErrors: [],
-				fallbackReason: "mock_mode",
-				reviewRequired: false,
-			};
-		}
-
 		try {
 			const prompt = [
 				"You map extracted document fields to a known field catalog.",
@@ -242,11 +223,8 @@ export class GeminiService {
 
 	getProviderMetadata() {
 		return {
-			mode: env.AI_PROVIDER_MODE,
-			model:
-				env.AI_PROVIDER_MODE === "mock"
-					? "mock-gemini-normalizer-v1"
-					: env.VERTEX_DOCUMENT_MODEL,
+			mode: "live" as const,
+			model: env.VERTEX_DOCUMENT_MODEL,
 		};
 	}
 }

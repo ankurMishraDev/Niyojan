@@ -15,7 +15,7 @@ matchingRouter.use(requireAuth);
 
 matchingRouter.get(
 	"/needs/:id/matches",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin"]),
 	validate({ params: needIdParamsSchema }),
 	matchingController.getMatchesForNeed,
 );

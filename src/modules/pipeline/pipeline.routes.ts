@@ -24,49 +24,49 @@ pipelineRouter.use(requireAuth);
 
 pipelineRouter.post(
 	"/documents/:id/pipeline/start",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin"]),
 	validate({ params: documentIdParamsSchema }),
 	pipelineController.startPipeline,
 );
 
 pipelineRouter.get(
 	"/documents/:id/pipeline/status",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin"]),
 	validate({ params: documentIdParamsSchema }),
 	pipelineController.getPipelineStatus,
 );
 
 pipelineRouter.get(
 	"/documents/:id/review-package",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin"]),
 	validate({ params: documentIdParamsSchema }),
 	pipelineController.getReviewPackage,
 );
 
 pipelineRouter.post(
 	"/documents/:id/review",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin"]),
 	validate({ params: documentIdParamsSchema, body: reviewBodySchema }),
 	pipelineController.submitReview,
 );
 
 pipelineRouter.post(
 	"/documents/:id/create-form",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin"]),
 	validate({ params: documentIdParamsSchema, body: createFormBodySchema }),
 	pipelineController.createForm,
 );
 
 pipelineRouter.get(
 	"/pipeline/queue",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin"]),
 	validate({ query: queueQuerySchema }),
 	pipelineController.listQueue,
 );
 
 pipelineRouter.get(
 	"/pipeline/manifests/:id",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin"]),
 	validate({ params: manifestIdParamsSchema }),
 	pipelineController.getManifest,
 );

@@ -7,13 +7,9 @@ const canInitWithInlineCreds =
 	!!env.FIREBASE_CLIENT_EMAIL &&
 	!!env.FIREBASE_PRIVATE_KEY;
 
-export const initializeFirebaseAdmin = (options?: { ignoreMockMode?: boolean }) => {
+export const initializeFirebaseAdmin = () => {
 	if (admin.apps.length > 0) {
 		return admin.app();
-	}
-
-	if (env.AUTH_MOCK_MODE && !options?.ignoreMockMode) {
-		throw new Error("Firebase auth is disabled in AUTH_MOCK_MODE");
 	}
 
 	if (canInitWithInlineCreds) {
@@ -44,7 +40,7 @@ export const initializeFirebaseAdmin = (options?: { ignoreMockMode?: boolean }) 
 	return admin.app();
 };
 
-export const getFirebaseAuth = (options?: { ignoreMockMode?: boolean }) => {
-	initializeFirebaseAdmin(options);
+export const getFirebaseAuth = () => {
+	initializeFirebaseAdmin();
 	return admin.auth();
 };

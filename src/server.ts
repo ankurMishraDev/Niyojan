@@ -2,7 +2,10 @@ import { app } from "./app";
 import { db } from "./config/db";
 import { env } from "./config/env";
 import { startJobRunner } from "./jobs/jobRunner";
+import { initializeFirebaseAdmin } from "./config/firebase";
 import { logger } from "./utils/logger";
+
+initializeFirebaseAdmin();
 
 const server = app.listen(env.PORT, () => {
   logger.info(`Server started on port ${env.PORT}`);

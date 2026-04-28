@@ -9,10 +9,6 @@ type SignedUrlResult = {
 };
 
 export const getStorageClient = () => {
-  if (env.GCP_MOCK_MODE) {
-    return null;
-  }
-
   if (!storageClient) {
     storageClient = new Storage({
       projectId: env.GCP_PROJECT_ID,
@@ -29,25 +25,11 @@ const getSignedExpiry = () => {
   return Date.now() + gcsSignedUrlExpirySeconds * 1000;
 };
 
-const buildMockSignedUrl = (action: "read" | "write", gcsPath: string): SignedUrlResult => {
-  const expires = getSignedExpiry();
-  const encodedPath = encodeURIComponent(gcsPath);
-
-  return {
-    url: `https://mock-gcs.local/${gcsBucketName}/${encodedPath}?action=${action}&expires=${expires}`,
-    expiresAt: new Date(expires).toISOString(),
-  };
-};
-
 export const generateSignedUploadUrl = async (
   gcsPath: string,
   contentType: string,
 ): Promise<SignedUrlResult> => {
   const storage = getStorageClient();
-
-  if (!storage) {
-    return buildMockSignedUrl("write", gcsPath);
-  }
 
   const expires = getSignedExpiry();
   const [url] = await storage.bucket(gcsBucketName).file(gcsPath).getSignedUrl({
@@ -65,10 +47,6 @@ export const generateSignedUploadUrl = async (
 
 export const generateSignedReadUrl = async (gcsPath: string): Promise<SignedUrlResult> => {
   const storage = getStorageClient();
-
-  if (!storage) {
-    return buildMockSignedUrl("read", gcsPath);
-  }
 
   const expires = getSignedExpiry();
   const [url] = await storage.bucket(gcsBucketName).file(gcsPath).getSignedUrl({

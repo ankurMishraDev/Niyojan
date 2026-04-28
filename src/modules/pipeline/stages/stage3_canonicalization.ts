@@ -19,7 +19,7 @@ export const stage3Canonicalization = (extraction: DocumentExtractionOrchestrati
 			.join("\n");
 
 	return {
-		extractionMethod: extraction.providerMode === "mock" ? "manual" : "document_ai_form_parser",
+		extractionMethod: "document_ai_form_parser",
 		detectedLanguage: extraction.documentAi.detectedLanguage || "en",
 		pageCount: extraction.documentAi.pageCount || 1,
 		canonicalText,

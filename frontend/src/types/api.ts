@@ -35,6 +35,14 @@ export type NgoRegistrationPayload = {
   organization_type: string;
   region?: string;
   admin_name?: string;
+  registration_id?: string;
+  contact_phone?: string;
+  website?: string;
+  address_text?: string;
+  focus_areas?: string[];
+  operating_regions?: string[];
+  team_size?: number;
+  founded_year?: number;
 };
 
 export type OnboardingOrganization = {
@@ -42,6 +50,15 @@ export type OnboardingOrganization = {
   name: string;
   type: string;
   region: string | null;
+  registrationId?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  website?: string | null;
+  addressText?: string | null;
+  focusAreas?: string[];
+  operatingRegions?: string[];
+  teamSize?: number | null;
+  foundedYear?: number | null;
   status: string;
   createdAt: string;
   updatedAt: string;

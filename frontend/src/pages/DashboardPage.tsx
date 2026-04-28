@@ -1,12 +1,115 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Button, InlineError, LoaderBlock, MetricCard, PageHeader, Panel, StatusBadge } from "@/components/ui";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { getApiErrorMessage } from "@/lib/api";
 import { dashboardApi, onboardingApi } from "@/lib/services";
 import { formatDateTime, formatNumber, toneForStatus } from "@/lib/format";
+import type { UserProfile } from "@/types/api";
 
 export function DashboardPage() {
   const { user } = useAuth();
+
+  if (user?.role !== "superadmin") {
+    return <NgoDashboard user={user} />;
+  }
+
+  return <AdminDashboard user={user} />;
+}
+
+function NgoDashboard({ user }: { user: UserProfile | null }) {
+  const isVolunteer = user?.role === "volunteer";
+
+  if (isVolunteer) {
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          eyebrow="Workspace"
+          title="Volunteer Dashboard"
+          description="Review assigned work, submit feedback, and keep your profile current."
+        />
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <Link className="block" to="/feedback">
+            <Panel className="h-full transition hover:border-primary/60">
+              <p className="label-caps text-primary">Feedback</p>
+              <h2 className="mt-3 text-2xl font-black text-white">Submit field feedback</h2>
+              <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                Record visit outcomes and evidence for assigned cases.
+              </p>
+            </Panel>
+          </Link>
+          <Link className="block" to="/profile">
+            <Panel className="h-full transition hover:border-primary/60">
+              <p className="label-caps text-primary">Profile</p>
+              <h2 className="mt-3 text-2xl font-black text-white">View volunteer identity</h2>
+              <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+                Confirm the active account, organization scope, and contact identity.
+              </p>
+            </Panel>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        eyebrow="NGO Workspace"
+        title={user?.organizationName ? `${user.organizationName} dashboard` : "NGO Dashboard"}
+        description="Create templates, collect survey data, and submit feedback without admin-only operations tooling."
+      />
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        <Link className="block" to="/form-builder">
+          <Panel className="h-full transition hover:border-primary/60">
+            <p className="label-caps text-primary">Form Templates</p>
+            <h2 className="mt-3 text-2xl font-black text-white">Create or update templates</h2>
+            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+              Build reusable intake forms for your field teams and survey collection.
+            </p>
+          </Panel>
+        </Link>
+
+        <Link className="block" to="/surveys/new">
+          <Panel className="h-full transition hover:border-primary/60">
+            <p className="label-caps text-primary">Data Collection</p>
+            <h2 className="mt-3 text-2xl font-black text-white">Submit collected data</h2>
+            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+              Select a published template, enter beneficiary responses, and submit for analysis.
+            </p>
+          </Panel>
+        </Link>
+
+        <Link className="block" to="/feedback">
+          <Panel className="h-full transition hover:border-primary/60">
+            <p className="label-caps text-primary">Feedback</p>
+            <h2 className="mt-3 text-2xl font-black text-white">Review field feedback</h2>
+            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+              Track case outcomes and submit follow-up feedback when assigned.
+            </p>
+          </Panel>
+        </Link>
+      </div>
+
+      <Panel className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="label-caps text-on-surface-variant">Account Scope</p>
+          <p className="mt-2 text-lg font-black text-white">{user?.name}</p>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            {user?.email} · {user?.role?.replace("_", " ")}
+          </p>
+        </div>
+        <Link className="action-button-secondary" to="/profile">
+          Profile
+        </Link>
+      </Panel>
+    </div>
+  );
+}
+
+function AdminDashboard({ user }: { user: UserProfile | null }) {
   const queryClient = useQueryClient();
   const summaryQuery = useQuery({
     queryKey: ["dashboard-summary"],
@@ -250,7 +353,7 @@ export function DashboardPage() {
               <div>
                 <p className="text-lg font-black text-white">Pending NGO onboarding</p>
                 <p className="mt-1 text-xs text-on-surface-variant">
-                  Review approval-based NGO registrations before they gain console access.
+                  Resolve any organizations that were explicitly marked pending.
                 </p>
               </div>
 

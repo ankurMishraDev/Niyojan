@@ -52,9 +52,9 @@ const normalizeSkillKeys = (keys: string[]) =>
 export class VertexService {
 	getProviderMetadata() {
 		return {
-			mode: env.AI_PROVIDER_MODE,
+			mode: "live" as const,
 			location: env.VERTEX_LOCATION,
-			provider: env.AI_PROVIDER_MODE === "mock" ? "mock-vertex" : "vertex-ai-live",
+			provider: "vertex-ai-live",
 		};
 	}
 
@@ -147,11 +147,8 @@ export class VertexService {
 			);
 
 			return {
-				providerName: env.AI_PROVIDER_MODE === "mock" ? "mock-vertex" : "vertex-ai",
-				model:
-					env.AI_PROVIDER_MODE === "mock"
-						? "mock-document-reasoning-v1"
-						: env.VERTEX_REASONING_MODEL,
+				providerName: "vertex-ai",
+				model: env.VERTEX_REASONING_MODEL,
 				promptVersion: "document_reasoning_v1",
 				output: {
 					urgencyScore: input.fields.length > 4 ? 78 : 62,
@@ -180,10 +177,6 @@ export class VertexService {
 				rawText: null,
 			} satisfies StructuredGenerationResult<z.infer<typeof documentReasoningSchema>>;
 		})();
-
-		if (env.AI_PROVIDER_MODE === "mock") {
-			return fallback;
-		}
 
 		try {
 			const prompt = [
@@ -236,23 +229,6 @@ export class VertexService {
 			skillKeys: string[];
 		}>;
 	}) {
-		if (env.AI_PROVIDER_MODE === "mock") {
-			return {
-				providerName: "mock-vertex",
-				model: "mock-survey-analysis-v1",
-				promptVersion: "survey_need_analysis_v1",
-				output: input.fallbackNeeds,
-				latencyMs: 0,
-				inputTokenCount: null,
-				outputTokenCount: null,
-				validationStatus: "fallback" as const,
-				validationErrors: [],
-				fallbackReason: "mock_mode",
-				reviewRequired: false,
-				rawText: null,
-			} satisfies StructuredGenerationResult<z.infer<typeof surveyNeedDraftListSchema>>;
-		}
-
 		try {
 			const prompt = [
 				"You analyze structured NGO household survey responses and return detected needs.",

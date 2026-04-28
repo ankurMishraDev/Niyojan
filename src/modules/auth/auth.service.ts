@@ -27,6 +27,14 @@ type RegisterNgoInput = {
 	organization_type: string;
 	region?: string;
 	admin_name?: string;
+	registration_id?: string;
+	contact_phone?: string;
+	website?: string;
+	address_text?: string;
+	focus_areas?: string[];
+	operating_regions?: string[];
+	team_size?: number;
+	founded_year?: number;
 };
 
 type ListOnboardingOrganizationsQuery = {
@@ -153,14 +161,6 @@ const syncProfileFields = async (user: UserRow, claims: AuthenticatedClaims) => 
 	};
 };
 
-const validateRoleForAutoCreate = (role?: AppRole) => {
-	if (!role) {
-		throw new AppError(400, "Mock auth requires a requested role");
-	}
-
-	return role;
-};
-
 export class AuthService {
 	async resolveUserFromClaims(claims: AuthenticatedClaims) {
 		const user = await getUserByFirebaseUid(claims.firebaseUid);
@@ -181,44 +181,6 @@ export class AuthService {
 		return mapToProfile(current);
 	}
 
-	async getOrCreateMockUserFromClaims(claims: AuthenticatedClaims) {
-		const existing = await getUserByFirebaseUid(claims.firebaseUid);
-		if (existing) {
-			return mapToProfile(await syncProfileFields(existing, claims));
-		}
-
-		const role = validateRoleForAutoCreate(claims.requestedRole);
-		const orgId = role === "superadmin" ? null : claims.requestedOrgId || null;
-
-		if (role !== "superadmin" && !orgId) {
-			throw new AppError(
-				400,
-				"Organization context is required for non-superadmin mock users",
-			);
-		}
-
-		if (orgId) {
-			const organization = await getOrganizationById(orgId);
-			if (!organization) {
-				throw new AppError(404, "Mock organization not found");
-			}
-		}
-
-		const [createdUser] = (await db("users")
-			.insert({
-				...(claims.requestedUserId ? { id: claims.requestedUserId } : {}),
-				org_id: orgId,
-				firebase_uid: claims.firebaseUid,
-				name: claims.name || "Mock User",
-				email: resolveSafeEmail(claims.firebaseUid, claims.email),
-				role,
-				status: "active",
-			})
-			.returning("*")) as UserRow[];
-
-		return this.getCurrentUserProfile(mapToResolvedUser(createdUser));
-	}
-
 	async registerNgo(claims: AuthenticatedClaims, input: RegisterNgoInput) {
 		const existing = await getUserByFirebaseUid(claims.firebaseUid);
 		if (existing) {
@@ -231,7 +193,16 @@ export class AuthService {
 					name: input.organization_name.trim(),
 					type: input.organization_type.trim(),
 					region: input.region?.trim() || null,
-					status: "pending",
+					registration_id: input.registration_id?.trim() || null,
+					contact_email: resolveSafeEmail(claims.firebaseUid, claims.email),
+					contact_phone: input.contact_phone?.trim() || null,
+					website: input.website?.trim() || null,
+					address_text: input.address_text?.trim() || null,
+					focus_areas: JSON.stringify(input.focus_areas || []),
+					operating_regions: JSON.stringify(input.operating_regions || []),
+					team_size: input.team_size || null,
+					founded_year: input.founded_year || null,
+					status: "active",
 				})
 				.returning(["id", "name", "type", "region", "status", "created_at", "updated_at"]);
 
@@ -242,7 +213,7 @@ export class AuthService {
 					name: (input.admin_name || claims.name || "NGO Administrator").trim(),
 					email: resolveSafeEmail(claims.firebaseUid, claims.email),
 					role: "ngo_admin",
-					status: "pending",
+					status: "active",
 				})
 				.returning("*");
 
@@ -266,6 +237,15 @@ export class AuthService {
 				"o.name",
 				"o.type",
 				"o.region",
+				"o.registration_id",
+				"o.contact_email",
+				"o.contact_phone",
+				"o.website",
+				"o.address_text",
+				"o.focus_areas",
+				"o.operating_regions",
+				"o.team_size",
+				"o.founded_year",
 				"o.status",
 				"o.created_at",
 				"o.updated_at",
@@ -287,6 +267,15 @@ export class AuthService {
 			name: string;
 			type: string;
 			region: string | null;
+			registration_id: string | null;
+			contact_email: string | null;
+			contact_phone: string | null;
+			website: string | null;
+			address_text: string | null;
+			focus_areas: string[] | null;
+			operating_regions: string[] | null;
+			team_size: number | null;
+			founded_year: number | null;
 			status: string;
 			created_at: Date;
 			updated_at: Date;
@@ -312,6 +301,15 @@ export class AuthService {
 				name: row.name,
 				type: row.type,
 				region: row.region,
+				registrationId: row.registration_id,
+				contactEmail: row.contact_email,
+				contactPhone: row.contact_phone,
+				website: row.website,
+				addressText: row.address_text,
+				focusAreas: row.focus_areas || [],
+				operatingRegions: row.operating_regions || [],
+				teamSize: row.team_size,
+				foundedYear: row.founded_year,
 				status: normalizeStatus(row.status),
 				createdAt: row.created_at,
 				updatedAt: row.updated_at,

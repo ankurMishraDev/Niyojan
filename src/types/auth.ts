@@ -6,10 +6,7 @@ export interface AuthenticatedClaims {
   firebaseUid: string;
   email?: string;
   name?: string;
-  authSource: "firebase" | "mock";
-  requestedRole?: AppRole;
-  requestedOrgId?: string | null;
-  requestedUserId?: string;
+  authSource: "firebase";
 }
 
 export interface ResolvedAppUser {

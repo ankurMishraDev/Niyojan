@@ -35,7 +35,7 @@ type ProcessedDocument = {
 };
 
 export type DocumentExtractionResult = {
-	providerMode: "mock" | "live";
+	providerMode: "live";
 	providerName: string;
 	model: string;
 	fields: ExtractedCandidateField[];
@@ -59,55 +59,6 @@ const SUPPORTED_MIME_TYPES = new Set([
 	"image/jpeg",
 	"image/tiff",
 ]);
-
-const mockHouseholdFields: ExtractedCandidateField[] = [
-	{ label: "Household Size", inputType: "number", required: true, confidence: 0.97 },
-	{ label: "Respondent Age", inputType: "number", required: true, confidence: 0.94 },
-	{
-		label: "Respondent Gender",
-		inputType: "select",
-		options: ["male", "female", "other", "prefer_not_to_say"],
-		required: true,
-		confidence: 0.91,
-	},
-	{
-		label: "Primary Water Access",
-		inputType: "select",
-		options: ["piped", "well", "tanker", "river", "none"],
-		required: true,
-		confidence: 0.89,
-	},
-	{ label: "Immediate Medical Need", inputType: "boolean", required: true, confidence: 0.88 },
-	{
-		label: "Urgent Assistance Required",
-		inputType: "multiselect",
-		options: ["food", "medical", "shelter", "water", "counseling"],
-		required: true,
-		confidence: 0.86,
-	},
-	{ label: "Case Notes", inputType: "textarea", required: false, confidence: 0.84 },
-	{ label: "Consent Given", inputType: "boolean", required: true, confidence: 0.98 },
-];
-
-const mockGeneralFields: ExtractedCandidateField[] = [
-	{ label: "Respondent Name", inputType: "text", required: true, confidence: 0.87 },
-	{ label: "Village Name", inputType: "text", required: true, confidence: 0.83 },
-	{
-		label: "Urgent Assistance Required",
-		inputType: "multiselect",
-		options: ["food", "medical", "shelter", "water", "counseling"],
-		required: true,
-		confidence: 0.82,
-	},
-	{ label: "Case Notes", inputType: "textarea", required: false, confidence: 0.8 },
-];
-
-const chooseMockFields = (fileName: string) => {
-	const normalized = fileName.toLowerCase();
-	return normalized.includes("household") || normalized.includes("assessment")
-		? mockHouseholdFields
-		: mockGeneralFields;
-};
 
 const toArray = <T>(value: unknown) => (Array.isArray(value) ? (value as T[]) : []);
 
@@ -314,61 +265,50 @@ const parseDocumentAiPayload = (payload: unknown) => {
 	};
 };
 
-const buildMockResult = (input: DocumentExtractionInput, reason?: string): DocumentExtractionResult => {
-	const fields = chooseMockFields(input.fileName);
-	const documentText = fields
-		.map((field) => `${field.label}: ${field.inputType}`)
-		.join("\n");
-
+const buildManualReviewResult = (
+	input: DocumentExtractionInput,
+	reason: string,
+	startedAt = Date.now(),
+): DocumentExtractionResult => {
 	return {
-		providerMode: "mock",
-		providerName: "mock-document-ai",
-		model: "mock-document-extractor-v1",
-		fields,
-		documentText,
-		textBlocks: buildTextBlocks(documentText),
-		keyValuePairs: fields.map((field, index) => ({
-			label: field.label,
-			value: field.inputType,
-			confidence: field.confidence,
-			page: 1,
-		})),
+		providerMode: "live",
+		providerName: "document-ai",
+		model: `document-ai:${env.DOCUMENT_AI_PROCESSOR_ID}`,
+		fields: [],
+		documentText: "",
+		textBlocks: [],
+		keyValuePairs: [],
 		tables: [],
 		pageCount: 1,
-		detectedLanguage: "en",
+		detectedLanguage: null,
 		rawResponse: {
-			reason: reason || "mock_mode",
+			reason,
 			fileName: input.fileName,
 		},
-		latencyMs: 0,
-		validationStatus: reason ? "fallback" : "passed",
-		validationErrors: reason ? [reason] : [],
-		fallbackReason: reason || null,
-		reviewRequired: Boolean(reason),
+		latencyMs: Date.now() - startedAt,
+		validationStatus: "requires_human",
+		validationErrors: [reason],
+		fallbackReason: reason,
+		reviewRequired: true,
 	};
 };
 
 const downloadDocumentBytes = async (gcsPath: string) => {
 	const storage = getStorageClient();
-	if (!storage) {
-		throw new Error("Storage client is unavailable in GCP mock mode");
-	}
-
 	const [bytes] = await storage.bucket(gcsBucketName).file(gcsPath).download();
 	return bytes;
 };
 
 export class DocumentAiService {
 	async extractCandidateFields(input: DocumentExtractionInput): Promise<DocumentExtractionResult> {
-		if (env.AI_PROVIDER_MODE === "mock") {
-			return buildMockResult(input);
-		}
-
-		if (!SUPPORTED_MIME_TYPES.has(input.fileType)) {
-			return buildMockResult(input, "unsupported_file_type_requires_manual_review");
-		}
-
 		const startedAt = Date.now();
+		if (!SUPPORTED_MIME_TYPES.has(input.fileType)) {
+			return buildManualReviewResult(
+				input,
+				"unsupported_file_type_requires_manual_review",
+				startedAt,
+			);
+		}
 
 		try {
 			const fileBytes = await downloadDocumentBytes(input.gcsPath);
@@ -422,9 +362,10 @@ export class DocumentAiService {
 				reviewRequired: validationStatus !== "passed",
 			};
 		} catch (error) {
-			return buildMockResult(
+			return buildManualReviewResult(
 				input,
 				error instanceof Error ? error.message : "document_ai_live_call_failed",
+				startedAt,
 			);
 		}
 	}
