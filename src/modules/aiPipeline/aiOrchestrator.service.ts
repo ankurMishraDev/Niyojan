@@ -1,4 +1,4 @@
-import { documentAiService, DocumentExtractionInput } from "./documentAi.service";
+import { DocumentExtractionInput, documentAiService } from "./documentAi.service";
 import { geminiService } from "./gemini.service";
 import { vertexService } from "./vertex.service";
 
@@ -16,6 +16,8 @@ export type DocumentExtractionOrchestrationOutput = {
 		options?: string[];
 		required: boolean;
 		confidence: number;
+		provenanceRef?: string;
+		valueHint?: string;
 	}[];
 	mappedFields: {
 		label: string;
@@ -38,6 +40,8 @@ export type DocumentExtractionOrchestrationOutput = {
 		fieldMapper: string;
 		vertexProvider: string;
 	};
+	documentAi: Awaited<ReturnType<typeof documentAiService.extractCandidateFields>>;
+	fieldMapping: Awaited<ReturnType<typeof geminiService.normalizeAndMapFields>>;
 	generatedAt: string;
 };
 
@@ -46,12 +50,10 @@ export class AiOrchestratorService {
 		input: DocumentExtractionInput,
 	): Promise<DocumentExtractionOrchestrationOutput> {
 		const extraction = await documentAiService.extractCandidateFields(input);
-		const mappedFields = await geminiService.normalizeAndMapFields(extraction.fields);
+		const fieldMapping = await geminiService.normalizeAndMapFields(extraction.fields);
 
-		const mappedCount = mappedFields.filter((field) => !field.isCustom).length;
-		const customCount = mappedFields.filter((field) => field.isCustom).length;
-
-		const geminiMetadata = geminiService.getProviderMetadata();
+		const mappedCount = fieldMapping.mappedFields.filter((field) => !field.isCustom).length;
+		const customCount = fieldMapping.mappedFields.filter((field) => field.isCustom).length;
 		const vertexMetadata = vertexService.getProviderMetadata();
 
 		return {
@@ -63,7 +65,7 @@ export class AiOrchestratorService {
 				fileType: input.fileType,
 			},
 			extractedFields: extraction.fields,
-			mappedFields,
+			mappedFields: fieldMapping.mappedFields,
 			summary: {
 				candidateCount: extraction.fields.length,
 				mappedCount,
@@ -71,9 +73,11 @@ export class AiOrchestratorService {
 			},
 			models: {
 				documentExtractor: extraction.model,
-				fieldMapper: geminiMetadata.model,
+				fieldMapper: fieldMapping.model,
 				vertexProvider: vertexMetadata.provider,
 			},
+			documentAi: extraction,
+			fieldMapping,
 			generatedAt: new Date().toISOString(),
 		};
 	}

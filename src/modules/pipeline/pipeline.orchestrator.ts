@@ -146,13 +146,36 @@ const mapManifest = (manifest: ManifestRow) => ({
 		const pii = stage4PiiMasking(canonical.canonicalText);
 		const semantic = stage5SemanticCheck(pii.semanticLossRatio);
 		const extractionRecord = stage6GeminiExtraction(extraction);
-		const trust = stage7TrustGate(extraction.mappedFields);
+		const baseTrust = stage7TrustGate(extraction.mappedFields);
+		const combinedValidationFlags = Array.from(
+			new Set([
+				...baseTrust.validationFlags,
+				...extraction.documentAi.validationErrors,
+				...extraction.fieldMapping.validationErrors,
+			]),
+		);
+		const effectiveValidationStatus =
+			baseTrust.validationStatus === "requires_human" ||
+			extraction.documentAi.reviewRequired ||
+			extraction.fieldMapping.reviewRequired
+				? "requires_human"
+				: extraction.documentAi.validationStatus === "fallback" ||
+					  extraction.fieldMapping.validationStatus === "fallback"
+					? "fallback"
+					: baseTrust.validationStatus;
+		const trust = {
+			...baseTrust,
+			validationStatus: effectiveValidationStatus,
+			validationFlags: combinedValidationFlags,
+		};
 		const escalation = stage8Escalation({
 			candidateCount: extraction.summary.candidateCount,
 			mappedCount: extraction.summary.mappedCount,
 			validationStatus: trust.validationStatus,
 		});
-		const reasoning = escalation.escalationTriggered ? stage9Reasoning(extraction.mappedFields) : null;
+		const reasoning = escalation.escalationTriggered
+			? await stage9Reasoning(extraction.mappedFields, canonical.canonicalText)
+			: null;
 		const reviewPrep = stage10ReviewPrep({
 			escalationTriggered: escalation.escalationTriggered,
 			validationStatus: trust.validationStatus,
@@ -258,6 +281,7 @@ const mapManifest = (manifest: ManifestRow) => ({
 				.insert({
 					document_id: document.id,
 					manifest_id: manifest.id,
+					provider_name: extractionRecord.providerName,
 					model_name: extractionRecord.modelName,
 					model_version: extractionRecord.modelVersion,
 					prompt_version: extractionRecord.promptVersion,
@@ -268,6 +292,21 @@ const mapManifest = (manifest: ManifestRow) => ({
 					input_token_count: extractionRecord.inputTokenCount,
 					output_token_count: extractionRecord.outputTokenCount,
 					latency_ms: extractionRecord.latencyMs,
+					validation_status: extractionRecord.validationStatus,
+					validation_errors: JSON.stringify(extractionRecord.validationErrors),
+					fallback_reason: extractionRecord.fallbackReason,
+					review_required: extractionRecord.reviewRequired,
+					average_confidence:
+						extractionRecord.extractedFields.length === 0
+							? 0
+							: Number(
+									(
+										extractionRecord.extractedFields.reduce(
+											(sum, field) => sum + field.confidence,
+											0,
+										) / extractionRecord.extractedFields.length
+									).toFixed(4),
+							  ),
 					is_mock: extractionRecord.isMock,
 				})
 				.returning("*")) as Array<{ id: string }>;
@@ -316,6 +355,7 @@ const mapManifest = (manifest: ManifestRow) => ({
 						document_id: document.id,
 						validated_candidate_id: validatedCandidate.id,
 						manifest_id: manifest.id,
+						provider_name: reasoning.providerName,
 						model_name: reasoning.modelName,
 						prompt_version: reasoning.promptVersion,
 						urgency_score: reasoning.urgencyScore,
@@ -332,6 +372,10 @@ const mapManifest = (manifest: ManifestRow) => ({
 						input_token_count: reasoning.inputTokenCount,
 						output_token_count: reasoning.outputTokenCount,
 						latency_ms: reasoning.latencyMs,
+						validation_status: reasoning.validationStatus,
+						validation_errors: JSON.stringify(reasoning.validationErrors),
+						fallback_reason: reasoning.fallbackReason,
+						review_required: reasoning.reviewRequired,
 						is_mock: reasoning.isMock,
 					})
 					.returning("*")) as Array<{ id: string }>;
@@ -437,9 +481,9 @@ const mapManifest = (manifest: ManifestRow) => ({
 			manifest: mapManifest(manifest),
 			canonicalProjection: projection ? { ...projection, text_blocks: fromJson(projection.text_blocks), key_value_pairs: fromJson(projection.key_value_pairs), tables_json: fromJson(projection.tables_json), raw_docai_response: fromJson(projection.raw_docai_response) } : null,
 			piiTokenMap: piiMap ? { ...piiMap, dlp_info_types_found: fromJson(piiMap.dlp_info_types_found), inline_token_map: fromJson(piiMap.inline_token_map) } : null,
-			aiExtraction: extraction ? { ...extraction, extracted_fields: fromJson(extraction.extracted_fields), missing_fields: fromJson(extraction.missing_fields), contradictions: fromJson(extraction.contradictions), model_quality_flags: fromJson(extraction.model_quality_flags) } : null,
+			aiExtraction: extraction ? { ...extraction, extracted_fields: fromJson(extraction.extracted_fields), missing_fields: fromJson(extraction.missing_fields), contradictions: fromJson(extraction.contradictions), model_quality_flags: fromJson(extraction.model_quality_flags), validation_errors: fromJson(extraction.validation_errors) } : null,
 			validatedCandidate: validated ? { ...validated, field_trust_map: fromJson(validated.field_trust_map), validation_flags: fromJson(validated.validation_flags), trusted_fields: fromJson(validated.trusted_fields), untrusted_fields: fromJson(validated.untrusted_fields) } : null,
-			reasoningOutput: reasoning ? { ...reasoning, urgency_reasons: fromJson(reasoning.urgency_reasons), urgency_evidence_refs: fromJson(reasoning.urgency_evidence_refs), recommended_skill_keys: fromJson(reasoning.recommended_skill_keys), verification_risk_reasons: fromJson(reasoning.verification_risk_reasons) } : null,
+			reasoningOutput: reasoning ? { ...reasoning, urgency_reasons: fromJson(reasoning.urgency_reasons), urgency_evidence_refs: fromJson(reasoning.urgency_evidence_refs), recommended_skill_keys: fromJson(reasoning.recommended_skill_keys), verification_risk_reasons: fromJson(reasoning.verification_risk_reasons), validation_errors: fromJson(reasoning.validation_errors) } : null,
 			humanReviews: reviews.map((review) => ({ ...review, field_corrections: fromJson(review.field_corrections), approved_fields: fromJson(review.approved_fields) })),
 		};
 	}

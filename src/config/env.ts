@@ -35,11 +35,16 @@ const envSchema = z.object({
   GCS_BUCKET_NAME: z.string().default("niyojan-prototype"),
   GCP_SIGNED_URL_EXPIRY_SECONDS: z.coerce.number().int().positive().default(900),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
+  DOCUMENT_AI_LOCATION: z.string().default("us"),
+  DOCUMENT_AI_PROCESSOR_ID: z.string().optional(),
 
   AI_PROVIDER_MODE: z.enum(["mock", "live"]).optional(),
   AI_MODE: z.enum(["mock", "live"]).optional(),
   GEMINI_API_KEY: z.string().optional(),
   VERTEX_LOCATION: z.string().default("us-central1"),
+  VERTEX_DOCUMENT_MODEL: z.string().default("gemini-2.0-flash-001"),
+  VERTEX_REASONING_MODEL: z.string().default("gemini-2.0-flash-001"),
+  VERTEX_SURVEY_MODEL: z.string().default("gemini-2.0-flash-001"),
 
   MATCH_SKILL_WEIGHT: z.coerce.number().min(0).max(1).default(0.5),
   MATCH_AVAILABILITY_WEIGHT: z.coerce.number().min(0).max(1).default(0.3),
@@ -104,5 +109,40 @@ export const env = {
   CORS_ORIGINS: splitCsv(parsed.data.CORS_ORIGINS),
   AI_PROVIDER_MODE: resolveAiProviderMode(parsed.data.AI_PROVIDER_MODE, parsed.data.AI_MODE),
 } as const;
+
+const hasInlineFirebaseCreds = Boolean(
+  env.FIREBASE_PROJECT_ID && env.FIREBASE_CLIENT_EMAIL && env.FIREBASE_PRIVATE_KEY,
+);
+const hasAnyGoogleCredentialSource = Boolean(
+  env.GOOGLE_APPLICATION_CREDENTIALS || hasInlineFirebaseCreds,
+);
+
+if (!env.AUTH_MOCK_MODE && !hasAnyGoogleCredentialSource) {
+  throw new Error(
+    "Environment validation failed: live auth requires FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY or GOOGLE_APPLICATION_CREDENTIALS",
+  );
+}
+
+if (!env.GCP_MOCK_MODE && !hasAnyGoogleCredentialSource) {
+  throw new Error(
+    "Environment validation failed: live GCP access requires FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY or GOOGLE_APPLICATION_CREDENTIALS",
+  );
+}
+
+if (env.AI_PROVIDER_MODE === "live") {
+  if (!env.GCP_PROJECT_ID) {
+    throw new Error("Environment validation failed: AI live mode requires GCP_PROJECT_ID");
+  }
+
+  if (!env.DOCUMENT_AI_PROCESSOR_ID) {
+    throw new Error("Environment validation failed: AI live mode requires DOCUMENT_AI_PROCESSOR_ID");
+  }
+
+  if (!hasAnyGoogleCredentialSource) {
+    throw new Error(
+      "Environment validation failed: AI live mode requires FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY or GOOGLE_APPLICATION_CREDENTIALS",
+    );
+  }
+}
 
 export type AppEnv = typeof env;

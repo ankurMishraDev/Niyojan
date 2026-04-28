@@ -1,3 +1,5 @@
+import { vertexService } from "../../aiPipeline/vertex.service";
+
 type ReasoningField = {
 	label: string;
 	category: string;
@@ -7,34 +9,34 @@ type ReasoningField = {
 	inputType: string;
 };
 
-export const stage9Reasoning = (fields: ReasoningField[]) => {
-	const categories = Array.from(new Set(fields.map((field) => field.category).filter(Boolean)));
-	const recommendedSkillKeys = Array.from(
-		new Set(
-			fields
-				.map((field) => field.matchedCatalogKey)
-				.filter((value): value is string => Boolean(value))
-				.slice(0, 3),
-		),
-	);
+export const stage9Reasoning = async (fields: ReasoningField[], canonicalText: string) => {
+	const result = await vertexService.reasonAboutDocument({
+		canonicalText,
+		fields,
+	});
 
 	return {
-		modelName: "gemini-1.5-pro",
-		promptVersion: "reasoning_prompt_v1",
-		urgencyScore: fields.length > 4 ? 78 : 62,
-		urgencyLabel: fields.length > 4 ? "high" : "medium",
-		urgencyReasons: ["Scaffold reasoning generated from extracted field density"],
-		urgencyEvidenceRefs: fields.slice(0, 3).map((field, index) => `p1:b${index + 1}`),
-		needCategory: categories[0] || "general",
-		needSubcategory: null,
-		recommendedSkillKeys,
-		recommendedAction: "Route to human review and form refinement",
-		reasoningConfidence: 0.72,
-		verificationRisk: "medium",
-		verificationRiskReasons: ["Mock pipeline scaffold requires reviewer confirmation"],
-		inputTokenCount: fields.length * 18,
-		outputTokenCount: 60,
-		latencyMs: 0,
-		isMock: true,
+		providerName: result.providerName,
+		modelName: result.model,
+		promptVersion: result.promptVersion,
+		urgencyScore: result.output.urgencyScore,
+		urgencyLabel: result.output.urgencyLabel,
+		urgencyReasons: result.output.urgencyReasons,
+		urgencyEvidenceRefs: result.output.urgencyEvidenceRefs,
+		needCategory: result.output.needCategory,
+		needSubcategory: result.output.needSubcategory,
+		recommendedSkillKeys: result.output.recommendedSkillKeys,
+		recommendedAction: result.output.recommendedAction,
+		reasoningConfidence: result.output.reasoningConfidence,
+		verificationRisk: result.output.verificationRisk,
+		verificationRiskReasons: result.output.verificationRiskReasons,
+		inputTokenCount: result.inputTokenCount,
+		outputTokenCount: result.outputTokenCount,
+		latencyMs: result.latencyMs,
+		validationStatus: result.validationStatus,
+		validationErrors: result.validationErrors,
+		fallbackReason: result.fallbackReason,
+		reviewRequired: result.reviewRequired,
+		isMock: result.providerName.startsWith("mock"),
 	};
 };

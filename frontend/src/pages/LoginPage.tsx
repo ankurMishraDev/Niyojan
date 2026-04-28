@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { Button, Input, Panel, Select } from "@/components/ui";
 import { useAuth } from "@/features/auth/AuthProvider";
 
@@ -15,7 +15,12 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   if (status === "authenticated" && user) {
-    return <Navigate to={(location.state as { from?: string } | null)?.from ?? "/dashboard"} replace />;
+    return (
+      <Navigate
+        to={user.status === "active" ? (location.state as { from?: string } | null)?.from ?? "/dashboard" : "/account-status"}
+        replace
+      />
+    );
   }
 
   const onFirebaseSubmit = async (event: FormEvent) => {
@@ -117,6 +122,12 @@ export function LoginPage() {
             <Button className="w-full" disabled={!usingFirebase || submitting} type="submit">
               {usingFirebase ? "Initiate Authorization" : "Firebase Not Configured"}
             </Button>
+            <p className="text-sm text-on-surface-variant">
+              New NGO?{" "}
+              <Link className="text-white underline-offset-4 hover:underline" to="/signup">
+                Register organization
+              </Link>
+            </p>
           </form>
 
           {devMockEnabled ? (

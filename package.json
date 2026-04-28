@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:backend": "vitest run",
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build",
     "frontend:test": "npm --prefix frontend run test",
@@ -15,6 +16,9 @@
     "migrate": "knex --knexfile knexfile.js migrate:latest",
     "migrate:rollback": "knex --knexfile knexfile.js migrate:rollback",
     "seed": "knex --knexfile knexfile.js seed:run",
+    "seed:demo:data": "knex --knexfile knexfile.js seed:run",
+    "seed:demo:identity": "node scripts/firebaseIdentityBootstrap.js demo",
+    "bootstrap:admin": "node scripts/firebaseIdentityBootstrap.js admin",
     "db:reset": "npm run migrate:rollback ; npm run migrate ; npm run seed"
   },
   "keywords": [],
@@ -36,6 +40,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/supertest": "^6.0.3",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/morgan": "^1.9.10",
@@ -43,8 +48,10 @@
     "@types/pg": "^8.20.0",
     "@types/uuid": "^10.0.0",
     "knex-cli": "^1.0.1",
+    "supertest": "^7.1.4",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.4"
   }
 }

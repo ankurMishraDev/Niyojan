@@ -1,10 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
-import { InlineError, LoaderBlock, MetricCard, PageHeader, Panel, StatusBadge } from "@/components/ui";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Button, InlineError, LoaderBlock, MetricCard, PageHeader, Panel, StatusBadge } from "@/components/ui";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { getApiErrorMessage } from "@/lib/api";
-import { dashboardApi } from "@/lib/services";
+import { dashboardApi, onboardingApi } from "@/lib/services";
 import { formatDateTime, formatNumber, toneForStatus } from "@/lib/format";
 
 export function DashboardPage() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const summaryQuery = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: dashboardApi.summary,
@@ -20,6 +23,23 @@ export function DashboardPage() {
   const pipelineHealthQuery = useQuery({
     queryKey: ["dashboard-pipeline-health"],
     queryFn: dashboardApi.pipelineHealth,
+  });
+  const pendingNgosQuery = useQuery({
+    enabled: user?.role === "superadmin",
+    queryKey: ["pending-ngos"],
+    queryFn: () => onboardingApi.listNgos({ status: "pending" }),
+  });
+  const approveMutation = useMutation({
+    mutationFn: (orgId: string) => onboardingApi.approveNgo(orgId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["pending-ngos"] });
+    },
+  });
+  const rejectMutation = useMutation({
+    mutationFn: (orgId: string) => onboardingApi.rejectNgo(orgId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["pending-ngos"] });
+    },
   });
 
   const isInitialLoading =
@@ -137,7 +157,7 @@ export function DashboardPage() {
         </Panel>
 
         <div className="space-y-4">
-          <Panel className="space-y-3">
+        <Panel className="space-y-3">
             <div>
               <p className="text-lg font-black text-white">Pipeline health</p>
               <p className="mt-1 text-xs text-on-surface-variant">
@@ -224,6 +244,64 @@ export function DashboardPage() {
               ))}
             </div>
           </Panel>
+
+          {user?.role === "superadmin" ? (
+            <Panel className="space-y-3">
+              <div>
+                <p className="text-lg font-black text-white">Pending NGO onboarding</p>
+                <p className="mt-1 text-xs text-on-surface-variant">
+                  Review approval-based NGO registrations before they gain console access.
+                </p>
+              </div>
+
+              {pendingNgosQuery.isError ? (
+                <InlineError
+                  message={getApiErrorMessage(pendingNgosQuery.error)}
+                  onRetry={() => void pendingNgosQuery.refetch()}
+                />
+              ) : null}
+
+              <div className="space-y-3">
+                {(pendingNgosQuery.data ?? []).map((organization) => (
+                  <div
+                    className="rounded-md border border-outline-variant bg-surface-container-low p-3"
+                    key={organization.id}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-white">{organization.name}</p>
+                        <p className="mt-1 text-xs text-on-surface-variant">
+                          {organization.region ?? "Region pending"} ·{" "}
+                          {organization.primaryAdmin?.email ?? "No primary admin"}
+                        </p>
+                      </div>
+                      <StatusBadge tone="warning">{organization.status}</StatusBadge>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        disabled={approveMutation.isPending}
+                        onClick={() => void approveMutation.mutate(organization.id)}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        disabled={rejectMutation.isPending}
+                        onClick={() => void rejectMutation.mutate(organization.id)}
+                        variant="secondary"
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {pendingNgosQuery.data?.length === 0 ? (
+                  <p className="text-sm text-on-surface-variant">
+                    No pending NGO registrations.
+                  </p>
+                ) : null}
+              </div>
+            </Panel>
+          ) : null}
         </div>
       </div>
     </div>

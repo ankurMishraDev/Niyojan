@@ -15,6 +15,10 @@ export function RouteGuard({ roles }: { roles?: AppRole[] }) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
+  if (user.status !== "active" && location.pathname !== "/account-status") {
+    return <Navigate to="/account-status" replace />;
+  }
+
   if (roles && !roles.includes(user.role)) {
     return (
       <Panel className="mx-auto mt-20 max-w-2xl space-y-4">

@@ -7,21 +7,15 @@ Backend-only prototype for NGO volunteer coordination, survey capture, need dete
 Implemented:
 
 - Foundation: Express + TypeScript + Knex + Docker
-- Auth/security: mock mode + Firebase Admin verification path, role guard, tenant-aware service checks
+- Auth/security: Firebase token verification, resolved DB-backed app users, approval-based NGO onboarding, role guard, tenant-aware service checks
 - Core data modules: organizations, field catalog, skills, volunteers
-- Document flow: signed upload/read URL generation, document metadata, mock extraction trigger, AI preview endpoints
+- Document flow: signed upload/read URL generation, document metadata, live-or-fallback extraction trigger, AI preview endpoints
 - Form builder: templates, versions, fields, publish flow, create template from extracted fields
-- Surveys: draft creation, EAV response submission, survey detail/list, needs analysis trigger
+- Surveys: draft creation, EAV response submission, survey detail/list, live-or-fallback needs analysis
 - Needs: list, detail, and skill attachment
 - Matching: volunteer ranking for a need with weighted scoring and explanations
 - Assignments: create, list, detail, and status update
 - Dashboard: summary, urgent needs, volunteer availability, pipeline health
-
-Not yet implemented from the larger plan:
-
-- Full 10-stage pipeline module and audit trail tables
-- Feedback / case closure / outcome tracking
-- Full AI live-provider pipeline beyond current mock-oriented abstractions
 
 ## Tech stack
 
@@ -147,7 +141,12 @@ and provide:
 - `GCP_PROJECT_ID`
 - `GCS_BUCKET_NAME`
 - `GOOGLE_APPLICATION_CREDENTIALS`
-- `GEMINI_API_KEY` if using direct Gemini mode
+- `DOCUMENT_AI_LOCATION`
+- `DOCUMENT_AI_PROCESSOR_ID`
+- `VERTEX_LOCATION`
+- `VERTEX_DOCUMENT_MODEL`
+- `VERTEX_REASONING_MODEL`
+- `VERTEX_SURVEY_MODEL`
 
 ## Database and seed data
 
@@ -172,20 +171,46 @@ The repo currently uses one main migration file that creates the prototype schem
 
 Seed data includes:
 
-- 2 organizations
+- 5 organizations
 - users across platform/admin/field/volunteer roles
+- 42 volunteers with varied skills, locations, and availability states
 - 40+ field catalog entries
 - 20+ skills
 - 1 published survey template
-- volunteers with skills
 - submitted surveys
 - needs and assignments for demo matching
+
+### Demo identity bootstrap
+
+Use the deterministic identity catalog for staging/demo environments:
+
+```bash
+npm run seed:demo:data
+npm run seed:demo:identity
+```
+
+Production-safe admin bootstrap:
+
+```bash
+npm run bootstrap:admin
+```
+
+Seeded live-login accounts include:
+
+- superadmin: `niyojanAdmin@gmail.com` / `asdf@1234`
+- NGO admins and field workers for 5 seeded orgs
+- a small QA subset of volunteers with Firebase logins
+- the broader volunteer roster remains available in the DB for matching tests
 
 ## Core flows supported today
 
 ### 1. Auth
 
 - `GET /api/auth/me`
+- `POST /api/auth/register-ngo`
+- `GET /api/admin/onboarding/ngos`
+- `POST /api/admin/onboarding/ngos/:orgId/approve`
+- `POST /api/admin/onboarding/ngos/:orgId/reject`
 
 ### 2. Core admin data
 
@@ -307,9 +332,9 @@ http://localhost:8080/api-console
 ## Known prototype simplifications
 
 - Matching uses deterministic weighted scoring with application-code distance calculation.
-- AI extraction and mapping are mock/demo-oriented abstractions unless live credentials are configured.
-- The full audit/event/state-machine pipeline from the larger plan is not implemented yet.
-- Feedback, outcome closure, and long-term AI accuracy tracking are still pending.
+- AI providers now use Document AI plus Vertex Gemini when live credentials are configured, and fall back to deterministic/manual-review paths when validation fails.
+- The full audit/event/state-machine pipeline from the larger plan is still simplified into the current manifest-based implementation.
+- Long-term AI accuracy tracking remains limited to current review/feedback metadata.
 - The schema is still consolidated into one main migration instead of the larger multi-migration plan.
 
 ## Suggested smoke sequence

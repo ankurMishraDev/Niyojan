@@ -14,7 +14,7 @@ const operationalAreas = [
 
 export function LandingPage() {
   const { user, status } = useAuth();
-  const destination = user ? "/dashboard" : "/login";
+  const destination = user ? (user.status === "active" ? "/dashboard" : "/account-status") : "/login";
 
   return (
     <main className="min-h-screen bg-surface px-4 py-5 text-on-surface">
@@ -55,6 +55,11 @@ export function LandingPage() {
               <Link to={destination}>
                 <Button>{user ? "Open Dashboard" : "Start Session"}</Button>
               </Link>
+              {!user ? (
+                <Link className="action-button-secondary" to="/signup">
+                  Register NGO
+                </Link>
+              ) : null}
               <Link className="action-button-secondary" to="/pipeline">
                 Document Pipeline
               </Link>

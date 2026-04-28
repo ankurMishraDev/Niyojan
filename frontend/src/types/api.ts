@@ -23,8 +23,35 @@ export type UserProfile = {
   email: string;
   role: AppRole;
   status: string;
+  userStatus?: string;
+  organizationStatus?: string | null;
+  organizationName?: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type NgoRegistrationPayload = {
+  organization_name: string;
+  organization_type: string;
+  region?: string;
+  admin_name?: string;
+};
+
+export type OnboardingOrganization = {
+  id: string;
+  name: string;
+  type: string;
+  region: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  primaryAdmin: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    firebaseUid: string | null;
+    status: string | null;
+  } | null;
 };
 
 export type DashboardSummary = {

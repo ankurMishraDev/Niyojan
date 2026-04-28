@@ -3,6 +3,7 @@ import { AppError } from "../../middleware/errorHandler";
 import { auditService } from "../../services/auditService";
 import { AuthenticatedUser } from "../../types/auth";
 import { getPaginationParams } from "../../utils/pagination";
+import { vertexService } from "../aiPipeline/vertex.service";
 
 type SurveyStatus = "draft" | "submitted" | "analyzed";
 type SupportedInputType = "text" | "number" | "boolean" | "select" | "multiselect" | "date" | "textarea";
@@ -673,12 +674,32 @@ export class SurveysService {
 			throw new AppError(409, "Survey has no responses to analyze");
 		}
 
-		const drafts = buildNeedsFromResponses(survey, responses);
-		const uniqueSkillKeys = Array.from(new Set(drafts.flatMap((draft) => draft.skillKeys)));
+		const fallbackDrafts = buildNeedsFromResponses(survey, responses);
+		const uniqueSkillKeys = Array.from(new Set(fallbackDrafts.flatMap((draft) => draft.skillKeys)));
 		const skillRows = uniqueSkillKeys.length
 			? ((await db("skills").whereIn("key", uniqueSkillKeys).select("id", "key", "name")) as SkillRow[])
 			: [];
 		const skillsByKey = new Map(skillRows.map((skill) => [skill.key, skill]));
+		const aiResult = await vertexService.analyzeSurveyNeeds({
+			surveyId: survey.id,
+			locationText: survey.location_text,
+			respondentName: survey.respondent_name,
+			responses: responses.map((response) => ({
+				fieldLabel: response.field_label,
+				fieldCatalogKey: response.field_catalog_key,
+				inputType: response.input_type,
+				valueText: response.value_text,
+				valueNumber: response.value_number === null ? null : Number(response.value_number),
+				valueBool: response.value_bool,
+				valueJson: fromJson(response.value_json),
+			})),
+			availableSkillKeys: uniqueSkillKeys,
+			fallbackNeeds: fallbackDrafts,
+		});
+		const drafts =
+			aiResult.output.length === 0 && fallbackDrafts.length > 0
+				? fallbackDrafts
+				: aiResult.output;
 
 		const createdNeeds = await db.transaction(async (trx) => {
 			const created: NeedRow[] = [];
@@ -726,6 +747,12 @@ export class SurveysService {
 						status: need.status,
 						skillIds: needSkills.map((skill) => skill.skill_id),
 					},
+					metadata: {
+						analysisProvider: aiResult.providerName,
+						analysisModel: aiResult.model,
+						analysisValidationStatus: aiResult.validationStatus,
+						analysisFallbackReason: aiResult.fallbackReason,
+					},
 					expectedNextState: need.status,
 				});
 			}
@@ -743,6 +770,13 @@ export class SurveysService {
 				actorId: user.id,
 				oldValue: { status: survey.status },
 				newValue: { status: "analyzed", createdNeedCount: created.length },
+				metadata: {
+					analysisProvider: aiResult.providerName,
+					analysisModel: aiResult.model,
+					analysisValidationStatus: aiResult.validationStatus,
+					analysisFallbackReason: aiResult.fallbackReason,
+					analysisValidationErrors: aiResult.validationErrors,
+				},
 				expectedNextState: "analyzed",
 			});
 

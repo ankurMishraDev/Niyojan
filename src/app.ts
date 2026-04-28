@@ -6,7 +6,9 @@ import morgan from "morgan";
 import path from "node:path";
 import { checkDbHealth } from "./config/db";
 import { env } from "./config/env";
+import { requireAuth, resolveAppUser } from "./middleware/auth";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import adminOnboardingRouter from "./modules/adminOnboarding/adminOnboarding.routes";
 import aiRouter from "./modules/aiPipeline/ai.routes";
 import authRouter from "./modules/auth/auth.routes";
 import documentsRouter from "./modules/documents/documents.routes";
@@ -44,20 +46,7 @@ const limiter = rateLimit({
 
 app.use(env.API_PREFIX, limiter);
 app.use(`${env.API_PREFIX}/auth`, authRouter);
-app.use(`${env.API_PREFIX}/organizations`, organizationsRouter);
-app.use(`${env.API_PREFIX}/field-catalog`, fieldCatalogRouter);
-app.use(`${env.API_PREFIX}/skills`, skillsRouter);
-app.use(`${env.API_PREFIX}/volunteers`, volunteersRouter);
-app.use(`${env.API_PREFIX}/surveys`, surveysRouter);
-app.use(`${env.API_PREFIX}/needs`, needsRouter);
-app.use(`${env.API_PREFIX}/documents`, documentsRouter);
-app.use(`${env.API_PREFIX}/ai`, aiRouter);
-app.use(`${env.API_PREFIX}/dashboard`, dashboardRouter);
-app.use(env.API_PREFIX, feedbackRouter);
-app.use(env.API_PREFIX, matchingRouter);
-app.use(env.API_PREFIX, assignmentsRouter);
-app.use(env.API_PREFIX, pipelineRouter);
-app.use(env.API_PREFIX, formTemplatesRouter);
+app.use(`${env.API_PREFIX}/admin/onboarding`, adminOnboardingRouter);
 
 app.get("/api-console", (_req, res) => {
   res.sendFile(path.resolve(process.cwd(), "API_BROWSER_CONSOLE.html"));
@@ -98,6 +87,22 @@ app.get(`${env.API_PREFIX}/health`, async (_req, res, next) => {
     return next(error);
   }
 });
+
+app.use(env.API_PREFIX, requireAuth, resolveAppUser({ allowStatuses: ["active"] }));
+app.use(`${env.API_PREFIX}/organizations`, organizationsRouter);
+app.use(`${env.API_PREFIX}/field-catalog`, fieldCatalogRouter);
+app.use(`${env.API_PREFIX}/skills`, skillsRouter);
+app.use(`${env.API_PREFIX}/volunteers`, volunteersRouter);
+app.use(`${env.API_PREFIX}/surveys`, surveysRouter);
+app.use(`${env.API_PREFIX}/needs`, needsRouter);
+app.use(`${env.API_PREFIX}/documents`, documentsRouter);
+app.use(`${env.API_PREFIX}/ai`, aiRouter);
+app.use(`${env.API_PREFIX}/dashboard`, dashboardRouter);
+app.use(env.API_PREFIX, feedbackRouter);
+app.use(env.API_PREFIX, matchingRouter);
+app.use(env.API_PREFIX, assignmentsRouter);
+app.use(env.API_PREFIX, pipelineRouter);
+app.use(env.API_PREFIX, formTemplatesRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

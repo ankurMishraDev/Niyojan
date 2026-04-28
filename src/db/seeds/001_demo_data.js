@@ -2,6 +2,13 @@
  * @param {import('knex').Knex} knex
  */
 exports.seed = async function seed(knex) {
+  const {
+    ids,
+    seedOrganizations,
+    seedUsers,
+    seedExtraVolunteers,
+    seedExtraVolunteerSkills,
+  } = require('../../../scripts/demoIdentityCatalog');
   const toJson = (value) => (value === null || value === undefined ? null : JSON.stringify(value));
 
   await knex.raw(`
@@ -25,89 +32,18 @@ exports.seed = async function seed(knex) {
     RESTART IDENTITY CASCADE
   `);
 
-  const ORG_A = '11111111-1111-4111-8111-111111111111';
-  const ORG_B = '22222222-2222-4222-8222-222222222222';
+  const ORG_A = ids.ORG_A;
+  const ORG_B = ids.ORG_B;
 
-  const USER_SUPERADMIN = '10000000-0000-4000-8000-000000000001';
-  const USER_NGO_ADMIN_A = '10000000-0000-4000-8000-000000000002';
-  const USER_FIELD_WORKER_A = '10000000-0000-4000-8000-000000000003';
-  const USER_VOLUNTEER_A1 = '10000000-0000-4000-8000-000000000004';
-  const USER_VOLUNTEER_A2 = '10000000-0000-4000-8000-000000000005';
-  const USER_NGO_ADMIN_B = '10000000-0000-4000-8000-000000000006';
+  const USER_SUPERADMIN = ids.USER_SUPERADMIN;
+  const USER_NGO_ADMIN_A = ids.USER_NGO_ADMIN_A;
+  const USER_FIELD_WORKER_A = ids.USER_FIELD_WORKER_A;
+  const USER_VOLUNTEER_A1 = ids.USER_VOLUNTEER_A1;
+  const USER_VOLUNTEER_A2 = ids.USER_VOLUNTEER_A2;
+  const USER_NGO_ADMIN_B = ids.USER_NGO_ADMIN_B;
 
-  await knex('organizations').insert([
-    {
-      id: ORG_A,
-      name: 'HopeBridge Foundation',
-      type: 'NGO',
-      region: 'Bhopal Rural Belt',
-      status: 'active',
-    },
-    {
-      id: ORG_B,
-      name: 'Seva Junction Trust',
-      type: 'NGO',
-      region: 'Indore Urban Fringe',
-      status: 'active',
-    },
-  ]);
-
-  await knex('users').insert([
-    {
-      id: USER_SUPERADMIN,
-      org_id: null,
-      firebase_uid: 'firebase-superadmin-001',
-      name: 'Platform Superadmin',
-      email: 'superadmin@niyojan.demo',
-      role: 'superadmin',
-      status: 'active',
-    },
-    {
-      id: USER_NGO_ADMIN_A,
-      org_id: ORG_A,
-      firebase_uid: 'firebase-ngo-admin-a-001',
-      name: 'Anita Sharma',
-      email: 'anita@hopebridge.demo',
-      role: 'ngo_admin',
-      status: 'active',
-    },
-    {
-      id: USER_FIELD_WORKER_A,
-      org_id: ORG_A,
-      firebase_uid: 'firebase-field-worker-a-001',
-      name: 'Rahul Singh',
-      email: 'rahul@hopebridge.demo',
-      role: 'field_worker',
-      status: 'active',
-    },
-    {
-      id: USER_VOLUNTEER_A1,
-      org_id: ORG_A,
-      firebase_uid: 'firebase-volunteer-a-001',
-      name: 'Priya Nair',
-      email: 'priya@hopebridge.demo',
-      role: 'volunteer',
-      status: 'active',
-    },
-    {
-      id: USER_VOLUNTEER_A2,
-      org_id: ORG_A,
-      firebase_uid: 'firebase-volunteer-a-002',
-      name: 'Arjun Patel',
-      email: 'arjun@hopebridge.demo',
-      role: 'volunteer',
-      status: 'active',
-    },
-    {
-      id: USER_NGO_ADMIN_B,
-      org_id: ORG_B,
-      firebase_uid: 'firebase-ngo-admin-b-001',
-      name: 'Sara Khan',
-      email: 'sara@sevajunction.demo',
-      role: 'ngo_admin',
-      status: 'active',
-    },
-  ]);
+  await knex('organizations').insert(seedOrganizations);
+  await knex('users').insert(seedUsers);
 
   const FIELD_CATALOG = [
     {
@@ -781,6 +717,9 @@ exports.seed = async function seed(knex) {
       proficiency: 4,
     },
   ]);
+
+  await knex('volunteers').insert(seedExtraVolunteers);
+  await knex('volunteer_skills').insert(seedExtraVolunteerSkills);
 
   const SURVEY_1 = '80000000-0000-4000-8000-000000000001';
   const SURVEY_2 = '80000000-0000-4000-8000-000000000002';

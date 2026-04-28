@@ -10,6 +10,8 @@ import type {
   FormTemplateVersion,
   MatchResult,
   Need,
+  NgoRegistrationPayload,
+  OnboardingOrganization,
   Paginated,
   PipelineManifest,
   PipelineHealth,
@@ -25,6 +27,19 @@ import type {
 
 export const authApi = {
   me: async () => (await api.get<UserProfile>("/auth/me")).data,
+  registerNgo: async (body: NgoRegistrationPayload) =>
+    (await api.post<UserProfile>("/auth/register-ngo", body)).data,
+};
+
+export const onboardingApi = {
+  listNgos: async (query?: Record<string, unknown>) =>
+    (await api.get<OnboardingOrganization[]>("/admin/onboarding/ngos", query)).data,
+  approveNgo: async (orgId: string) =>
+    (await api.post<{ orgId: string; status: string }>(`/admin/onboarding/ngos/${orgId}/approve`))
+      .data,
+  rejectNgo: async (orgId: string) =>
+    (await api.post<{ orgId: string; status: string }>(`/admin/onboarding/ngos/${orgId}/reject`))
+      .data,
 };
 
 export const dashboardApi = {

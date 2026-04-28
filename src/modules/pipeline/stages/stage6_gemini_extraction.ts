@@ -2,16 +2,23 @@ import { DocumentExtractionOrchestrationOutput } from "../../aiPipeline/aiOrches
 
 export const stage6GeminiExtraction = (extraction: DocumentExtractionOrchestrationOutput) => {
 	return {
-		modelName: extraction.models.fieldMapper,
+		providerName: extraction.fieldMapping.providerName,
+		modelName: extraction.fieldMapping.model,
 		modelVersion: extraction.models.vertexProvider,
-		promptVersion: "extraction_prompt_v1",
+		promptVersion: extraction.fieldMapping.promptVersion,
 		extractedFields: extraction.mappedFields,
-		missingFields: extraction.mappedFields.filter((field) => field.isCustom).map((field) => field.label),
-		contradictions: [],
-		modelQualityFlags: [],
-		inputTokenCount: extraction.extractedFields.length * 20,
-		outputTokenCount: extraction.mappedFields.length * 12,
-		latencyMs: 0,
+		missingFields: extraction.mappedFields
+			.filter((field) => field.isCustom)
+			.map((field) => field.label),
+		contradictions: extraction.fieldMapping.contradictions,
+		modelQualityFlags: extraction.fieldMapping.modelQualityFlags,
+		inputTokenCount: extraction.fieldMapping.inputTokenCount,
+		outputTokenCount: extraction.fieldMapping.outputTokenCount,
+		latencyMs: extraction.fieldMapping.latencyMs,
+		validationStatus: extraction.fieldMapping.validationStatus,
+		validationErrors: extraction.fieldMapping.validationErrors,
+		fallbackReason: extraction.fieldMapping.fallbackReason,
+		reviewRequired: extraction.fieldMapping.reviewRequired,
 		isMock: extraction.providerMode === "mock",
 	};
 };

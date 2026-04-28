@@ -1,62 +1,50 @@
 import admin from "firebase-admin";
-import fs from "node:fs";
 import { env } from "./env";
+import { loadGoogleServiceAccount } from "./googleCredentials";
 
 const canInitWithInlineCreds =
-  !!env.FIREBASE_PROJECT_ID &&
-  !!env.FIREBASE_CLIENT_EMAIL &&
-  !!env.FIREBASE_PRIVATE_KEY;
+	!!env.FIREBASE_PROJECT_ID &&
+	!!env.FIREBASE_CLIENT_EMAIL &&
+	!!env.FIREBASE_PRIVATE_KEY;
 
-const assertCredentialFileLooksLikeServiceAccount = () => {
-  if (!env.GOOGLE_APPLICATION_CREDENTIALS) {
-    return;
-  }
+export const initializeFirebaseAdmin = (options?: { ignoreMockMode?: boolean }) => {
+	if (admin.apps.length > 0) {
+		return admin.app();
+	}
 
-  if (!fs.existsSync(env.GOOGLE_APPLICATION_CREDENTIALS)) {
-    throw new Error(
-      `GOOGLE_APPLICATION_CREDENTIALS path not found: ${env.GOOGLE_APPLICATION_CREDENTIALS}`,
-    );
-  }
+	if (env.AUTH_MOCK_MODE && !options?.ignoreMockMode) {
+		throw new Error("Firebase auth is disabled in AUTH_MOCK_MODE");
+	}
 
-  const content = fs.readFileSync(env.GOOGLE_APPLICATION_CREDENTIALS, "utf8");
-  const parsed = JSON.parse(content) as Record<string, unknown>;
+	if (canInitWithInlineCreds) {
+		admin.initializeApp({
+			credential: admin.credential.cert({
+				projectId: env.FIREBASE_PROJECT_ID,
+				clientEmail: env.FIREBASE_CLIENT_EMAIL,
+				privateKey: env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+			}),
+		});
+		return admin.app();
+	}
 
-  if (parsed.web && !parsed.type) {
-    throw new Error(
-      "GOOGLE_APPLICATION_CREDENTIALS points to an OAuth web client JSON. Firebase Admin requires a service_account key JSON.",
-    );
-  }
+	const serviceAccount = loadGoogleServiceAccount();
+	const resolvedProjectId =
+		env.FIREBASE_PROJECT_ID ||
+		env.GCP_PROJECT_ID ||
+		(typeof serviceAccount.project_id === "string" ? serviceAccount.project_id : undefined);
+	admin.initializeApp({
+		projectId: resolvedProjectId,
+		credential: admin.credential.cert({
+			projectId: resolvedProjectId,
+			clientEmail: serviceAccount.client_email as string,
+			privateKey: (serviceAccount.private_key as string).replace(/\\n/g, "\n"),
+		}),
+	});
+
+	return admin.app();
 };
 
-if (!env.AUTH_MOCK_MODE && admin.apps.length === 0) {
-  if (canInitWithInlineCreds) {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: env.FIREBASE_PROJECT_ID,
-        clientEmail: env.FIREBASE_CLIENT_EMAIL,
-        privateKey: env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-      }),
-    });
-  } else {
-    assertCredentialFileLooksLikeServiceAccount();
-
-    admin.initializeApp({
-      projectId: env.FIREBASE_PROJECT_ID,
-      credential: admin.credential.applicationDefault(),
-    });
-  }
-}
-
-export const getFirebaseAuth = () => {
-  if (env.AUTH_MOCK_MODE) {
-    throw new Error("Firebase auth is disabled in AUTH_MOCK_MODE");
-  }
-
-  if (admin.apps.length === 0) {
-    throw new Error(
-      "Firebase Admin is not initialized. Provide FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY or valid GOOGLE_APPLICATION_CREDENTIALS.",
-    );
-  }
-
-  return admin.auth();
+export const getFirebaseAuth = (options?: { ignoreMockMode?: boolean }) => {
+	initializeFirebaseAdmin(options);
+	return admin.auth();
 };

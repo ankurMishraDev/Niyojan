@@ -3,6 +3,8 @@ import { AppShell } from "@/app/AppShell";
 import { RouteGuard } from "@/app/RouteGuard";
 import { LandingPage } from "@/pages/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
+import { SignupPage } from "@/pages/SignupPage";
+import { AccountStatusPage } from "@/pages/AccountStatusPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { PipelinePage } from "@/pages/PipelinePage";
 import { AiReviewIndexPage, AiReviewPage } from "@/pages/AiReviewPage";
@@ -23,9 +25,14 @@ export const router = createBrowserRouter([
     element: <LoginPage />,
   },
   {
+    path: "/signup",
+    element: <SignupPage />,
+  },
+  {
     path: "/",
     element: <RouteGuard />,
     children: [
+      { path: "account-status", element: <AccountStatusPage /> },
       {
         element: <AppShell />,
         children: [
