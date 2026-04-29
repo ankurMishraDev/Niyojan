@@ -70,11 +70,11 @@ export function SignupPage() {
                 Create an NGO workspace for form templates, survey collection, and feedback workflows.
               </p>
             </div>
-            <div className="rounded-md border border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant">
+            {/* <div className="rounded-md border border-outline-variant bg-surface-container-low p-4 text-sm text-on-surface-variant">
               NGO accounts are restricted to data collection, template management,
               feedback, and profile pages. Admin-only matching, assignment, pipeline,
               and AI review tools stay reserved for the NIYOJAN superadmin.
-            </div>
+            </div> */}
           </div>
           <div className="text-xs uppercase tracking-[0.16em] text-on-surface-variant">
             Firebase-backed onboarding
@@ -85,17 +85,17 @@ export function SignupPage() {
           <div>
             <p className="label-caps text-primary">NGO Onboarding</p>
             <h1 className="mt-2 text-3xl font-black text-white">Register a new NGO account</h1>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+            {/* <p className="mt-2 text-sm leading-6 text-on-surface-variant">
               Firebase creates the login credential. The backend creates the
               organization and primary NGO admin profile.
-            </p>
+            </p> */}
           </div>
 
-          <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+          {/* <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
             {usingFirebase
               ? "Firebase web config is present. Create the NGO account with email/password, then the backend will register the organization profile."
               : "Firebase web config is not fully configured yet. Add the VITE_FIREBASE_* values to enable NGO registration."}
-          </div>
+          </div> */}
 
           {error ? (
             <div className="rounded-md border border-danger/60 bg-danger/10 px-4 py-3 text-sm text-danger">

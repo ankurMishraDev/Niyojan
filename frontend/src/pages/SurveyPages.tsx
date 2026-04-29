@@ -1,12 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button, Input, LoaderBlock, PageHeader, Panel, Select, Textarea } from "@/components/ui";
+import {
+  Button,
+  Input,
+  LoaderBlock,
+  PageHeader,
+  Panel,
+  Select,
+} from "@/components/ui";
 import {
   DynamicFieldInput,
   type DynamicFieldValue,
 } from "@/features/forms/DynamicFieldInput";
-import { formsApi, surveysApi } from "@/lib/services";
+import { formsApi, surveysApi, documentsApi } from "@/lib/services";
+import { api } from "@/lib/api";
 
 export function SurveyNewPage() {
   const navigate = useNavigate();
@@ -15,7 +23,8 @@ export function SurveyNewPage() {
 
   const templatesQuery = useQuery({
     queryKey: ["survey-templates"],
-    queryFn: () => formsApi.listTemplates({ page: 1, pageSize: 25, status: "active" }),
+    queryFn: () =>
+      formsApi.listTemplates({ page: 1, pageSize: 25, status: "active" }),
   });
 
   useEffect(() => {
@@ -31,14 +40,17 @@ export function SurveyNewPage() {
   });
 
   useEffect(() => {
-    const published = versionsQuery.data?.find((version) => version.isPublished);
+    const published = versionsQuery.data?.find(
+      (version) => version.isPublished,
+    );
     if (!versionId && published) {
       setVersionId(published.id);
     }
   }, [versionId, versionsQuery.data]);
 
   const createSurveyMutation = useMutation({
-    mutationFn: (payload: Record<string, unknown>) => surveysApi.create(payload),
+    mutationFn: (payload: Record<string, unknown>) =>
+      surveysApi.create(payload),
     onSuccess: (survey) => {
       navigate(`/surveys/${survey.id}`);
     },
@@ -57,17 +69,24 @@ export function SurveyNewPage() {
       />
 
       <Panel className="max-w-3xl space-y-4">
-        <Select value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
+        <Select
+          value={templateId}
+          onChange={(event) => setTemplateId(event.target.value)}
+        >
           {templatesQuery.data?.items.map((template) => (
             <option key={template.id} value={template.id}>
               {template.name}
             </option>
           ))}
         </Select>
-        <Select value={versionId} onChange={(event) => setVersionId(event.target.value)}>
+        <Select
+          value={versionId}
+          onChange={(event) => setVersionId(event.target.value)}
+        >
           {versionsQuery.data?.map((version) => (
             <option key={version.id} value={version.id}>
-              Version {version.versionNo} {version.isPublished ? "(published)" : ""}
+              Version {version.versionNo}{" "}
+              {version.isPublished ? "(published)" : ""}
             </option>
           ))}
         </Select>
@@ -81,8 +100,12 @@ export function SurveyNewPage() {
               template_version_id: versionId,
               respondent_name: formData.get("respondent_name"),
               location_text: formData.get("location_text"),
-              latitude: formData.get("latitude") ? Number(formData.get("latitude")) : null,
-              longitude: formData.get("longitude") ? Number(formData.get("longitude")) : null,
+              latitude: formData.get("latitude")
+                ? Number(formData.get("latitude"))
+                : null,
+              longitude: formData.get("longitude")
+                ? Number(formData.get("longitude"))
+                : null,
             });
           }}
         >
@@ -91,8 +114,13 @@ export function SurveyNewPage() {
           <Input name="latitude" placeholder="Latitude" type="number" />
           <Input name="longitude" placeholder="Longitude" type="number" />
           <div className="md:col-span-2">
-            <Button disabled={!versionId || createSurveyMutation.isPending} type="submit">
-              {createSurveyMutation.isPending ? "Creating..." : "Create survey draft"}
+            <Button
+              disabled={!versionId || createSurveyMutation.isPending}
+              type="submit"
+            >
+              {createSurveyMutation.isPending
+                ? "Creating..."
+                : "Create survey draft"}
             </Button>
           </div>
         </form>
@@ -108,6 +136,8 @@ export function SurveyDetailPage() {
   const [draft, setDraft] = useState<SurveyDraftState>({});
   const [analysisFeedback, setAnalysisFeedback] = useState("");
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const surveyQuery = useQuery({
     queryKey: ["survey-detail", surveyId],
     queryFn: () => surveysApi.get(surveyId),
@@ -116,7 +146,8 @@ export function SurveyDetailPage() {
   const versionQuery = useQuery({
     enabled: Boolean(surveyQuery.data?.templateVersionId),
     queryKey: ["survey-template-version", surveyQuery.data?.templateVersionId],
-    queryFn: () => formsApi.getVersion(surveyQuery.data?.templateVersionId ?? ""),
+    queryFn: () =>
+      formsApi.getVersion(surveyQuery.data?.templateVersionId ?? ""),
   });
 
   useEffect(() => {
@@ -126,7 +157,9 @@ export function SurveyDetailPage() {
 
     const nextDraft: SurveyDraftState = {};
     for (const field of versionQuery.data.fields ?? []) {
-      const existing = surveyQuery.data.responses?.find((response) => response.formFieldId === field.id);
+      const existing = surveyQuery.data.responses?.find(
+        (response) => response.formFieldId === field.id,
+      );
       nextDraft[field.id] = {
         inputType: field.inputType,
         valueText: existing?.valueText ?? "",
@@ -138,14 +171,138 @@ export function SurveyDetailPage() {
     setDraft(nextDraft);
   }, [surveyQuery.data, versionQuery.data]);
 
+  const scanDocumentMutation = useMutation({
+    mutationFn: async (file: File) => {
+      setAnalysisFeedback("Requesting upload URL...");
+      const signed = await documentsApi.uploadUrl({
+        file_name: file.name,
+        file_type: file.type,
+      });
+
+      setAnalysisFeedback("Uploading filled document...");
+      await api.uploadToSignedUrl(
+        signed.uploadUrl,
+        file,
+        signed.requiredHeaders,
+      );
+
+      setAnalysisFeedback("Creating document record...");
+      const doc = await documentsApi.create({
+        file_name: file.name,
+        file_type: file.type,
+        gcs_path: signed.gcsPath,
+      });
+
+      setAnalysisFeedback("Triggering AI extraction on filled form...");
+      await documentsApi.extract(doc.id);
+
+      setAnalysisFeedback("Waiting for extraction (this may take a minute)...");
+      let currentDoc = doc;
+      while (
+        currentDoc.status === "processing" ||
+        currentDoc.status === "uploaded"
+      ) {
+        await new Promise((res) => setTimeout(res, 3000));
+        currentDoc = await documentsApi.get(doc.id);
+      }
+
+      if (currentDoc.status === "failed") {
+        throw new Error("Document extraction failed");
+      }
+
+      return currentDoc;
+    },
+    onSuccess: (documentItem) => {
+      setAnalysisFeedback(
+        "Data extracted successfully! Mapping to survey fields...",
+      );
+      const extractionResult =
+        (documentItem as any).extractionResult ||
+        (documentItem as any).extraction_result_json;
+      if (!extractionResult) {
+        setAnalysisFeedback("No extraction result found.");
+        return;
+      }
+
+      const newDraft = { ...draft };
+
+      // Fallback check against known schema patterns
+      const fields = versionQuery.data?.fields ?? [];
+
+      // Check extractedFields array from documentAi
+      if (Array.isArray(extractionResult.extractedFields)) {
+        extractionResult.extractedFields.forEach((extracted: any) => {
+          if (extracted.value === undefined || extracted.value === null) return;
+          const normalizedExtractedLabel = (extracted.label || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
+          
+          const field = fields.find((f) => {
+            const normalizedFieldLabel = f.label.toLowerCase().replace(/[^a-z0-9]/g, "_");
+            return normalizedFieldLabel.includes(normalizedExtractedLabel) || normalizedExtractedLabel.includes(normalizedFieldLabel) || f.label.toLowerCase() === (extracted.label || "").toLowerCase();
+          });
+          
+          if (field) {
+            newDraft[field.id] = {
+              ...newDraft[field.id],
+              valueText: String(extracted.value),
+            };
+          }
+        });
+      }
+
+      // Iteration over mapped fields if mapped format
+      if (Array.isArray(extractionResult.mappedFields)) {
+        extractionResult.mappedFields.forEach((extracted: any) => {
+          const field = fields.find(
+            (f) =>
+              f.label.toLowerCase() === extracted.label?.toLowerCase() ||
+              (f.fieldCatalogId &&
+                f.fieldCatalogId === extracted.fieldCatalogId),
+          );
+          if (
+            field &&
+            extracted.value !== undefined &&
+            extracted.value !== null
+          ) {
+            newDraft[field.id] = {
+              ...newDraft[field.id],
+              valueText: String(extracted.value),
+            };
+          }
+        });
+      }
+
+      setDraft(newDraft);
+      setAnalysisFeedback("Data populated in draft. Please verify.");
+    },
+    onError: (err: Error) => {
+      setAnalysisFeedback(
+        `Error extracting from document: ${err?.message || "Unknown error"}`,
+      );
+    },
+  });
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      void scanDocumentMutation.mutate(file);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const submitMutation = useMutation({
     mutationFn: () =>
       surveysApi.submit(surveyId, {
         responses: Object.entries(draft).map(([formFieldId, value]) => ({
           form_field_id: formFieldId,
           input_type: value.inputType,
-          ...(value.inputType === "number" ? { value_number: value.valueNumber ?? 0 } : {}),
-          ...(value.inputType === "boolean" ? { value_bool: Boolean(value.valueBool) } : {}),
+          ...(value.inputType === "number"
+            ? { value_number: value.valueNumber ?? 0 }
+            : {}),
+          ...(value.inputType === "boolean"
+            ? { value_bool: Boolean(value.valueBool) }
+            : {}),
           ...(value.inputType === "select" || value.inputType === "multiselect"
             ? { value_json: value.valueJson ?? value.valueText ?? [] }
             : {}),
@@ -165,7 +322,9 @@ export function SurveyDetailPage() {
   const analyzeMutation = useMutation({
     mutationFn: () => surveysApi.analyzeNeeds(surveyId),
     onSuccess: (result) => {
-      setAnalysisFeedback(`Needs analysis complete. ${result.needs.length} needs available.`);
+      setAnalysisFeedback(
+        `Needs analysis complete. ${result.needs.length} needs available.`,
+      );
     },
   });
 
@@ -188,7 +347,24 @@ export function SurveyDetailPage() {
         description="Dynamic survey rendering powered by the current form template version."
         actions={
           <div className="flex flex-wrap gap-3">
-            <Button disabled={submitMutation.isPending} onClick={() => void submitMutation.mutate()}>
+            <Button
+              disabled={scanDocumentMutation.isPending}
+              onClick={() => fileInputRef.current?.click()}
+              variant="secondary"
+            >
+              Scan Data from Image
+            </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*,application/pdf"
+              onChange={onFileChange}
+            />
+            <Button
+              disabled={submitMutation.isPending}
+              onClick={() => void submitMutation.mutate()}
+            >
               {submitMutation.isPending ? "Submitting..." : "Submit survey"}
             </Button>
             <Button
@@ -211,10 +387,19 @@ export function SurveyDetailPage() {
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <Panel className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <InfoCard label="Respondent" value={survey.respondentName ?? "Not set"} />
-            <InfoCard label="Location" value={survey.locationText ?? "Not set"} />
+            <InfoCard
+              label="Respondent"
+              value={survey.respondentName ?? "Not set"}
+            />
+            <InfoCard
+              label="Location"
+              value={survey.locationText ?? "Not set"}
+            />
             <InfoCard label="Status" value={survey.status} />
-            <InfoCard label="Coordinates" value={`${survey.latitude ?? "-"}, ${survey.longitude ?? "-"}`} />
+            <InfoCard
+              label="Coordinates"
+              value={`${survey.latitude ?? "-"}, ${survey.longitude ?? "-"}`}
+            />
           </div>
 
           <div className="space-y-4">
@@ -230,7 +415,9 @@ export function SurveyDetailPage() {
                     setDraft((current) => ({
                       ...current,
                       [field.id]: {
-                        ...(current[field.id] ?? { inputType: field.inputType }),
+                        ...(current[field.id] ?? {
+                          inputType: field.inputType,
+                        }),
                         ...value,
                       },
                     }))
@@ -242,7 +429,9 @@ export function SurveyDetailPage() {
         </Panel>
 
         <Panel className="space-y-4">
-          <p className="text-xl font-black text-white">Response payload preview</p>
+          <p className="text-xl font-black text-white">
+            Response payload preview
+          </p>
           <pre className="max-h-[780px] overflow-auto rounded-md border border-outline-variant bg-surface-container-lowest p-4 text-xs leading-6 text-on-surface-variant">
             {JSON.stringify(draft, null, 2)}
           </pre>

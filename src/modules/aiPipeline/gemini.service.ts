@@ -155,11 +155,15 @@ export class GeminiService {
 			].join("\n");
 
 			const result = await vertexService.generateStructuredJson({
-				model: env.VERTEX_DOCUMENT_MODEL,
+				model: "gemini-1.5-pro-001",
 				promptVersion: "field_mapping_v1",
 				schema: modelOutputSchema,
 				prompt,
 			});
+
+			if ("validationErrors" in result && result.validationErrors?.length) {
+				throw new Error("Vertex mapping failed");
+			}
 
 			const catalogByKey = new Map(catalogRows.map((row) => [row.key, row]));
 			const mappedFields = result.output.map((field: MappedFieldShape) => {
@@ -200,23 +204,9 @@ export class GeminiService {
 				reviewRequired: result.reviewRequired,
 			};
 		} catch (error) {
+			console.error("Gemini mapping failed, falling back to deterministic mapping", error);
 			return {
-				providerName: "vertex-ai",
-				mode: "live",
-				model: env.VERTEX_DOCUMENT_MODEL,
-				promptVersion: "field_mapping_v1",
 				mappedFields: deterministicMapping,
-				contradictions: [],
-				modelQualityFlags: ["deterministic_mapping_fallback"],
-				inputTokenCount: null,
-				outputTokenCount: null,
-				latencyMs: 0,
-				validationStatus: "fallback",
-				validationErrors: [
-					error instanceof Error ? error.message : "field_mapping_generation_failed",
-				],
-				fallbackReason: "deterministic_mapping_fallback",
-				reviewRequired: true,
 			};
 		}
 	}

@@ -1,10 +1,16 @@
 import { gcsBucketName, getStorageClient } from "../../config/gcp";
 import { getGoogleAccessToken } from "../../config/googleCredentials";
 import { env } from "../../config/env";
+import { vertexService } from "./vertex.service";
+import { z } from "zod";
 import {
 	ExtractedCandidateField,
 	extractedCandidateFieldSchema,
 } from "./ai.schemas";
+
+const geminiFallbackSchema = z.object({
+	fields: z.array(extractedCandidateFieldSchema)
+});
 
 export type DocumentExtractionInput = {
 	documentId: string;
@@ -180,23 +186,25 @@ const parseDocumentAiPayload = (payload: unknown) => {
 		formFields.forEach((formField) => {
 			const label = readTextAnchor(documentText, (formField.fieldName as { textAnchor?: unknown })?.textAnchor);
 			const value = readTextAnchor(documentText, (formField.fieldValue as { textAnchor?: unknown })?.textAnchor);
-			if (!label || !value) {
+			if (!label) {
 				return;
 			}
 
-			keyValuePairs.push({
-				label,
-				value,
-				confidence: Number(formField.confidence || 0.7),
-				page: pageNumber,
-			});
+			if (value) {
+				keyValuePairs.push({
+					label,
+					value,
+					confidence: Number(formField.confidence || 0.7),
+					page: pageNumber,
+				});
+			}
 
 			const parsed = extractedCandidateFieldSchema.safeParse({
 				label,
-				inputType: inferInputType(value),
+				inputType: inferInputType(value || ""),
 				required: false,
 				confidence: Number(formField.confidence || 0.7),
-				valueHint: value,
+				valueHint: value || undefined,
 				provenanceRef: `p${pageNumber}:form_field`,
 			});
 			if (parsed.success) {
@@ -330,7 +338,62 @@ export class DocumentAiService {
 			});
 
 			if (!response.ok) {
-				throw new Error(`Document AI request failed with status ${response.status}`);
+				const errorBody = await response.text();
+				console.error(`Document AI failed: ${errorBody}. Falling back to Gemini.`);
+				// Gemini Fallback
+				const geminiExtract = await vertexService.generateStructuredJson({
+					model: "gemini-1.5-pro-001",
+					promptVersion: "doc_extract_v1",
+					schema: geminiFallbackSchema,
+					prompt: "Extract all form fields, keys, and values from this document. If it is a blank form, extract the fields that need to be filled. For each field, provide the label, an inferred inputType (e.g. text, number, boolean, date), and a valueHint if there is a filled value.",
+					fileData: {
+						mimeType: input.fileType,
+						data: fileBytes.toString("base64")
+					}
+				});
+
+				if ("validationErrors" in geminiExtract && geminiExtract.validationErrors?.length) {
+					console.error("Gemini fallback also failed:", geminiExtract.validationErrors);
+					// If both fail, return empty fields so it doesn't crash the pipeline,
+					// or return the raw text-based extraction if we had any.
+					return {
+						providerMode: "live",
+						providerName: "fallback-failed",
+						model: "none",
+						fields: [],
+						documentText: "",
+						textBlocks: [],
+						keyValuePairs: [],
+						tables: [],
+						pageCount: 1,
+						detectedLanguage: null,
+						rawResponse: geminiExtract,
+						latencyMs: Date.now() - startedAt,
+						validationStatus: "requires_human",
+						validationErrors: ["document_ai_failed", ...geminiExtract.validationErrors],
+						fallbackReason: "both_document_ai_and_gemini_failed",
+						reviewRequired: true,
+					};
+				}
+
+				return {
+					providerMode: "live",
+					providerName: "gemini-fallback",
+					model: "gemini-1.5-pro-001",
+					fields: dedupeCandidates((geminiExtract as any).output?.fields || []),
+					documentText: "",
+					textBlocks: [],
+					keyValuePairs: [],
+					tables: [],
+					pageCount: 1,
+					detectedLanguage: null,
+					rawResponse: geminiExtract,
+					latencyMs: Date.now() - startedAt,
+					validationStatus: "passed",
+					validationErrors: [],
+					fallbackReason: "document_ai_failed_used_gemini",
+					reviewRequired: true,
+				};
 			}
 
 			const payload = (await response.json()) as unknown;

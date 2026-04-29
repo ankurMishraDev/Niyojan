@@ -33,7 +33,7 @@ export function AppShell() {
           <div className="panel-muted px-3 py-3">
             <p className="text-2xl font-black text-white">NIYOJAN</p>
             <p className="mt-1 text-xs text-on-surface-variant">
-              Resource allocation console.
+              Smart Resource allocation 
             </p>
           </div>
           <nav className="mt-4 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
@@ -78,12 +78,12 @@ export function AppShell() {
         <div className="min-w-0 overflow-y-auto">
           <header className="sticky top-0 z-20 border-b border-outline-variant bg-surface/90 px-4 py-3 backdrop-blur">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
+              {/* <div>
                 <p className="label-caps text-primary">NIYOJAN Operations Console</p>
                 <p className="text-base font-bold text-white">
                   Live backend-driven view for {user?.role?.replace("_", " ")}
                 </p>
-              </div>
+              </div> */}
               <div className="flex flex-wrap gap-3">
                 {canCollectData ? (
                   <NavLink className="action-button-secondary" to="/surveys/new">

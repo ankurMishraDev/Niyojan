@@ -98,7 +98,7 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
           <p className="label-caps text-on-surface-variant">Account Scope</p>
           <p className="mt-2 text-lg font-black text-white">{user?.name}</p>
           <p className="mt-1 text-sm text-on-surface-variant">
-            {user?.email} · {user?.role?.replace("_", " ")}
+            {user?.email}
           </p>
         </div>
         <Link className="action-button-secondary" to="/profile">

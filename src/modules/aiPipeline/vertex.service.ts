@@ -37,8 +37,13 @@ const getFirstCandidateText = (payload: Record<string, unknown>) => {
 const getUsage = (payload: Record<string, unknown>) =>
 	((payload.usageMetadata as UsageMetadata | undefined) || {}) as UsageMetadata;
 
-const buildVertexEndpoint = (model: string) =>
-	`https://${env.VERTEX_LOCATION}-aiplatform.googleapis.com/v1/projects/${env.GCP_PROJECT_ID}/locations/${env.VERTEX_LOCATION}/publishers/google/models/${model}:generateContent`;
+const buildVertexEndpoint = (model: string) => {
+	const modelId = model.replace('publishers/google/models/', '');
+	// Note: We need to use projects/.../locations/.../publishers/google/models/... for older models,
+	// but Vertex AI handles standard models using just the endpoint.
+	// Actually, the standard Vertex URL is projects/.../locations/.../publishers/google/models/...
+	return `https://${env.VERTEX_LOCATION}-aiplatform.googleapis.com/v1/projects/${env.GCP_PROJECT_ID}/locations/${env.VERTEX_LOCATION}/publishers/google/models/${modelId}:generateContent`;
+};
 
 const normalizeSkillKeys = (keys: string[]) =>
 	Array.from(
@@ -63,9 +68,25 @@ export class VertexService {
 		promptVersion: string;
 		schema: z.ZodSchema<T>;
 		prompt: string;
+		fileData?: {
+			mimeType: string;
+			data: string; // base64
+		};
 	}) {
 		const startedAt = Date.now();
 		const accessToken = await getGoogleAccessToken();
+
+		const parts: any[] = [];
+		if (options.fileData) {
+			parts.push({
+				inlineData: {
+					mimeType: options.fileData.mimeType,
+					data: options.fileData.data,
+				},
+			});
+		}
+		parts.push({ text: options.prompt });
+
 		const response = await fetch(buildVertexEndpoint(options.model), {
 			method: "POST",
 			headers: {
@@ -73,7 +94,7 @@ export class VertexService {
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
-				contents: [{ role: "user", parts: [{ text: options.prompt }] }],
+				contents: [{ role: "user", parts }],
 				generationConfig: {
 					temperature: 0.1,
 					responseMimeType: "application/json",
@@ -82,7 +103,8 @@ export class VertexService {
 		});
 
 		if (!response.ok) {
-			throw new Error(`Vertex AI request failed with status ${response.status}`);
+			const errorBody = await response.text();
+			throw new Error(`Vertex AI request failed with status ${response.status}: ${errorBody}`);
 		}
 
 		const payload = (await response.json()) as Record<string, unknown>;

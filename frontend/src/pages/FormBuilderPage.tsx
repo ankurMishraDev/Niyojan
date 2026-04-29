@@ -1,7 +1,22 @@
-import { startTransition, useDeferredValue, useEffect, useState } from "react";
+import {
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useState,
+  useRef,
+} from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Button, Input, LoaderBlock, PageHeader, Panel, Select, StatusBadge } from "@/components/ui";
-import { fieldCatalogApi, formsApi } from "@/lib/services";
+import {
+  Button,
+  Input,
+  LoaderBlock,
+  PageHeader,
+  Panel,
+  Select,
+  StatusBadge,
+} from "@/components/ui";
+import { fieldCatalogApi, formsApi, documentsApi } from "@/lib/services";
+import { api } from "@/lib/api";
 import { toneForStatus } from "@/lib/format";
 
 export function FormBuilderPage() {
@@ -13,6 +28,8 @@ export function FormBuilderPage() {
   const [newFieldType, setNewFieldType] = useState("text");
   const [selectedCatalogId, setSelectedCatalogId] = useState("");
   const [feedback, setFeedback] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const templatesQuery = useQuery({
     queryKey: ["form-templates"],
@@ -54,7 +71,11 @@ export function FormBuilderPage() {
   });
 
   const refreshAll = async () => {
-    await Promise.all([templatesQuery.refetch(), versionsQuery.refetch(), versionQuery.refetch()]);
+    await Promise.all([
+      templatesQuery.refetch(),
+      versionsQuery.refetch(),
+      versionQuery.refetch(),
+    ]);
   };
 
   const createVersionMutation = useMutation({
@@ -62,6 +83,16 @@ export function FormBuilderPage() {
     onSuccess: async (version) => {
       setSelectedVersionId(version.id);
       setFeedback("New template version created.");
+      await refreshAll();
+    },
+  });
+
+  const createTemplateMutation = useMutation({
+    mutationFn: (name: string) => formsApi.createTemplate({ name }),
+    onSuccess: async (template) => {
+      setSelectedTemplateId(template.id);
+      setSelectedVersionId("");
+      setFeedback("New custom template created.");
       await refreshAll();
     },
   });
@@ -88,6 +119,77 @@ export function FormBuilderPage() {
     },
   });
 
+  const scanDocumentMutation = useMutation({
+    mutationFn: async (file: File) => {
+      setFeedback("Requesting upload URL...");
+      const signed = await documentsApi.uploadUrl({
+        file_name: file.name,
+        file_type: file.type,
+      });
+
+      setFeedback("Uploading document...");
+      await api.uploadToSignedUrl(
+        signed.uploadUrl,
+        file,
+        signed.requiredHeaders,
+      );
+
+      setFeedback("Creating document record...");
+      const doc = await documentsApi.create({
+        file_name: file.name,
+        file_type: file.type,
+        gcs_path: signed.gcsPath,
+      });
+
+      setFeedback("Triggering AI extraction...");
+      await documentsApi.extract(doc.id);
+
+      setFeedback(
+        "Waiting for extraction to complete (this may take a minute)...",
+      );
+      let currentDoc = doc;
+      while (
+        currentDoc.status === "processing" ||
+        currentDoc.status === "uploaded"
+      ) {
+        await new Promise((res) => setTimeout(res, 3000));
+        currentDoc = await documentsApi.get(doc.id);
+      }
+
+      if (currentDoc.status === "failed") {
+        throw new Error("Document extraction failed");
+      }
+
+      setFeedback("Generating form template...");
+      const newTemplate = await formsApi.createFromDocument(doc.id, {
+        name: file.name.replace(/\.[^/.]+$/, "") + " Template",
+      });
+
+      return newTemplate as { id: string };
+    },
+    onSuccess: async (template: { id: string }) => {
+      setFeedback("Form template successfully created from AI extraction!");
+      setSelectedTemplateId(template.id);
+      setSelectedVersionId("");
+      await refreshAll();
+    },
+    onError: (err: Error) => {
+      setFeedback(
+        `Error mapping AI template: ${err?.message || "Unknown error"}`,
+      );
+    },
+  });
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      void scanDocumentMutation.mutate(file);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   if (templatesQuery.isLoading) {
     return <LoaderBlock label="Loading form builder..." />;
   }
@@ -112,13 +214,43 @@ export function FormBuilderPage() {
         <Panel className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-xl font-black text-white">Templates</p>
-            <Button
-              disabled={!selectedTemplateId || createVersionMutation.isPending}
-              onClick={() => void createVersionMutation.mutate()}
-              variant="secondary"
-            >
-              New version
-            </Button>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <Button
+                disabled={scanDocumentMutation.isPending}
+                onClick={() => fileInputRef.current?.click()}
+                variant="primary"
+              >
+                Scan AI Document
+              </Button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*,application/pdf"
+                onChange={onFileChange}
+              />
+              <Button
+                onClick={() => {
+                  const name = prompt("Enter new template name:");
+                  if (name) {
+                    void createTemplateMutation.mutate(name);
+                  }
+                }}
+                variant="secondary"
+                disabled={createTemplateMutation.isPending}
+              >
+                New Template
+              </Button>
+              <Button
+                disabled={
+                  !selectedTemplateId || createVersionMutation.isPending
+                }
+                onClick={() => void createVersionMutation.mutate()}
+                variant="secondary"
+              >
+                New version
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -140,8 +272,12 @@ export function FormBuilderPage() {
               >
                 <p className="font-semibold text-white">{template.name}</p>
                 <div className="mt-2 flex items-center justify-between">
-                  <StatusBadge tone={toneForStatus(template.status)}>{template.status}</StatusBadge>
-                  <span className="text-xs text-on-surface-variant">{template.id.slice(0, 8)}</span>
+                  <StatusBadge tone={toneForStatus(template.status)}>
+                    {template.status}
+                  </StatusBadge>
+                  <span className="text-xs text-on-surface-variant">
+                    {template.id.slice(0, 8)}
+                  </span>
                 </div>
               </button>
             ))}
@@ -161,10 +297,16 @@ export function FormBuilderPage() {
                 type="button"
               >
                 <div className="flex items-center justify-between">
-                  <p className="font-semibold text-white">Version {version.versionNo}</p>
-                  {version.isPublished ? <StatusBadge tone="success">published</StatusBadge> : null}
+                  <p className="font-semibold text-white">
+                    Version {version.versionNo}
+                  </p>
+                  {version.isPublished ? (
+                    <StatusBadge tone="success">published</StatusBadge>
+                  ) : null}
                 </div>
-                <p className="mt-2 text-xs text-on-surface-variant">{version.status}</p>
+                <p className="mt-2 text-xs text-on-surface-variant">
+                  {version.status}
+                </p>
               </button>
             ))}
           </div>
@@ -177,7 +319,8 @@ export function FormBuilderPage() {
                 {selectedVersion?.templateName ?? "Template version"}
               </p>
               <p className="mt-1 text-sm text-on-surface-variant">
-                Edit labels, required flags, and display ordering against the live backend version.
+                Edit labels, required flags, and display ordering against the
+                live backend version.
               </p>
             </div>
             <Button
@@ -189,7 +332,9 @@ export function FormBuilderPage() {
           </div>
 
           {!selectedVersion ? (
-            <p className="text-sm text-on-surface-variant">Select a template version to begin editing.</p>
+            <p className="text-sm text-on-surface-variant">
+              Select a template version to begin editing.
+            </p>
           ) : (
             <div className="space-y-4">
               {selectedVersion.fields?.map((field) => (
@@ -220,7 +365,10 @@ export function FormBuilderPage() {
             value={catalogSearch}
           />
 
-          <Select value={selectedCatalogId} onChange={(event) => setSelectedCatalogId(event.target.value)}>
+          <Select
+            value={selectedCatalogId}
+            onChange={(event) => setSelectedCatalogId(event.target.value)}
+          >
             <option value="">Custom field</option>
             {catalogQuery.data?.items.map((item) => (
               <option key={item.id} value={item.id}>
@@ -235,7 +383,10 @@ export function FormBuilderPage() {
                 value={newFieldLabel}
                 onChange={(event) => setNewFieldLabel(event.target.value)}
               />
-              <Select value={newFieldType} onChange={(event) => setNewFieldType(event.target.value)}>
+              <Select
+                value={newFieldType}
+                onChange={(event) => setNewFieldType(event.target.value)}
+              >
                 <option value="text">text</option>
                 <option value="number">number</option>
                 <option value="boolean">boolean</option>
@@ -247,7 +398,11 @@ export function FormBuilderPage() {
             </>
           ) : null}
           <Button
-            disabled={!selectedVersionId || addFieldMutation.isPending || (!selectedCatalogId && !newFieldLabel)}
+            disabled={
+              !selectedVersionId ||
+              addFieldMutation.isPending ||
+              (!selectedCatalogId && !newFieldLabel)
+            }
             onClick={() => void addFieldMutation.mutate()}
             variant="secondary"
           >
@@ -298,8 +453,14 @@ function FieldEditorCard({
   return (
     <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
       <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.6fr_0.6fr_auto]">
-        <Input value={label} onChange={(event) => setLabel(event.target.value)} />
-        <Select value={inputType} onChange={(event) => setInputType(event.target.value)}>
+        <Input
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+        />
+        <Select
+          value={inputType}
+          onChange={(event) => setInputType(event.target.value)}
+        >
           <option value="text">text</option>
           <option value="number">number</option>
           <option value="boolean">boolean</option>
