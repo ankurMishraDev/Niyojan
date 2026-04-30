@@ -239,6 +239,7 @@ const applyExtractionToDraft = (
 const uploadAndExtractDocument = async (
   file: File,
   onProgress: (message: string) => void,
+  sourceSurveyId?: string,
 ) => {
   onProgress("Requesting upload URL...");
   const signed = await documentsApi.uploadUrl({
@@ -254,6 +255,7 @@ const uploadAndExtractDocument = async (
     file_name: file.name,
     file_type: file.type,
     gcs_path: signed.gcsPath,
+    source_survey_id: sourceSurveyId,
   });
 
   onProgress("Triggering AI extraction...");
@@ -329,7 +331,7 @@ export function SurveyNewPage() {
         template_version_id: versionId,
       });
 
-      const document = await uploadAndExtractDocument(file, setCreationFeedback);
+      const document = await uploadAndExtractDocument(file, setCreationFeedback, survey.id);
 
       return {
         survey,
@@ -505,7 +507,7 @@ export function SurveyDetailPage() {
   }, [surveyQuery.data, versionQuery.data]);
 
   const scanDocumentMutation = useMutation({
-    mutationFn: async (file: File) => uploadAndExtractDocument(file, setAnalysisFeedback),
+    mutationFn: async (file: File) => uploadAndExtractDocument(file, setAnalysisFeedback, surveyId),
     onSuccess: (documentItem) => {
       setAnalysisFeedback(
         "Data extracted successfully! Mapping to survey fields...",

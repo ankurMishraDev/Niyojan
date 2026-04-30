@@ -1,17 +1,19 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button, LoaderBlock, PageHeader, Panel, StatusBadge } from "@/components/ui";
 import { assignmentsApi, matchingApi, needsApi } from "@/lib/services";
 import { formatPercent, toneForStatus } from "@/lib/format";
 
 export function MatchingPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedNeedId, setSelectedNeedId] = useState("");
+  const surveyId = searchParams.get("surveyId") ?? "";
 
   const needsQuery = useQuery({
-    queryKey: ["matching-needs"],
-    queryFn: () => needsApi.list({ page: 1, pageSize: 25, status: "open" }),
+    queryKey: ["matching-needs", surveyId],
+    queryFn: () => needsApi.list({ page: 1, pageSize: 25, status: "open", survey_id: surveyId || undefined }),
   });
 
   useEffect(() => {
@@ -49,7 +51,9 @@ export function MatchingPage() {
       <PageHeader
         eyebrow="Critical Deployment"
         title="Volunteer Matching"
-        description="Match open needs to volunteer availability, proximity, and skill overlap using the backend's deterministic scoring model."
+        description={surveyId
+          ? "Match open needs generated from the selected survey to volunteer availability, proximity, and skill overlap."
+          : "Match open needs to volunteer availability, proximity, and skill overlap using the backend's deterministic scoring model."}
       />
 
       <div className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">

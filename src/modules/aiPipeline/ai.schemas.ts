@@ -22,6 +22,7 @@ export const mappedFieldSchema = z.object({
 });
 
 export const documentReasoningSchema = z.object({
+	caseSummary: z.string().min(12),
 	urgencyScore: z.number().min(0).max(100),
 	urgencyLabel: z.enum(["low", "medium", "high", "critical"]),
 	urgencyReasons: z.array(z.string().min(1)).min(1),

@@ -54,6 +54,16 @@ class PipelineController {
 		}
 	};
 
+	listIntake = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) throw new AppError(401, "Authentication is required");
+			const result = await pipelineOrchestrator.listSurveyIntake(req.user);
+			return sendSuccess(res, result, "Pipeline intake");
+		} catch (error) {
+			next(error);
+		}
+	};
+
 	listQueue = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			if (!req.user) throw new AppError(401, "Authentication is required");

@@ -8,6 +8,7 @@ import type {
   FormField,
   FormTemplate,
   FormTemplateVersion,
+  PipelineIntakeItem,
   MatchResult,
   Need,
   NgoRegistrationPayload,
@@ -93,6 +94,8 @@ export const documentsApi = {
     (await api.post<SignedUpload>("/documents/upload-url", body)).data,
   create: async (body: Record<string, unknown>) =>
     (await api.post<DocumentItem>("/documents", body)).data,
+  delete: async (id: string) =>
+    (await api.delete<{ id: string }>(`/documents/${id}`)).data,
   readUrl: async (id: string) =>
     (
       await api.get<{ readUrl: string; expiresAt: string }>(
@@ -107,6 +110,7 @@ export const documentsApi = {
 };
 
 export const pipelineApi = {
+  intake: async () => (await api.get<PipelineIntakeItem[]>("/pipeline/intake")).data,
   start: async (documentId: string) =>
     (await api.post<PipelineStatus>(`/documents/${documentId}/pipeline/start`))
       .data,
@@ -196,11 +200,10 @@ export const surveysApi = {
   submit: async (id: string, body: Record<string, unknown>) =>
     (await api.post<Survey>(`/surveys/${id}/submit`, body)).data,
   analyzeNeeds: async (id: string) =>
-    (
-      await api.post<{ survey: Survey; needs: Need[]; createdCount: number }>(
-        `/surveys/${id}/analyze-needs`,
-      )
-    ).data,
+    (await api.post<{ createdCount: number }>(`/surveys/${id}/analyze-needs`))
+      .data,
+  delete: async (id: string) =>
+    (await api.delete<void>(`/surveys/${id}`)).data,
 };
 
 export const needsApi = {

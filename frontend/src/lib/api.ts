@@ -158,6 +158,15 @@ export const api = {
 
 export const getApiErrorMessage = (error: unknown) => {
   if (error instanceof ApiError) {
+    if (Array.isArray(error.details) && error.details.length > 0) {
+      const firstDetail = error.details[0] as { path?: string; message?: string };
+      if (firstDetail?.message) {
+        return firstDetail.path
+          ? `${error.message}: ${firstDetail.path} ${firstDetail.message}`
+          : `${error.message}: ${firstDetail.message}`;
+      }
+    }
+
     return error.message;
   }
 

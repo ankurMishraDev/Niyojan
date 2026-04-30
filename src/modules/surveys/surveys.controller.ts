@@ -53,6 +53,8 @@ class SurveysController {
 				throw new AppError(401, "Authentication is required");
 			}
 
+			console.log("SUBMIT SURVEY BODY:", JSON.stringify(req.body, null, 2));
+
 			const survey = await surveysService.submitSurvey(req.params.id as string, req.body, req.user);
 			return sendSuccess(res, survey, "Survey submitted");
 		} catch (error) {
@@ -68,6 +70,18 @@ class SurveysController {
 
 			const result = await surveysService.analyzeNeeds(req.params.id as string, req.user);
 			return sendSuccess(res, result, "Survey needs analysis completed");
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	deleteSurvey = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) {
+				throw new AppError(401, "Authentication is required");
+			}
+			await surveysService.deleteSurvey(req.params.id as string);
+			return sendSuccess(res, {}, "Survey deleted successfully");
 		} catch (error) {
 			next(error);
 		}

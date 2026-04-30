@@ -1,19 +1,18 @@
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { api } from "@/lib/api";
-import { documentsApi, pipelineApi } from "@/lib/services";
+import { documentsApi, pipelineApi, surveysApi } from "@/lib/services";
+import { getApiErrorMessage } from "@/lib/api";
 import { formatDateTime, toneForStatus } from "@/lib/format";
-import { Button, Input, LoaderBlock, PageHeader, Panel, StatusBadge } from "@/components/ui";
+import { Button, LoaderBlock, PageHeader, Panel, StatusBadge } from "@/components/ui";
 
 export function PipelinePage() {
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string>("");
-  const [file, setFile] = useState<File | null>(null);
-  const [uploadError, setUploadError] = useState("");
+  const [selectedSurveyId, setSelectedSurveyId] = useState<string>("");
+  const [actionFeedback, setActionFeedback] = useState("");
 
-  const documentsQuery = useQuery({
-    queryKey: ["documents"],
-    queryFn: () => documentsApi.list({ page: 1, pageSize: 25 }),
+  const intakeQuery = useQuery({
+    queryKey: ["pipeline-intake"],
+    queryFn: pipelineApi.intake,
   });
 
   const queueQuery = useQuery({
@@ -22,10 +21,16 @@ export function PipelinePage() {
   });
 
   useEffect(() => {
-    if (!selectedDocumentId && documentsQuery.data?.items[0]) {
-      setSelectedDocumentId(documentsQuery.data.items[0].id);
+    if ((!selectedSurveyId || !intakeQuery.data?.some((item) => item.surveyId === selectedSurveyId)) && intakeQuery.data?.[0]) {
+      setSelectedSurveyId(intakeQuery.data[0].surveyId);
     }
-  }, [documentsQuery.data, selectedDocumentId]);
+  }, [intakeQuery.data, selectedSurveyId]);
+
+  const selectedIntakeItem = useMemo(
+    () => intakeQuery.data?.find((item) => item.surveyId === selectedSurveyId) ?? null,
+    [intakeQuery.data, selectedSurveyId],
+  );
+  const selectedDocumentId = selectedIntakeItem?.sourceDocumentId ?? "";
 
   const statusQuery = useQuery({
     enabled: Boolean(selectedDocumentId),
@@ -33,124 +38,168 @@ export function PipelinePage() {
     queryFn: () => pipelineApi.status(selectedDocumentId),
   });
 
-  const uploadMutation = useMutation({
-    mutationFn: async (payload: { file: File; fileName: string }) => {
-      const signed = await documentsApi.uploadUrl({
-        file_name: payload.fileName,
-        file_type: payload.file.type || "application/octet-stream",
-      });
-
-      await api.uploadToSignedUrl(signed.uploadUrl, payload.file, signed.requiredHeaders);
-
-      return documentsApi.create({
-        file_name: payload.fileName,
-        file_type: payload.file.type || "application/octet-stream",
-        gcs_path: signed.gcsPath,
-      });
-    },
-    onSuccess: async (document) => {
-      setUploadError("");
-      setSelectedDocumentId(document.id);
-      setFile(null);
-      await documentsQuery.refetch();
-      await queueQuery.refetch();
-    },
-    onError: (error) => {
-      setUploadError(error instanceof Error ? error.message : "Upload failed.");
-    },
-  });
-
   const startPipelineMutation = useMutation({
     mutationFn: (documentId: string) => pipelineApi.start(documentId),
     onSuccess: async () => {
+      setActionFeedback("Pipeline run completed. Check the backend terminal for stage-by-stage logs.");
       await statusQuery.refetch();
       await queueQuery.refetch();
-      await documentsQuery.refetch();
+      await intakeQuery.refetch();
+    },
+    onError: (error) => {
+      setActionFeedback(`Pipeline start failed: ${getApiErrorMessage(error)}`);
     },
   });
 
-  const selectedDocument = documentsQuery.data?.items.find((item) => item.id === selectedDocumentId);
+  const deleteDocumentMutation = useMutation({
+    mutationFn: (documentId: string) => documentsApi.delete(documentId),
+    onSuccess: async () => {
+      setActionFeedback("Source document deleted from the selected survey.");
+      await intakeQuery.refetch();
+      await queueQuery.refetch();
+    },
+    onError: (error) => {
+      setActionFeedback(`Document delete failed: ${getApiErrorMessage(error)}`);
+    },
+  });
 
-  if (documentsQuery.isLoading) {
-    return <LoaderBlock label="Loading document workbench..." />;
+  const deleteSurveyMutation = useMutation({
+    mutationFn: (surveyId: string) => surveysApi.delete(surveyId),
+    onSuccess: async () => {
+      setActionFeedback("Survey and all associated data deleted.");
+      setSelectedSurveyId("");
+      await intakeQuery.refetch();
+      await queueQuery.refetch();
+    },
+    onError: (error) => {
+      setActionFeedback(`Survey delete failed: ${getApiErrorMessage(error)}`);
+    },
+  });
+
+  const analyzeSurveyMutation = useMutation({
+    mutationFn: (surveyId: string) => surveysApi.analyzeNeeds(surveyId),
+    onSuccess: async (result) => {
+      setActionFeedback(
+        result.createdCount > 0
+          ? `Survey analyzed and ${result.createdCount} need record(s) created.`
+          : "Survey was already analyzed. Existing needs were loaded.",
+      );
+      await intakeQuery.refetch();
+    },
+    onError: (error) => {
+      setActionFeedback(`Survey analysis failed: ${getApiErrorMessage(error)}`);
+    },
+  });
+
+  if (intakeQuery.isLoading) {
+    return <LoaderBlock label="Loading submitted survey intake..." />;
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Operation Pipeline"
-        title="Document Pipeline"
-        description="Upload source documents, track orchestration state, and route ready items into human review and form generation."
+        title="Submitted Case Pipeline"
+        description="Every submitted survey enters this pipeline. Manual surveys can be analyzed directly into needs for matching, while uploaded source documents can also run through the document review pipeline."
       />
+
+      {actionFeedback ? (
+        <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm">
+          {actionFeedback}
+        </div>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <Panel className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xl font-black text-white">Document intake</p>
-              <p className="mt-1 text-sm text-on-surface-variant">
-                Signed upload followed by backend document registration.
-              </p>
-            </div>
+          <div>
+            <p className="text-xl font-black text-white">Submitted survey intake</p>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              Intake is driven by submitted surveys, not raw uploads. Manual and document-backed submissions both appear here.
+            </p>
           </div>
-
-          <form
-            className="grid gap-4 md:grid-cols-[1fr_auto]"
-            onSubmit={(event: FormEvent) => {
-              event.preventDefault();
-              if (!file) {
-                setUploadError("Choose a file before upload.");
-                return;
-              }
-
-              void uploadMutation.mutate({
-                file,
-                fileName: file.name,
-              });
-            }}
-          >
-            <Input
-              accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-              type="file"
-            />
-            <Button disabled={!file || uploadMutation.isPending} type="submit">
-              {uploadMutation.isPending ? "Uploading..." : "Upload document"}
-            </Button>
-          </form>
-          {uploadError ? (
-            <div className="rounded-md border border-danger/60 bg-danger/10 px-4 py-3 text-sm text-danger">
-              {uploadError}
-            </div>
-          ) : null}
 
           <div className="overflow-hidden rounded-md border border-outline-variant">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-surface-container-low text-on-surface-variant">
                 <tr>
-                  <th className="px-4 py-3">Document</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Created</th>
+                  <th className="px-4 py-3">Survey</th>
+                  <th className="px-4 py-3">Source document</th>
+                  <th className="px-4 py-3">Submitted</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {documentsQuery.data?.items.map((document) => (
+                {intakeQuery.data?.map((item) => (
                   <tr
                     className={`cursor-pointer border-t border-outline-variant/60 ${
-                      selectedDocumentId === document.id ? "bg-primary/10" : "hover:bg-surface-container-low"
+                      selectedSurveyId === item.surveyId ? "bg-primary/10" : "hover:bg-surface-container-low"
                     }`}
-                    key={document.id}
-                    onClick={() => setSelectedDocumentId(document.id)}
+                    key={item.surveyId}
+                    onClick={() => setSelectedSurveyId(item.surveyId)}
                   >
-                    <td className="px-4 py-4">
-                      <p className="font-semibold text-white">{document.fileName}</p>
-                      <p className="mt-1 text-xs text-on-surface-variant">{document.fileType}</p>
+                    <td className="px-4 py-4 align-top">
+                      <p className="font-semibold text-white">{item.respondentName || "Unnamed respondent"}</p>
+                      <p className="mt-1 text-xs text-on-surface-variant">{item.locationText || "No location"}</p>
+                      <div className="mt-2">
+                        <StatusBadge tone={toneForStatus(item.surveyStatus)}>{item.surveyStatus}</StatusBadge>
+                      </div>
                     </td>
-                    <td className="px-4 py-4">
-                      <StatusBadge tone={toneForStatus(document.status)}>{document.status}</StatusBadge>
+                    <td className="px-4 py-4 align-top">
+                      {item.sourceDocumentId ? (
+                        <>
+                          <p className="font-semibold text-white">{item.sourceDocumentName}</p>
+                          <p className="mt-1 text-xs text-on-surface-variant">{item.sourceDocumentType}</p>
+                          <div className="mt-2">
+                            <StatusBadge tone={toneForStatus(item.sourceDocumentStatus || "uploaded")}>
+                              {item.sourceDocumentStatus}
+                            </StatusBadge>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-sm text-on-surface-variant">No source document attached</p>
+                      )}
                     </td>
-                    <td className="px-4 py-4 text-on-surface-variant">
-                      {formatDateTime(document.createdAt)}
+                    <td className="px-4 py-4 align-top text-on-surface-variant">
+                      {formatDateTime(item.submittedAt || item.createdAt)}
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      {item.sourceDocumentId ? (
+                        <Button
+                          disabled={deleteDocumentMutation.isPending}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            const documentId = item.sourceDocumentId;
+                            if (!documentId) {
+                              return;
+                            }
+
+                            if (!window.confirm(`Delete ${item.sourceDocumentName} from this survey?`)) {
+                              return;
+                            }
+
+                            void deleteDocumentMutation.mutate(documentId);
+                          }}
+                          type="button"
+                          variant="danger"
+                        >
+                          Delete doc
+                        </Button>
+                      ) : null}
+                      <Button
+                        className="ml-2"
+                        disabled={deleteSurveyMutation.isPending}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (!window.confirm("Delete this entire survey?")) {
+                            return;
+                          }
+                          void deleteSurveyMutation.mutate(item.surveyId);
+                        }}
+                        type="button"
+                        variant="danger"
+                      >
+                        Delete survey
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -163,73 +212,121 @@ export function PipelinePage() {
           <Panel className="space-y-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xl font-black text-white">Selected document</p>
+                <p className="text-xl font-black text-white">Selected survey</p>
                 <p className="mt-1 text-sm text-on-surface-variant">
-                  Start the 10-stage scaffold or jump directly into review if artifacts exist.
+                  Analyze the submitted survey into operational needs. If a source document exists, you can also run the document review pipeline.
                 </p>
               </div>
-              {selectedDocument ? (
-                <Button
-                  disabled={startPipelineMutation.isPending}
-                  onClick={() => void startPipelineMutation.mutate(selectedDocument.id)}
-                >
-                  {startPipelineMutation.isPending ? "Starting..." : "Start pipeline"}
-                </Button>
-              ) : null}
+              <div className="flex flex-wrap gap-3">
+                {selectedIntakeItem?.surveyStatus === "submitted" ? (
+                  <Button
+                    disabled={analyzeSurveyMutation.isPending}
+                    onClick={() => {
+                      setActionFeedback("");
+                      void analyzeSurveyMutation.mutate(selectedIntakeItem.surveyId);
+                    }}
+                    type="button"
+                  >
+                    {analyzeSurveyMutation.isPending ? "Analyzing..." : "Analyze survey"}
+                  </Button>
+                ) : null}
+                {selectedIntakeItem?.surveyStatus === "analyzed" ? (
+                  <Link className="action-button-secondary" to={`/matching?surveyId=${selectedIntakeItem.surveyId}`}>
+                    Open matching
+                  </Link>
+                ) : null}
+                {selectedDocumentId ? (
+                  <Button
+                    disabled={startPipelineMutation.isPending}
+                    onClick={() => {
+                      setActionFeedback("");
+                      void startPipelineMutation.mutate(selectedDocumentId);
+                    }}
+                    type="button"
+                    variant="secondary"
+                  >
+                    {startPipelineMutation.isPending ? "Starting..." : "Start document pipeline"}
+                  </Button>
+                ) : null}
+              </div>
             </div>
 
-            {selectedDocument ? (
+            {selectedIntakeItem ? (
               <>
                 <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
-                  <p className="font-semibold text-white">{selectedDocument.fileName}</p>
+                  <p className="font-semibold text-white">{selectedIntakeItem.respondentName || "Unnamed respondent"}</p>
+                  <p className="mt-1 text-sm text-on-surface-variant">{selectedIntakeItem.locationText || "No location"}</p>
                   <div className="mt-3 flex flex-wrap gap-3">
-                    <StatusBadge tone={toneForStatus(selectedDocument.status)}>
-                      {selectedDocument.status}
+                    <StatusBadge tone={toneForStatus(selectedIntakeItem.surveyStatus)}>
+                      {selectedIntakeItem.surveyStatus}
                     </StatusBadge>
                     <span className="text-xs text-on-surface-variant">
-                      {formatDateTime(selectedDocument.createdAt)}
+                      Submitted {formatDateTime(selectedIntakeItem.submittedAt || selectedIntakeItem.createdAt)}
                     </span>
                   </div>
                 </div>
 
-                {statusQuery.data ? (
+                {selectedDocumentId ? (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-on-surface-variant">Current stage</span>
-                      <span className="font-semibold text-white">
-                        {statusQuery.data.manifest.currentStage}
-                      </span>
+                    <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
+                      <p className="font-semibold text-white">{selectedIntakeItem.sourceDocumentName}</p>
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        <StatusBadge tone={toneForStatus(selectedIntakeItem.sourceDocumentStatus || "uploaded")}>
+                          {selectedIntakeItem.sourceDocumentStatus}
+                        </StatusBadge>
+                        <span className="text-xs text-on-surface-variant">
+                          {selectedIntakeItem.sourceDocumentCreatedAt
+                            ? formatDateTime(selectedIntakeItem.sourceDocumentCreatedAt)
+                            : "No upload date"}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-on-surface-variant">Pipeline status</span>
-                      <StatusBadge tone={toneForStatus(statusQuery.data.manifest.pipelineStatus)}>
-                        {statusQuery.data.manifest.pipelineStatus}
-                      </StatusBadge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-on-surface-variant">Last job</span>
-                      <span className="text-sm text-white">
-                        {statusQuery.data.job?.type ?? "No job recorded"}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-3 pt-3">
-                      <Link
-                        className="action-button-secondary"
-                        to={`/ai-review/${selectedDocument.id}`}
-                      >
-                        Open AI review
-                      </Link>
-                    </div>
+
+                    {statusQuery.data ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-on-surface-variant">Current stage</span>
+                          <span className="font-semibold text-white">
+                            {statusQuery.data.manifest.currentStage}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-on-surface-variant">Pipeline status</span>
+                          <StatusBadge tone={toneForStatus(statusQuery.data.manifest.pipelineStatus)}>
+                            {statusQuery.data.manifest.pipelineStatus}
+                          </StatusBadge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-on-surface-variant">Last job</span>
+                          <span className="text-sm text-white">
+                            {statusQuery.data.job?.type ?? "No job recorded"}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-3 pt-3">
+                          <Link className="action-button-secondary" to={`/ai-review/${selectedDocumentId}`}>
+                            Open AI review
+                          </Link>
+                        </div>
+                      </div>
+                    ) : statusQuery.isError ? (
+                      <p className="text-sm text-on-surface-variant">
+                        {getApiErrorMessage(statusQuery.error).includes("Pipeline manifest not found")
+                          ? "No pipeline manifest has been created for this survey document yet."
+                          : getApiErrorMessage(statusQuery.error)}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-on-surface-variant">Loading pipeline status...</p>
+                    )}
                   </div>
                 ) : (
                   <p className="text-sm text-on-surface-variant">
-                    No manifest has been created for this document yet.
+                    This survey has no source document attached, but it can still be analyzed into needs and moved into matching.
                   </p>
                 )}
               </>
             ) : (
               <p className="text-sm text-on-surface-variant">
-                Select a document from the intake table to inspect status and actions.
+                Select a submitted survey from the intake table to inspect status and actions.
               </p>
             )}
           </Panel>
@@ -238,7 +335,7 @@ export function PipelinePage() {
             <div>
               <p className="text-xl font-black text-white">Pipeline queue</p>
               <p className="mt-1 text-sm text-on-surface-variant">
-                Manifest-level overview across current documents.
+                Manifest-level overview across current document review pipeline runs.
               </p>
             </div>
             <div className="space-y-3">

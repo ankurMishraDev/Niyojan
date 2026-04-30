@@ -103,6 +103,19 @@ class DocumentsController {
 			next(error);
 		}
 	};
+
+	deleteDocument = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) {
+				throw new AppError(401, "Authentication is required");
+			}
+
+			const result = await documentsService.deleteDocument(req.params.id as string, req.user);
+			return sendSuccess(res, result, "Document deleted");
+		} catch (error) {
+			next(error);
+		}
+	};
 }
 
 export const documentsController = new DocumentsController();

@@ -203,6 +203,7 @@ export type DocumentItem = {
   id: string;
   orgId: string;
   uploadedBy: string | null;
+  sourceSurveyId: string | null;
   fileName: string;
   gcsPath: string;
   fileType: string;
@@ -237,6 +238,23 @@ export type PipelineManifest = {
   routingDecision?: unknown;
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type PipelineIntakeItem = {
+  surveyId: string;
+  orgId: string;
+  templateVersionId: string;
+  respondentName: string | null;
+  locationText: string | null;
+  surveyStatus: string;
+  submittedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  sourceDocumentId: string | null;
+  sourceDocumentName: string | null;
+  sourceDocumentType: string | null;
+  sourceDocumentStatus: string | null;
+  sourceDocumentCreatedAt: string | null;
 };
 
 export type PipelineStatus = {

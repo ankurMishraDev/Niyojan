@@ -8,7 +8,18 @@ import { surveysController } from "./surveys.controller";
 const surveysRouter = Router();
 
 const uuidSchema = z.string().uuid();
-const inputTypeSchema = z.enum(["text", "number", "boolean", "select", "multiselect", "date", "textarea"]);
+const inputTypeSchema = z.enum([
+	"text",
+	"number",
+	"boolean",
+	"select",
+	"multiselect",
+	"date",
+	"textarea",
+	"list",
+	"table",
+	"signature",
+]);
 
 const surveyIdParamsSchema = z.object({
 	id: uuidSchema,
@@ -38,13 +49,12 @@ const submitSurveyBodySchema = z.object({
 			z.object({
 				form_field_id: uuidSchema,
 				input_type: inputTypeSchema,
-				value_text: z.string().optional(),
-				value_number: z.number().optional(),
-				value_bool: z.boolean().optional(),
+				value_text: z.string().nullable().optional(),
+				value_number: z.number().nullable().optional(),
+				value_bool: z.boolean().nullable().optional(),
 				value_json: z.unknown().optional(),
 			}),
-		)
-		.min(1),
+		),
 });
 
 surveysRouter.use(requireAuth);
@@ -82,6 +92,13 @@ surveysRouter.post(
 	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
 	validate({ params: surveyIdParamsSchema }),
 	surveysController.analyzeNeeds,
+);
+
+surveysRouter.delete(
+	"/:id",
+	allowRoles(["superadmin", "ngo_admin"]),
+	validate({ params: surveyIdParamsSchema }),
+	surveysController.deleteSurvey,
 );
 
 export default surveysRouter;

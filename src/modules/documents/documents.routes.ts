@@ -21,6 +21,7 @@ const createDocumentBodySchema = z.object({
 	file_type: z.string().min(1),
 	status: z.enum(["uploaded", "processing", "review_pending", "approved", "failed"]).optional(),
 	org_id: uuidSchema.optional(),
+	source_survey_id: uuidSchema.optional(),
 });
 
 const listDocumentsQuerySchema = z.object({
@@ -30,6 +31,7 @@ const listDocumentsQuerySchema = z.object({
 	status: z.enum(["uploaded", "processing", "review_pending", "approved", "failed"]).optional(),
 	file_type: z.string().optional(),
 	uploaded_by: uuidSchema.optional(),
+	source_survey_id: uuidSchema.optional(),
 });
 
 const documentIdParamsSchema = z.object({
@@ -89,6 +91,13 @@ router.post(
 	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
 	validate({ params: documentIdParamsSchema }),
 	documentsController.triggerExtraction,
+);
+
+router.delete(
+	"/:id",
+	allowRoles(["superadmin", "ngo_admin"]),
+	validate({ params: documentIdParamsSchema }),
+	documentsController.deleteDocument,
 );
 
 export default router;

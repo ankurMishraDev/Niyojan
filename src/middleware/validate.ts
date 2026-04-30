@@ -32,6 +32,13 @@ export const validate = (schema: ValidationSchema): RequestHandler => {
           code: issue.code,
         }));
 
+        console.error("Request validation failed", {
+			method: req.method,
+			path: req.originalUrl,
+			body: req.body,
+			details,
+		});
+
         return next(new AppError(400, "Request validation failed", details));
       }
 

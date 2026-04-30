@@ -60,3 +60,9 @@ export const generateSignedReadUrl = async (gcsPath: string): Promise<SignedUrlR
     expiresAt: new Date(expires).toISOString(),
   };
 };
+
+export const deleteStoredObject = async (gcsPath: string) => {
+  const storage = getStorageClient();
+
+  await storage.bucket(gcsBucketName).file(gcsPath).delete({ ignoreNotFound: true });
+};

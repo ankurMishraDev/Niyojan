@@ -58,6 +58,12 @@ pipelineRouter.post(
 );
 
 pipelineRouter.get(
+	"/pipeline/intake",
+	allowRoles(["superadmin"]),
+	pipelineController.listIntake,
+);
+
+pipelineRouter.get(
 	"/pipeline/queue",
 	allowRoles(["superadmin"]),
 	validate({ query: queueQuerySchema }),

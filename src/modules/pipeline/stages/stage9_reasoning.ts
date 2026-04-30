@@ -19,6 +19,7 @@ export const stage9Reasoning = async (fields: ReasoningField[], canonicalText: s
 		providerName: result.providerName,
 		modelName: result.model,
 		promptVersion: result.promptVersion,
+		caseSummary: result.output.caseSummary,
 		urgencyScore: result.output.urgencyScore,
 		urgencyLabel: result.output.urgencyLabel,
 		urgencyReasons: result.output.urgencyReasons,

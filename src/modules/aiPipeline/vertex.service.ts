@@ -54,6 +54,102 @@ const normalizeSkillKeys = (keys: string[]) =>
 		),
 	);
 
+const extractMeaningfulSnippets = (text: string, limit = 3) =>
+	text
+		.split(/\r?\n|(?<=[.!?])\s+/)
+		.map((line) => line.trim().replace(/\s+/g, " "))
+		.filter((line) => line.length >= 12)
+		.slice(0, limit);
+
+const buildFallbackSummary = (input: {
+	canonicalText: string;
+	fields: Array<{
+		label: string;
+	}>;
+}) => {
+	const snippets = extractMeaningfulSnippets(input.canonicalText, 2);
+	if (snippets.length > 0) {
+		return snippets.join(" ");
+	}
+
+	const fieldLabels = input.fields
+		.map((field) => field.label.trim())
+		.filter(Boolean)
+		.slice(0, 4);
+
+	if (fieldLabels.length > 0) {
+		return `This intake appears to describe a case involving ${fieldLabels.join(", ")}. Human review is needed to confirm the details.`;
+	}
+
+	return "This intake contains limited readable detail. Human review is needed to understand the case clearly.";
+};
+
+const buildFallbackUrgencyReasons = (input: {
+	canonicalText: string;
+	fields: Array<{
+		label: string;
+	}>;
+}) => {
+	const lower = input.canonicalText.toLowerCase();
+	const reasons: string[] = [];
+
+	if (
+		lower.includes("urgent") ||
+		lower.includes("critical") ||
+		lower.includes("emergency") ||
+		lower.includes("medical")
+	) {
+		reasons.push("The intake mentions urgent, emergency, or medical concerns.");
+	}
+
+	if (input.fields.length >= 5) {
+		reasons.push("The intake captures multiple case details, which suggests the request may need timely review.");
+	}
+
+	if (reasons.length === 0) {
+		reasons.push("The system found enough case information to keep this intake under active review.");
+	}
+
+	return reasons;
+};
+
+const buildFallbackEvidenceRefs = (input: {
+	canonicalText: string;
+	fields: Array<{
+		label: string;
+	}>;
+}) => {
+	const snippets = extractMeaningfulSnippets(input.canonicalText, 3);
+	if (snippets.length > 0) {
+		return snippets;
+	}
+
+	return input.fields
+		.slice(0, 3)
+		.map((field) => `Field captured in intake: ${field.label}`);
+};
+
+const buildFallbackVerificationRiskReasons = (input: {
+	canonicalText: string;
+	fields: Array<{
+		confidence: number;
+	}>;
+}) => {
+	const reasons = [
+		"This case still needs manual confirmation because the AI could not return a complete reasoning response.",
+	];
+
+	if (input.fields.some((field) => field.confidence < 0.75)) {
+		reasons.push("Some extracted fields were captured with lower confidence and should be checked by an admin.");
+	}
+
+	if (input.canonicalText.trim().length < 80) {
+		reasons.push("The readable case text is limited, so the system may be missing context.");
+	}
+
+	return reasons;
+};
+
 export class VertexService {
 	getProviderMetadata() {
 		return {
@@ -167,27 +263,28 @@ export class VertexService {
 					.filter(Boolean)
 					.slice(0, 3),
 			);
+			const caseSummary = buildFallbackSummary(input);
+			const urgencyReasons = buildFallbackUrgencyReasons(input);
+			const urgencyEvidenceRefs = buildFallbackEvidenceRefs(input);
+			const verificationRiskReasons = buildFallbackVerificationRiskReasons(input);
 
 			return {
 				providerName: "vertex-ai",
 				model: env.VERTEX_REASONING_MODEL,
-				promptVersion: "document_reasoning_v1",
+				promptVersion: "document_reasoning_v2",
 				output: {
+					caseSummary,
 					urgencyScore: input.fields.length > 4 ? 78 : 62,
 					urgencyLabel: input.fields.length > 4 ? "high" : "medium",
-					urgencyReasons: ["Fallback reasoning generated from extracted field density"],
-					urgencyEvidenceRefs: input.fields
-						.slice(0, 3)
-						.map((_field, index) => `p1:b${index + 1}`),
+					urgencyReasons,
+					urgencyEvidenceRefs,
 					needCategory: categories[0] || "general",
 					needSubcategory: null,
 					recommendedSkillKeys,
-					recommendedAction: "Route to human review and form refinement",
+					recommendedAction: "Review this case, confirm the important details, and then continue it for form or case processing.",
 					reasoningConfidence: 0.58,
 					verificationRisk: "high" as const,
-					verificationRiskReasons: [
-						"Fallback reasoning used due to unavailable or invalid model output",
-					],
+					verificationRiskReasons,
 				},
 				latencyMs: 0,
 				inputTokenCount: null,
@@ -205,6 +302,10 @@ export class VertexService {
 				"You are classifying a humanitarian intake document.",
 				"Return JSON only.",
 				"Use the extracted fields and canonical text to estimate urgency, category, recommended skills, and verification risk.",
+				"Write for a non-technical NGO admin in simple language.",
+				"caseSummary must be a short 2-4 sentence explanation of what the survey or intake is basically about.",
+				"urgencyReasons and verificationRiskReasons must be plain-language explanations, not system messages.",
+				"urgencyEvidenceRefs must contain short human-readable text snippets or field references from the intake, not codes like p1:b1.",
 				"Urgency score must be 0-100.",
 				"Verification risk must be low, medium, or high.",
 				"Extracted fields JSON:",
@@ -215,7 +316,7 @@ export class VertexService {
 
 			return await this.generateStructuredJson({
 				model: env.VERTEX_REASONING_MODEL,
-				promptVersion: "document_reasoning_v1",
+				promptVersion: "document_reasoning_v2",
 				schema: documentReasoningSchema,
 				prompt,
 			});
