@@ -12,6 +12,8 @@ import type {
   Need,
   NgoRegistrationPayload,
   OnboardingOrganization,
+  VolunteerOnboardingOptions,
+  VolunteerRegistrationPayload,
   PipelineManifest,
   PipelineHealth,
   PipelineStatus,
@@ -28,6 +30,10 @@ export const authApi = {
   me: async () => (await api.get<UserProfile>("/auth/me")).data,
   registerNgo: async (body: NgoRegistrationPayload) =>
     (await api.post<UserProfile>("/auth/register-ngo", body)).data,
+  volunteerOnboardingOptions: async () =>
+    (await api.get<VolunteerOnboardingOptions>("/auth/volunteer-onboarding-options")).data,
+  registerVolunteer: async (body: VolunteerRegistrationPayload) =>
+    (await api.post<UserProfile>("/auth/register-volunteer", body)).data,
 };
 
 export const onboardingApi = {

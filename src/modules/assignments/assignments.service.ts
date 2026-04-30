@@ -152,6 +152,23 @@ const getVolunteerById = async (volunteerId: string) => {
 		.first()) as VolunteerRow | undefined;
 };
 
+const getVolunteerByUserId = async (userId: string) => {
+	return (await db("volunteers as v")
+		.join("users as u", "v.user_id", "u.id")
+		.where("v.user_id", userId)
+		.select(
+			"v.id",
+			"v.org_id",
+			"v.user_id",
+			"v.availability_status",
+			"v.location_text",
+			"v.is_active",
+			"u.name as user_name",
+			"u.email as user_email",
+		)
+		.first()) as VolunteerRow | undefined;
+};
+
 const getAssignmentRowById = async (assignmentId: string) => {
 	return (await db("task_assignments as ta")
 		.join("needs_analysis as n", "ta.need_id", "n.id")
@@ -286,6 +303,13 @@ export class AssignmentsService {
 			if (query.org_id) {
 				baseQuery.andWhere("ta.org_id", query.org_id);
 			}
+		} else if (user.role === "volunteer") {
+			const volunteer = await getVolunteerByUserId(user.id);
+			if (!volunteer) {
+				throw new AppError(404, "Volunteer profile not found for authenticated user");
+			}
+
+			baseQuery.andWhere("ta.volunteer_id", volunteer.id);
 		} else {
 			if (!user.orgId) {
 				throw new AppError(400, "Authenticated user organization context is missing");
@@ -352,6 +376,9 @@ export class AssignmentsService {
 		}
 
 		assertOrgScope(user, assignment.org_id);
+		if (user.role === "volunteer" && assignment.volunteer_user_id !== user.id) {
+			throw new AppError(403, "Only the assigned volunteer can view this assignment");
+		}
 		return mapAssignment(assignment);
 	}
 

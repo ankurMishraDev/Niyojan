@@ -36,6 +36,7 @@ describe("RouteGuard", () => {
     usingFirebase: false,
     signInWithEmail: async () => undefined,
     signUpNgo: async () => undefined,
+    signUpVolunteer: async () => undefined,
     signOut: async () => undefined,
     refreshProfile: async () => undefined,
   };

@@ -573,15 +573,6 @@ export function SurveyDetailPage() {
     },
   });
 
-  const analyzeMutation = useMutation({
-    mutationFn: () => surveysApi.analyzeNeeds(surveyId),
-    onSuccess: (result) => {
-      setAnalysisFeedback(
-        `Needs analysis complete. ${result.needs.length} needs available.`,
-      );
-    },
-  });
-
   if (surveyQuery.isLoading || versionQuery.isLoading) {
     return <LoaderBlock label="Loading survey payload..." />;
   }

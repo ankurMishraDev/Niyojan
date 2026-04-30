@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api, ApiError } from "@/lib/api";
@@ -10,11 +10,20 @@ import { formatDateTime } from "@/lib/format";
 export function FeedbackIndexPage() {
   const { user } = useAuth();
   const canListAssignments = user?.role === "superadmin" || user?.role === "volunteer";
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const assignmentsQuery = useQuery({
     enabled: canListAssignments,
     queryKey: ["feedback-assignments"],
     queryFn: () => assignmentsApi.list({ page: 1, pageSize: 20 }),
   });
+
+  const availableAssignments = assignmentsQuery.data?.items ?? [];
+
+  useEffect(() => {
+    if (!selectedAssignmentId && availableAssignments[0]?.id) {
+      setSelectedAssignmentId(availableAssignments[0].id);
+    }
+  }, [availableAssignments, selectedAssignmentId]);
 
   if (assignmentsQuery.isLoading && canListAssignments) {
     return <LoaderBlock label="Loading feedback workspace..." />;
@@ -43,20 +52,43 @@ export function FeedbackIndexPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Feedback"
-        title="Choose an assignment"
-        description="Assignments drive volunteer feedback submission and admin case closure."
+        title={user?.role === "volunteer" ? "Select an open case" : "Choose an assignment"}
+        description={user?.role === "volunteer"
+          ? "Choose one of your assigned cases and submit the observed ground reality after the field visit."
+          : "Assignments drive volunteer feedback submission and admin case closure."}
       />
-      <div className="grid gap-4 xl:grid-cols-2">
-        {assignmentsQuery.data?.items.map((assignment) => (
-          <Panel className="space-y-3" key={assignment.id}>
-            <p className="text-lg font-bold text-white">{assignment.needSummary}</p>
-            <p className="text-sm text-on-surface-variant">{assignment.volunteerName}</p>
-            <Link className="action-button-secondary" to={`/feedback/assignments/${assignment.id}`}>
-              Open feedback record
-            </Link>
-          </Panel>
-        ))}
-      </div>
+      {user?.role === "volunteer" ? (
+        <Panel className="max-w-3xl space-y-4">
+          <Select
+            value={selectedAssignmentId}
+            onChange={(event) => setSelectedAssignmentId(event.target.value)}
+          >
+            {availableAssignments.map((assignment) => (
+              <option key={assignment.id} value={assignment.id}>
+                {assignment.needSummary} ({assignment.status})
+              </option>
+            ))}
+          </Select>
+          <Link
+            className="action-button-secondary"
+            to={selectedAssignmentId ? `/feedback/assignments/${selectedAssignmentId}` : "/feedback"}
+          >
+            Open selected case
+          </Link>
+        </Panel>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {availableAssignments.map((assignment) => (
+            <Panel className="space-y-3" key={assignment.id}>
+              <p className="text-lg font-bold text-white">{assignment.needSummary}</p>
+              <p className="text-sm text-on-surface-variant">{assignment.volunteerName}</p>
+              <Link className="action-button-secondary" to={`/feedback/assignments/${assignment.id}`}>
+                Open feedback record
+              </Link>
+            </Panel>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

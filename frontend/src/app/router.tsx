@@ -1,9 +1,11 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppShell } from "@/app/AppShell";
 import { RouteGuard } from "@/app/RouteGuard";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { LandingPage } from "@/pages/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { SignupPage } from "@/pages/SignupPage";
+import { VolunteerSignupPage } from "@/pages/VolunteerSignupPage";
 import { AccountStatusPage } from "@/pages/AccountStatusPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { PipelinePage } from "@/pages/PipelinePage";
@@ -14,6 +16,11 @@ import { MatchingPage } from "@/pages/MatchingPage";
 import { AssignmentsPage } from "@/pages/AssignmentsPage";
 import { FeedbackIndexPage, FeedbackPage } from "@/pages/FeedbackPage";
 import { ProfilePage } from "@/pages/ProfilePage";
+
+function AppRedirect() {
+  const { user } = useAuth();
+  return <Navigate to={user?.role === "volunteer" ? "/assignments" : "/dashboard"} replace />;
+}
 
 export const router = createBrowserRouter([
   {
@@ -29,6 +36,10 @@ export const router = createBrowserRouter([
     element: <SignupPage />,
   },
   {
+    path: "/volunteer-signup",
+    element: <VolunteerSignupPage />,
+  },
+  {
     path: "/",
     element: <RouteGuard />,
     children: [
@@ -36,8 +47,17 @@ export const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { path: "app", element: <Navigate to="/dashboard" replace /> },
-          { path: "dashboard", element: <DashboardPage /> },
+          { path: "app", element: <AppRedirect /> },
+          {
+            element: <RouteGuard roles={["superadmin", "ngo_admin", "field_worker"]} />,
+            children: [{ path: "dashboard", element: <DashboardPage /> }],
+          },
+          {
+            element: <RouteGuard roles={["superadmin", "volunteer"]} />,
+            children: [
+              { path: "assignments", element: <AssignmentsPage /> },
+            ],
+          },
           {
             element: <RouteGuard roles={["superadmin"]} />,
             children: [
@@ -45,7 +65,6 @@ export const router = createBrowserRouter([
               { path: "ai-review", element: <AiReviewIndexPage /> },
               { path: "ai-review/:documentId", element: <AiReviewPage /> },
               { path: "matching", element: <MatchingPage /> },
-              { path: "assignments", element: <AssignmentsPage /> },
             ],
           },
           {

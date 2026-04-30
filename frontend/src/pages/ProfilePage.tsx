@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Button, Input, LoaderBlock, PageHeader, Panel, Select } from "@/components/ui";
+import { Button, Input, LoaderBlock, PageHeader, Panel, Select, Textarea } from "@/components/ui";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { volunteersApi } from "@/lib/services";
 import { formatDateTime } from "@/lib/format";
@@ -84,6 +84,12 @@ export function ProfilePage() {
                   longitude: formData.get("longitude")
                     ? Number(formData.get("longitude"))
                     : null,
+                  gender: formData.get("gender"),
+                  age: formData.get("age") ? Number(formData.get("age")) : null,
+                  phone_number: formData.get("phone_number"),
+                  profession: formData.get("profession"),
+                  primary_domain: formData.get("primary_domain"),
+                  profile_summary: formData.get("profile_summary"),
                   is_active: formData.get("is_active") === "true",
                 });
               }}
@@ -100,6 +106,33 @@ export function ProfilePage() {
                 <option value="true">active</option>
                 <option value="false">inactive</option>
               </Select>
+              <Select defaultValue={volunteerQuery.data.gender ?? "prefer_not_to_say"} name="gender">
+                <option value="male">male</option>
+                <option value="female">female</option>
+                <option value="other">other</option>
+                <option value="prefer_not_to_say">prefer_not_to_say</option>
+              </Select>
+              <Input
+                defaultValue={volunteerQuery.data.age ?? ""}
+                name="age"
+                placeholder="Age"
+                type="number"
+              />
+              <Input
+                defaultValue={volunteerQuery.data.phoneNumber ?? ""}
+                name="phone_number"
+                placeholder="Phone number"
+              />
+              <Input
+                defaultValue={volunteerQuery.data.profession ?? ""}
+                name="profession"
+                placeholder="Profession"
+              />
+              <Input
+                defaultValue={volunteerQuery.data.primaryDomain ?? ""}
+                name="primary_domain"
+                placeholder="Primary domain"
+              />
               <Input
                 defaultValue={volunteerQuery.data.locationText ?? ""}
                 name="location_text"
@@ -116,6 +149,12 @@ export function ProfilePage() {
                 name="longitude"
                 placeholder="Longitude"
                 type="number"
+              />
+              <Textarea
+                className="md:col-span-2"
+                defaultValue={volunteerQuery.data.profileSummary ?? ""}
+                name="profile_summary"
+                placeholder="Professional summary"
               />
               <div className="md:col-span-2">
                 <Button disabled={updateMutation.isPending} type="submit">

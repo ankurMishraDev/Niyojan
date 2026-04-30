@@ -4,10 +4,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { LoaderBlock, PageHeader, Panel, Select, StatusBadge } from "@/components/ui";
 import { assignmentsApi } from "@/lib/services";
 import { formatDateTime, toneForStatus } from "@/lib/format";
+import { useAuth } from "@/features/auth/AuthProvider";
 
 export function AssignmentsPage() {
   const location = useLocation();
+  const { user } = useAuth();
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
+  const isVolunteer = user?.role === "volunteer";
 
   const assignmentsQuery = useQuery({
     queryKey: ["assignments"],
@@ -46,9 +49,11 @@ export function AssignmentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Execution"
-        title="Assignments"
-        description="Track dispatched matches, update operational status, and route into field feedback."
+        eyebrow={isVolunteer ? "Volunteer Workboard" : "Execution"}
+        title={isVolunteer ? "Assignment queue" : "Assignments"}
+        description={isVolunteer
+          ? "Review newly assigned cases, inspect NGO-submitted details, and open the linked feedback workflow."
+          : "Track dispatched matches, update operational status, and route into field feedback."}
       />
 
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
@@ -105,21 +110,23 @@ export function AssignmentsPage() {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <Select
-                  defaultValue={detailQuery.data.status}
-                  onChange={(event) => void updateStatusMutation.mutate(event.target.value)}
-                >
-                  <option value="suggested">suggested</option>
-                  <option value="accepted">accepted</option>
-                  <option value="in_progress">in_progress</option>
-                  <option value="completed">completed</option>
-                  <option value="cancelled">cancelled</option>
-                </Select>
+                {!isVolunteer ? (
+                  <Select
+                    defaultValue={detailQuery.data.status}
+                    onChange={(event) => void updateStatusMutation.mutate(event.target.value)}
+                  >
+                    <option value="suggested">suggested</option>
+                    <option value="accepted">accepted</option>
+                    <option value="in_progress">in_progress</option>
+                    <option value="completed">completed</option>
+                    <option value="cancelled">cancelled</option>
+                  </Select>
+                ) : null}
                 <Link
                   className="action-button-secondary"
                   to={`/feedback/assignments/${detailQuery.data.id}`}
                 >
-                  Open feedback
+                  {isVolunteer ? "Submit field feedback" : "Open feedback"}
                 </Link>
               </div>
             </>

@@ -37,11 +37,40 @@ type RegisterNgoInput = {
 	founded_year?: number;
 };
 
+type RegisterVolunteerInput = {
+	org_id?: string;
+	volunteer_name?: string;
+	availability_status?: string;
+	location_text?: string;
+	latitude?: number;
+	longitude?: number;
+	gender?: string;
+	age?: number;
+	phone_number?: string;
+	profession?: string;
+	primary_domain?: string;
+	profile_summary?: string;
+	skills?: Array<{
+		skill_id: string;
+		proficiency: number;
+	}>;
+};
+
 type ListOnboardingOrganizationsQuery = {
 	status?: string;
 };
 
 const ALL_ACCOUNT_STATUSES = ["pending", "active", "rejected", "inactive"] as const;
+const VOLUNTEER_DOMAINS = [
+	"medical",
+	"counsellor",
+	"distributor",
+	"technical",
+	"manager",
+	"community_outreach",
+	"logistics",
+	"other",
+] as const;
 
 const resolveSafeEmail = (firebaseUid: string, email?: string) => {
 	if (email && email.includes("@")) {
@@ -130,6 +159,19 @@ const getOrganizationById = async (organizationId: string) => {
 				updated_at: Date;
 		  }
 		| undefined;
+};
+
+const ensureSkillsExist = async (skillIds: string[]) => {
+	if (skillIds.length === 0) {
+		return;
+	}
+
+	const rows = await db("skills").whereIn("id", skillIds).select("id");
+	const existingIds = new Set(rows.map((row) => row.id as string));
+	const missingIds = skillIds.filter((skillId) => !existingIds.has(skillId));
+	if (missingIds.length > 0) {
+		throw new AppError(400, `Unknown skill ids: ${missingIds.join(", ")}`);
+	}
 };
 
 const syncProfileFields = async (user: UserRow, claims: AuthenticatedClaims) => {
@@ -224,6 +266,99 @@ export class AuthService {
 			...(user as UserRow),
 			org_name: organization.name as string,
 			org_status: organization.status as string,
+		});
+	}
+
+	async getVolunteerOnboardingOptions() {
+		const [organizations, skills] = await Promise.all([
+			db("organizations")
+				.where({ status: "active" })
+				.orderBy("name", "asc")
+				.select("id", "name", "region"),
+			db("skills").orderBy(["category", "name"]).select("id", "key", "name", "category"),
+		]);
+
+		return {
+			domains: [...VOLUNTEER_DOMAINS],
+			organizations: organizations.map((organization) => ({
+				id: organization.id as string,
+				name: organization.name as string,
+				region: (organization.region as string | null) || null,
+			})),
+			skills: skills.map((skill) => ({
+				id: skill.id as string,
+				key: skill.key as string,
+				name: skill.name as string,
+				category: skill.category as string,
+			})),
+		};
+	}
+
+	async registerVolunteer(claims: AuthenticatedClaims, input: RegisterVolunteerInput) {
+		const existing = await getUserByFirebaseUid(claims.firebaseUid);
+		if (existing) {
+			return mapToProfile(existing);
+		}
+
+		const organization = input.org_id ? await getOrganizationById(input.org_id) : undefined;
+		if (input.org_id && (!organization || organization.status !== "active")) {
+			throw new AppError(404, "Active organization not found for volunteer onboarding");
+		}
+
+		if (input.primary_domain && !VOLUNTEER_DOMAINS.includes(input.primary_domain as (typeof VOLUNTEER_DOMAINS)[number])) {
+			throw new AppError(400, "Invalid volunteer domain");
+		}
+
+		const requestedSkills = input.skills || [];
+		await ensureSkillsExist(requestedSkills.map((skill) => skill.skill_id));
+
+		const [user] = await db.transaction(async (trx) => {
+			const [createdUser] = await trx("users")
+				.insert({
+					org_id: organization?.id || null,
+					firebase_uid: claims.firebaseUid,
+					name: (input.volunteer_name || claims.name || "Volunteer").trim(),
+					email: resolveSafeEmail(claims.firebaseUid, claims.email),
+					role: "volunteer",
+					status: "active",
+				})
+				.returning("*");
+
+			const [createdVolunteer] = await trx("volunteers")
+				.insert({
+					org_id: organization?.id || null,
+					user_id: createdUser.id,
+					availability_status: input.availability_status?.trim() || "available",
+					location_text: input.location_text?.trim() || null,
+					latitude: input.latitude ?? null,
+					longitude: input.longitude ?? null,
+					gender: input.gender?.trim() || null,
+					age: input.age ?? null,
+					phone_number: input.phone_number?.trim() || null,
+					profession: input.profession?.trim() || null,
+					primary_domain: input.primary_domain?.trim() || null,
+					profile_summary: input.profile_summary?.trim() || null,
+					is_active: true,
+				})
+				.returning("id");
+
+			if (requestedSkills.length > 0) {
+				await trx("volunteer_skills").insert(
+					requestedSkills.map((skill) => ({
+						volunteer_id: createdVolunteer.id,
+						skill_id: skill.skill_id,
+						proficiency: skill.proficiency,
+					})),
+				);
+			}
+
+			return [createdUser];
+		});
+
+		return mapToProfile({
+			...(user as UserRow),
+			org_name: organization?.name || null,
+			org_status: organization?.status || null,
 		});
 	}
 

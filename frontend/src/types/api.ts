@@ -45,6 +45,40 @@ export type NgoRegistrationPayload = {
   founded_year?: number;
 };
 
+export type VolunteerRegistrationPayload = {
+  org_id?: string;
+  volunteer_name?: string;
+  availability_status?: string;
+  location_text?: string;
+  latitude?: number;
+  longitude?: number;
+  gender?: "male" | "female" | "other" | "prefer_not_to_say";
+  age?: number;
+  phone_number?: string;
+  profession?: string;
+  primary_domain?: string;
+  profile_summary?: string;
+  skills?: Array<{
+    skill_id: string;
+    proficiency: number;
+  }>;
+};
+
+export type VolunteerOnboardingOptions = {
+  domains: string[];
+  organizations: Array<{
+    id: string;
+    name: string;
+    region: string | null;
+  }>;
+  skills: Array<{
+    id: string;
+    key: string;
+    name: string;
+    category: string;
+  }>;
+};
+
 export type OnboardingOrganization = {
   id: string;
   name: string;
@@ -136,12 +170,18 @@ export type Skill = {
 
 export type Volunteer = {
   id: string;
-  orgId: string;
+  orgId: string | null;
   userId: string;
   availabilityStatus: string;
   locationText: string | null;
   latitude: number | null;
   longitude: number | null;
+  gender?: string | null;
+  age?: number | null;
+  phoneNumber?: string | null;
+  profession?: string | null;
+  primaryDomain?: string | null;
+  profileSummary?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

@@ -31,6 +31,28 @@ class AuthController {
 			next(error);
 		}
 	};
+
+	volunteerOnboardingOptions = async (_req: Request, res: Response, next: NextFunction) => {
+		try {
+			const options = await authService.getVolunteerOnboardingOptions();
+			return sendSuccess(res, options, "Volunteer onboarding options");
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	registerVolunteer = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			if (!req.authClaims) {
+				throw new AppError(401, "Authentication is required");
+			}
+
+			const profile = await authService.registerVolunteer(req.authClaims, req.body);
+			return sendSuccess(res, profile, "Volunteer account created", 201);
+		} catch (error) {
+			next(error);
+		}
+	};
 }
 
 export const authController = new AuthController();

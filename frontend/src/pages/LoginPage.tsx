@@ -16,7 +16,7 @@ export function LoginPage() {
       <Navigate
         to={
           user.status === "active"
-            ? (location.state as { from?: string } | null)?.from ?? "/dashboard"
+            ? (location.state as { from?: string } | null)?.from ?? (user.role === "volunteer" ? "/assignments" : "/dashboard")
             : "/account-status"
         }
         replace
@@ -116,6 +116,12 @@ export function LoginPage() {
               New NGO?{" "}
               <Link className="text-white underline-offset-4 hover:underline" to="/signup">
                 Register organization
+              </Link>
+            </p>
+            <p className="text-sm text-on-surface-variant">
+              New Volunteer?{" "}
+              <Link className="text-white underline-offset-4 hover:underline" to="/volunteer-signup">
+                Join volunteer network
               </Link>
             </p>
           </form>

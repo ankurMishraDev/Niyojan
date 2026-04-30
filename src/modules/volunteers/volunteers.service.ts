@@ -5,12 +5,18 @@ import { getPaginationParams } from "../../utils/pagination";
 
 type VolunteerRow = {
 	id: string;
-	org_id: string;
+	org_id: string | null;
 	user_id: string;
 	availability_status: string;
 	location_text: string | null;
 	latitude: string | number | null;
 	longitude: string | number | null;
+	gender: string | null;
+	age: number | null;
+	phone_number: string | null;
+	profession: string | null;
+	primary_domain: string | null;
+	profile_summary: string | null;
 	is_active: boolean;
 	created_at: Date;
 	updated_at: Date;
@@ -40,6 +46,12 @@ type UpdateVolunteerInput = {
 	location_text?: string;
 	latitude?: number | null;
 	longitude?: number | null;
+	gender?: string;
+	age?: number | null;
+	phone_number?: string;
+	profession?: string;
+	primary_domain?: string;
+	profile_summary?: string;
 	is_active?: boolean;
 };
 
@@ -89,6 +101,18 @@ const assertOrgScope = (user: AuthenticatedUser, orgId: string) => {
 	}
 };
 
+const canAccessVolunteerRecord = (user: AuthenticatedUser, volunteer: VolunteerRow) => {
+	if (user.role === "superadmin") {
+		return true;
+	}
+
+	if (user.role === "volunteer" && volunteer.user_id === user.id) {
+		return true;
+	}
+
+	return Boolean(user.orgId && volunteer.org_id && user.orgId === volunteer.org_id);
+};
+
 const resolveTargetOrgId = (user: AuthenticatedUser, orgIdFromInput?: string) => {
 	if (user.role === "superadmin") {
 		if (!orgIdFromInput) {
@@ -118,6 +142,12 @@ const mapVolunteer = (volunteer: VolunteerRow, skills: VolunteerSkillRow[]) => {
 		locationText: volunteer.location_text,
 		latitude: volunteer.latitude === null ? null : Number(volunteer.latitude),
 		longitude: volunteer.longitude === null ? null : Number(volunteer.longitude),
+		gender: volunteer.gender,
+		age: volunteer.age,
+		phoneNumber: volunteer.phone_number,
+		profession: volunteer.profession,
+		primaryDomain: volunteer.primary_domain,
+		profileSummary: volunteer.profile_summary,
 		isActive: volunteer.is_active,
 		createdAt: volunteer.created_at,
 		updatedAt: volunteer.updated_at,
@@ -196,7 +226,9 @@ export class VolunteersService {
 			throw new AppError(404, "Volunteer not found");
 		}
 
-		assertOrgScope(user, volunteer.org_id);
+		if (!canAccessVolunteerRecord(user, volunteer)) {
+			throw new AppError(403, "Cross-organization access is not allowed");
+		}
 
 		const skills = await fetchVolunteerSkills([volunteer.id]);
 		return mapVolunteer(volunteer, skills);
@@ -211,6 +243,8 @@ export class VolunteersService {
 			if (query.org_id) {
 				baseQuery.andWhere("v.org_id", query.org_id);
 			}
+		} else if (user.role === "volunteer") {
+			baseQuery.andWhere("v.user_id", user.id);
 		} else {
 			if (!user.orgId) {
 				throw new AppError(400, "Authenticated user organization context is missing");
@@ -285,7 +319,9 @@ export class VolunteersService {
 			throw new AppError(404, "Volunteer not found");
 		}
 
-		assertOrgScope(user, volunteer.org_id);
+		if (!canAccessVolunteerRecord(user, volunteer)) {
+			throw new AppError(403, "Cross-organization access is not allowed");
+		}
 
 		const payload: Record<string, unknown> = {};
 
@@ -303,6 +339,30 @@ export class VolunteersService {
 
 		if (input.longitude !== undefined) {
 			payload.longitude = input.longitude;
+		}
+
+		if (input.gender !== undefined) {
+			payload.gender = input.gender;
+		}
+
+		if (input.age !== undefined) {
+			payload.age = input.age;
+		}
+
+		if (input.phone_number !== undefined) {
+			payload.phone_number = input.phone_number;
+		}
+
+		if (input.profession !== undefined) {
+			payload.profession = input.profession;
+		}
+
+		if (input.primary_domain !== undefined) {
+			payload.primary_domain = input.primary_domain;
+		}
+
+		if (input.profile_summary !== undefined) {
+			payload.profile_summary = input.profile_summary;
 		}
 
 		if (input.is_active !== undefined) {
@@ -336,6 +396,10 @@ export class VolunteersService {
 
 		if (!volunteer) {
 			throw new AppError(404, "Volunteer not found");
+		}
+
+		if (!volunteer.org_id) {
+			throw new AppError(400, "Volunteer is not linked to an organization");
 		}
 
 		assertOrgScope(user, volunteer.org_id);

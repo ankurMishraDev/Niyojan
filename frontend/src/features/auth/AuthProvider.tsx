@@ -20,6 +20,7 @@ import {
 } from "@/features/auth/authSession";
 import type { UserProfile } from "@/types/api";
 import type { NgoRegistrationPayload } from "@/types/api";
+import type { VolunteerRegistrationPayload } from "@/types/api";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
@@ -29,6 +30,7 @@ type AuthContextValue = {
   usingFirebase: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpNgo: (email: string, password: string, payload: NgoRegistrationPayload) => Promise<void>;
+  signUpVolunteer: (email: string, password: string, payload: VolunteerRegistrationPayload) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -149,6 +151,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const signUpVolunteer = async (
+    email: string,
+    password: string,
+    payload: VolunteerRegistrationPayload,
+  ) => {
+    if (!firebaseAuth) {
+      throw new Error("Firebase web config is not configured. Add the VITE_FIREBASE_* values.");
+    }
+
+    try {
+      registrationInFlight.current = true;
+      const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+      await syncAccessToken(credential.user);
+      const profile = await authApi.registerVolunteer(payload);
+      setUser(profile);
+      setStatus("authenticated");
+    } catch (error) {
+      setAccessToken(null);
+      if (firebaseAuth.currentUser) {
+        await firebaseSignOut(firebaseAuth);
+      }
+      throw error;
+    } finally {
+      registrationInFlight.current = false;
+    }
+  };
+
   const signOut = async () => {
     setAccessToken(null);
 
@@ -175,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         usingFirebase: Boolean(firebaseAuth),
         signInWithEmail,
         signUpNgo,
+        signUpVolunteer,
         signOut,
         refreshProfile,
       }}

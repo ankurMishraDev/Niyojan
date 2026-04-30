@@ -16,6 +16,12 @@ const volunteerBaseSchema = z.object({
 	location_text: z.string().max(255).optional(),
 	latitude: z.number().min(-90).max(90).nullable().optional(),
 	longitude: z.number().min(-180).max(180).nullable().optional(),
+	gender: z.enum(["male", "female", "other", "prefer_not_to_say"]).optional(),
+	age: z.number().int().min(16).max(120).nullable().optional(),
+	phone_number: z.string().min(6).max(40).optional(),
+	profession: z.string().min(2).max(120).optional(),
+	primary_domain: z.string().min(2).max(80).optional(),
+	profile_summary: z.string().min(8).max(1000).optional(),
 	is_active: z.boolean().optional(),
 });
 
@@ -80,7 +86,7 @@ volunteersRouter.get(
 
 volunteersRouter.patch(
 	"/:id",
-	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
+	allowRoles(["superadmin", "ngo_admin", "field_worker", "volunteer"]),
 	validate({ params: idParamsSchema, body: updateVolunteerSchema }),
 	volunteersController.updateVolunteer,
 );
