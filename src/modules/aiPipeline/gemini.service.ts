@@ -125,6 +125,13 @@ const buildDeterministicMapping = (
 	return mappedFields;
 };
 
+const normalizeFieldIdentity = (value: string) =>
+	value
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "_")
+		.replace(/^_+|_+$/g, "");
+
 const modelOutputSchema = z.array(mappedFieldSchema);
 
 export class GeminiService {
@@ -138,6 +145,9 @@ export class GeminiService {
 			const prompt = [
 				"You map extracted document fields to a known field catalog.",
 				"Return JSON only as an array.",
+				"Return exactly one output item for each candidate field.",
+				"Preserve the same field order as the candidate input array.",
+				"Do not add, drop, merge, or duplicate fields.",
 				"Each item must include label, inputType, required, options, confidence, matchedCatalogKey, isCustom, and category.",
 				"If there is no confident match, set matchedCatalogKey to null and isCustom to true.",
 				"Available field catalog:",
@@ -155,7 +165,7 @@ export class GeminiService {
 			].join("\n");
 
 			const result = await vertexService.generateStructuredJson({
-				model: "gemini-1.5-pro-001",
+				model: env.VERTEX_DOCUMENT_MODEL,
 				promptVersion: "field_mapping_v1",
 				schema: modelOutputSchema,
 				prompt,
@@ -163,6 +173,21 @@ export class GeminiService {
 
 			if ("validationErrors" in result && result.validationErrors?.length) {
 				throw new Error("Vertex mapping failed");
+			}
+
+			if (result.output.length !== candidates.length) {
+				throw new Error(
+					`Vertex mapping returned ${result.output.length} items for ${candidates.length} candidates`,
+				);
+			}
+
+			const seenModelFields = new Set<string>();
+			for (const field of result.output) {
+				const identity = field.matchedCatalogKey || normalizeFieldIdentity(field.label);
+				if (seenModelFields.has(identity)) {
+					throw new Error(`Vertex mapping produced duplicate field identity: ${identity}`);
+				}
+				seenModelFields.add(identity);
 			}
 
 			const catalogByKey = new Map(catalogRows.map((row) => [row.key, row]));
@@ -206,7 +231,22 @@ export class GeminiService {
 		} catch (error) {
 			console.error("Gemini mapping failed, falling back to deterministic mapping", error);
 			return {
+				providerName: "deterministic-fallback",
+				mode: "live",
+				model: env.VERTEX_DOCUMENT_MODEL,
+				promptVersion: "field_mapping_v1",
 				mappedFields: deterministicMapping,
+				contradictions: [],
+				modelQualityFlags: deterministicMapping.some((field) => field.isCustom)
+					? ["custom_fields_present"]
+					: [],
+				inputTokenCount: null,
+				outputTokenCount: null,
+				latencyMs: 0,
+				validationStatus: "fallback",
+				validationErrors: [error instanceof Error ? error.message : "field_mapping_failed"],
+				fallbackReason: "deterministic_field_mapping_fallback",
+				reviewRequired: true,
 			};
 		}
 	}

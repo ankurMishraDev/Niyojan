@@ -169,7 +169,12 @@ export const formsApi = {
     body?: Record<string, unknown>,
   ) =>
     (
-      await api.post<Record<string, unknown>>(
+      await api.post<{
+        template: { id: string };
+        version: { id: string };
+        fields: Array<{ id: string }>;
+        summary: Record<string, unknown>;
+      }>(
         `/form-templates/from-document/${documentId}`,
         body,
       )

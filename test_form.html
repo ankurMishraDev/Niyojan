@@ -1,14 +1,472 @@
-<html>
-<body style="font-family: sans-serif; padding: 20px;">
-  <h2>Beneficiary Intake Form</h2>
-  <div>Name: ______________________</div>
-  <br>
-  <div>Age: _______________________</div>
-  <br>
-  <div>Location: ____________________</div>
-  <br>
-  <div>Contact Number: _________________</div>
-  <br>
-  <div>Needs Medical Assistance: [ ] Yes  [ ] No</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assessment Survey Form</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #e8e8e8;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #111;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .page {
+      width: 794px;
+      min-height: 1123px;
+      margin: 0 auto 30px;
+      background: #fff;
+      padding: 55px 65px;
+      border: 1px solid #bbb;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
+    }
+
+    h1 {
+      font-size: 16px;
+      text-align: center;
+      text-transform: uppercase;
+      line-height: 1.45;
+      margin: 0 0 25px;
+      font-weight: 700;
+    }
+
+    .section-title {
+      font-weight: bold;
+      text-transform: uppercase;
+      border-top: 1px solid #999;
+      border-bottom: 1px solid #999;
+      padding: 5px 8px;
+      margin-top: 8px;
+      background: #fafafa;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 35px 1fr 2fr;
+      border-bottom: 1px solid #aaa;
+      min-height: 34px;
+    }
+
+    .row > div {
+      padding: 6px 8px;
+    }
+
+    .row .num {
+      font-weight: bold;
+      text-align: center;
+      border-right: 1px solid #aaa;
+    }
+
+    .row .label {
+      font-weight: bold;
+      border-right: 1px solid #aaa;
+    }
+
+    .question {
+      border-bottom: 1px solid #aaa;
+      padding: 8px 10px;
+    }
+
+    .question-title {
+      display: grid;
+      grid-template-columns: 35px 1fr;
+      gap: 8px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .options {
+      margin-left: 55px;
+      margin-top: 4px;
+    }
+
+    .option {
+      margin: 3px 0;
+      font-style: italic;
+    }
+
+    .checkbox {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 1px solid #111;
+      margin-right: 7px;
+      vertical-align: -1px;
+    }
+
+    .inline-fields {
+      display: grid;
+      grid-template-columns: 1fr 70px 70px 80px;
+      border: 1px solid #aaa;
+      margin-top: 7px;
+    }
+
+    .inline-fields div {
+      min-height: 48px;
+      border-right: 1px solid #aaa;
+      padding: 6px;
+      font-weight: bold;
+    }
+
+    .inline-fields div:last-child {
+      border-right: none;
+    }
+
+    .family-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+    }
+
+    .family-table th,
+    .family-table td {
+      border: 1px solid #aaa;
+      padding: 6px;
+      text-align: left;
+      height: 28px;
+    }
+
+    .family-table th {
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .line-box {
+      min-height: 52px;
+      border-top: 1px solid #aaa;
+      margin-top: 6px;
+    }
+
+    .signature {
+      margin-top: 90px;
+      font-weight: bold;
+      line-height: 1.5;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+
+      .page {
+        width: 100%;
+        min-height: 100vh;
+        margin: 0;
+        box-shadow: none;
+        border: none;
+        page-break-after: always;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- PAGE 1 -->
+  <div class="page">
+    <h1>
+      Assessment Survey on the “Jan Arogyam” Community Healthcare Programme
+      Undertaken by Bisnouli Sarvodaya Gramodyog Sewa Sansthan in Khora Colony,
+      Dist. Ghaziabad, Uttar Pradesh
+    </h1>
+
+    <div class="section-title">A. Details of the Project Implementing Organisation</div>
+
+    <div class="row">
+      <div class="num">1</div>
+      <div class="label">Name & Address of the organisation</div>
+      <div>
+        Bisnouli Sarvodaya Gramodyog Sewa Sansthan (Regd.)<br>
+        Regd. Off.: B-180, Sector-31, NOIDA-201 301 (U.P.)<br>
+        Admn. Office: A-171, Ground Floor, Defence Colony,<br>
+        New Delhi - 110024
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="num">2</div>
+      <div class="label">Contact Details</div>
+      <div>
+        Ph.: +91-46548002/3<br>
+        E-mail: bisnoulisansthan@gmail.com
+      </div>
+    </div>
+
+    <div class="section-title">B. Details of the Project Area & Jan Arogyam Clinics</div>
+
+    <div class="row">
+      <div class="num">1</div>
+      <div class="label">Project Area</div>
+      <div>Khora Colony, District Ghaziabad, Uttar Pradesh</div>
+    </div>
+
+    <div class="section-title">C. Details of Feedback Received from Respondents</div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>1.</div>
+        <div>Name of the Respondent: Head of the family / Others</div>
+      </div>
+
+      <div class="inline-fields">
+        <div></div>
+        <div>M</div>
+        <div>F</div>
+        <div>Age</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>2.</div>
+        <div>Total No. of Family Members</div>
+      </div>
+
+      <table class="family-table">
+        <tr>
+          <th></th>
+          <th>Males</th>
+          <th>Females</th>
+          <th>M / Age</th>
+          <th>F / Age</th>
+        </tr>
+        <tr>
+          <td>Adults</td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>Teens</td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td>Children / Infants</td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>3.</div>
+        <div>Residential / Accommodation Status</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Owned</div>
+        <div class="option"><span class="checkbox"></span>Rented</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>4.</div>
+        <div>Social Category</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>SC / ST / OBC</div>
+        <div class="option"><span class="checkbox"></span>Minority</div>
+        <div class="option"><span class="checkbox"></span>General</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>5.</div>
+        <div>Economic Status</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>APL</div>
+        <div class="option"><span class="checkbox"></span>BPL</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>6.</div>
+        <div>Domicile</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Native</div>
+        <div class="option"><span class="checkbox"></span>Migrant</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 2 -->
+  <div class="page">
+    <div class="question">
+      <div class="question-title">
+        <div>7.</div>
+        <div>Identity Documents of Respondent and other family members</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Ration Card</div>
+        <div class="option"><span class="checkbox"></span>Voter ID</div>
+        <div class="option"><span class="checkbox"></span>Aadhar Card</div>
+        <div class="option"><span class="checkbox"></span>Bank Account</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>9.</div>
+        <div>Educational Details of Respondent and other family members</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Illiterate / Literate</div>
+        <div class="option"><span class="checkbox"></span>Primary</div>
+        <div class="option"><span class="checkbox"></span>10+ & Above</div>
+        <div class="option"><span class="checkbox"></span>Technical / Vocational Skills</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>10.</div>
+        <div>Employment / Occupational status of Respondent and other family members</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Labourer / Factory Worker / Driver</div>
+        <div class="option"><span class="checkbox"></span>Domestic Help</div>
+        <div class="option"><span class="checkbox"></span>Private Employee</div>
+        <div class="option"><span class="checkbox"></span>Govt. Employee</div>
+        <div class="option"><span class="checkbox"></span>Self-employed & Others</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>11.</div>
+        <div>Total Income per month average of Respondent and other family members</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Between Rs.5,000 – Rs.10,000</div>
+        <div class="option"><span class="checkbox"></span>Between Rs.11,000 – Rs.15,000</div>
+        <div class="option"><span class="checkbox"></span>Between Rs.16,000 – Rs.20,000</div>
+        <div class="option"><span class="checkbox"></span>Rs.21,000 & Above</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>12.</div>
+        <div>Total Consumption Expenditure per month average of Respondent and other family members</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Below Rs.10,000</div>
+        <div class="option"><span class="checkbox"></span>Above Rs.11,000</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>13.</div>
+        <div>Family Health Profile & Medical expenses of Respondent and other family members</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Serious Illness</div>
+        <div class="option"><span class="checkbox"></span>Child Immunisation</div>
+        <div class="option"><span class="checkbox"></span>Female Health</div>
+        <div class="option"><span class="checkbox"></span>Family Planning</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>14.</div>
+        <div>Awareness & knowledge of social welfare schemes / projects promoted by the Government agencies / NGOs in the area</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Yes</div>
+        <div class="option"><span class="checkbox"></span>No</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 3 -->
+  <div class="page">
+    <div class="question">
+      <div class="question-title">
+        <div>15.</div>
+        <div>Please specify problems/issues with regard to livelihood and healthcare of the respondent and other family members</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Lack of knowledge & awareness</div>
+        <div class="option"><span class="checkbox"></span>Lack of Education</div>
+        <div class="option"><span class="checkbox"></span>Lack of good atmosphere & opportunities</div>
+        <div class="option"><span class="checkbox"></span>Lack of affordable healthcare facilities</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>16.</div>
+        <div>Are you aware of the Jan Arogyam community healthcare programme launched by Bisnouli Sarvodaya Gramodyog Sewa Sansthan in your area?</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Yes</div>
+        <div class="option"><span class="checkbox"></span>No</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>17.</div>
+        <div>Are you satisfied with the services being provided under the Jan Arogyam Programme in your area?</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Yes</div>
+        <div class="option"><span class="checkbox"></span>No</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>18.</div>
+        <div>Please provide information as to what extent you are benefitted by the Jan Arogyam Programme in your area.</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Excellent</div>
+        <div class="option"><span class="checkbox"></span>Very Good</div>
+        <div class="option"><span class="checkbox"></span>Good</div>
+        <div class="option"><span class="checkbox"></span>None</div>
+      </div>
+    </div>
+
+    <div class="question">
+      <div class="question-title">
+        <div>19.</div>
+        <div>Do you support the continuation of the health services under the Jan Arogyam clinic in your area?</div>
+      </div>
+      <div class="options">
+        <div class="option"><span class="checkbox"></span>Yes</div>
+        <div class="option"><span class="checkbox"></span>No</div>
+      </div>
+    </div>
+
+    <div class="signature">
+      Name & Signature of Interviewer<br>
+      (Karan Dang IPL Batch-02, Term-III, IIM Rohtak)
+    </div>
+  </div>
+
 </body>
 </html>

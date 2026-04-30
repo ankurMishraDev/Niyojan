@@ -1,6 +1,8 @@
 import { gcsBucketName, getStorageClient } from "../../config/gcp";
 import { getGoogleAccessToken } from "../../config/googleCredentials";
 import { env } from "../../config/env";
+import { PDFParse } from "pdf-parse";
+import { recognize } from "tesseract.js";
 import { vertexService } from "./vertex.service";
 import { z } from "zod";
 import {
@@ -8,9 +10,18 @@ import {
 	extractedCandidateFieldSchema,
 } from "./ai.schemas";
 
-const geminiFallbackSchema = z.object({
-	fields: z.array(extractedCandidateFieldSchema)
-});
+const geminiFallbackSchema = z.any();
+
+const GEMINI_DOCUMENT_EXTRACTION_PROMPT = [
+	"Extract all user-visible form fields from this document in top-to-bottom reading order.",
+	"Return JSON only in the required schema.",
+	"Include blank fields from empty forms and filled values from completed forms.",
+	"Use `valueHint` for any detected filled value, selected option, checkbox state, or handwritten/typed answer.",
+	"Infer `inputType` carefully: text, number, boolean, date, select, multiselect, textarea.",
+	"Do not skip signature, consent, checkbox, or footer fields if they are actual form inputs.",
+	"Do not output duplicate fields.",
+	"Keep exactly the same order as the document.",
+].join(" ");
 
 export type DocumentExtractionInput = {
 	documentId: string;
@@ -38,6 +49,11 @@ type ProcessedDocument = {
 	text?: string;
 	entities?: Array<Record<string, unknown>>;
 	pages?: Array<Record<string, unknown>>;
+};
+
+type ProcessorAttempt = {
+	id: string;
+	kind: "form" | "ocr";
 };
 
 export type DocumentExtractionResult = {
@@ -125,18 +141,32 @@ const splitTextLines = (value: string) =>
 const collectCandidateFromLines = (documentText: string) => {
 	const candidates: ExtractedCandidateField[] = [];
 	for (const line of splitTextLines(documentText)) {
-		const match = line.match(/^([^:]{2,80}):\s*(.+)$/);
-		if (!match) {
+		const match = line.match(/^([^:]{2,80}):\s*(.*)$/);
+		if (match) {
+			const [, rawLabel, rawValue] = match;
+			const parsed = extractedCandidateFieldSchema.safeParse({
+				label: rawLabel.trim(),
+				inputType: inferInputType(rawValue),
+				required: false,
+				confidence: 0.62,
+				valueHint: rawValue.trim() || undefined,
+			});
+			if (parsed.success) {
+				candidates.push(parsed.data);
+			}
 			continue;
 		}
 
-		const [, rawLabel, rawValue] = match;
+		const blankFieldMatch = line.match(/^([A-Za-z][A-Za-z0-9 /()_-]{1,80}?)(?:\.{3,}|_{3,}|\s{4,})$/);
+		if (!blankFieldMatch) {
+			continue;
+		}
+
 		const parsed = extractedCandidateFieldSchema.safeParse({
-			label: rawLabel.trim(),
-			inputType: inferInputType(rawValue),
+			label: blankFieldMatch[1]?.trim(),
+			inputType: "text",
 			required: false,
-			confidence: 0.62,
-			valueHint: rawValue.trim(),
+			confidence: 0.5,
 		});
 		if (parsed.success) {
 			candidates.push(parsed.data);
@@ -157,6 +187,58 @@ const dedupeCandidates = (fields: ExtractedCandidateField[]) => {
 		seen.add(key);
 		return true;
 	});
+};
+
+const normalizeChoiceOption = (value: string) => value.trim().toLowerCase();
+
+const splitChoiceSuffix = (label: string) => {
+	const match = label.match(/^(.*?)(?::|\-|\u2022)\s*(yes|no|male|female|other|true|false)$/i);
+	if (!match) {
+		return null;
+	}
+
+	return {
+		baseLabel: match[1].trim(),
+		option: match[2].trim(),
+	};
+};
+
+const mergeChoiceCandidates = (fields: ExtractedCandidateField[]) => {
+	const merged: ExtractedCandidateField[] = [];
+	for (const field of fields) {
+		const choiceParts = splitChoiceSuffix(field.label);
+		if (!choiceParts) {
+			merged.push(field);
+			continue;
+		}
+
+		const existing = merged.find((candidate) => candidate.label === choiceParts.baseLabel);
+		if (!existing) {
+			merged.push({
+				...field,
+				label: choiceParts.baseLabel,
+				inputType:
+					normalizeChoiceOption(choiceParts.option) === "yes" || normalizeChoiceOption(choiceParts.option) === "no"
+						? "boolean"
+						: "select",
+				options: [choiceParts.option],
+				valueHint: undefined,
+			});
+			continue;
+		}
+
+		const nextOptions = new Set([...(existing.options || []), choiceParts.option]);
+		existing.options = Array.from(nextOptions);
+		existing.inputType =
+			nextOptions.size === 2 && Array.from(nextOptions).every((option) => ["yes", "no"].includes(normalizeChoiceOption(option)))
+				? "boolean"
+				: "select";
+		if (!existing.valueHint && field.valueHint) {
+			existing.valueHint = field.valueHint;
+		}
+	}
+
+	return merged;
 };
 
 const buildTextBlocks = (documentText: string) => {
@@ -301,10 +383,191 @@ const buildManualReviewResult = (
 	};
 };
 
+const buildLocalTextFallbackResult = (
+	input: DocumentExtractionInput,
+	documentText: string,
+	reason: string,
+	providerName: string,
+	model: string,
+	startedAt = Date.now(),
+): DocumentExtractionResult | null => {
+	const fields = dedupeCandidates(collectCandidateFromLines(documentText));
+	if (fields.length === 0) {
+		return null;
+	}
+
+	return {
+		providerMode: "live",
+		providerName,
+		model,
+		fields,
+		documentText,
+		textBlocks: buildTextBlocks(documentText),
+		keyValuePairs: [],
+		tables: [],
+		pageCount: 1,
+		detectedLanguage: null,
+		rawResponse: {
+			reason,
+			fileName: input.fileName,
+		},
+		latencyMs: Date.now() - startedAt,
+		validationStatus: "fallback",
+		validationErrors: [reason],
+		fallbackReason: reason,
+		reviewRequired: true,
+	};
+};
+
+const extractPdfText = async (fileBytes: Buffer) => {
+	const parser = new PDFParse({ data: new Uint8Array(fileBytes) });
+	try {
+		const result = await parser.getText();
+		return result.text || "";
+	} finally {
+		await parser.destroy();
+	}
+};
+
+const extractImageText = async (fileBytes: Buffer) => {
+	const result = await recognize(fileBytes, "eng");
+	return result.data.text || "";
+};
+
 const downloadDocumentBytes = async (gcsPath: string) => {
 	const storage = getStorageClient();
 	const [bytes] = await storage.bucket(gcsBucketName).file(gcsPath).download();
 	return bytes;
+};
+
+const resolveProcessorAttempts = () => {
+	const attempts: ProcessorAttempt[] = [];
+	const seen = new Set<string>();
+
+	const add = (id: string | undefined, kind: ProcessorAttempt["kind"]) => {
+		if (!id || seen.has(id)) {
+			return;
+		}
+		seen.add(id);
+		attempts.push({ id, kind });
+	};
+
+	add(env.DOCUMENT_AI_PROCESSOR_ID_FORM, "form");
+	add(env.DOCUMENT_AI_PROCESSOR_ID_OCR, "ocr");
+
+	return attempts;
+};
+
+const toOptionalStringArray = (value: unknown) =>
+	Array.isArray(value)
+		? value.map((item) => String(item).trim()).filter(Boolean)
+		: undefined;
+
+const normalizeGeminiField = (field: Record<string, unknown>) => {
+	const label = [field.label, field.fieldLabel, field.name, field.fieldName, field.question, field.title]
+		.find((value) => typeof value === "string" && value.trim().length > 0);
+	const inputType = [field.inputType, field.fieldType, field.type]
+		.find((value) => typeof value === "string" && value.trim().length > 0);
+	const rawValueHint = [field.valueHint, field.value, field.answer, field.selectedValue, field.selectedOption]
+		.find((value) => value !== undefined);
+
+	const parsed = extractedCandidateFieldSchema.safeParse({
+		label,
+		inputType: typeof inputType === "string" ? inputType : "text",
+		options: toOptionalStringArray(field.options),
+		required: typeof field.required === "boolean" ? field.required : false,
+		confidence: typeof field.confidence === "number" ? field.confidence : 0.7,
+		provenanceRef: typeof field.provenanceRef === "string" ? field.provenanceRef : undefined,
+		valueHint:
+			rawValueHint === null || rawValueHint === undefined
+				? undefined
+				: typeof rawValueHint === "string"
+					? rawValueHint
+					: String(rawValueHint),
+	});
+
+	return parsed.success ? parsed.data : null;
+};
+
+const normalizeGeminiOutputFields = (rawOutput: unknown) => {
+	const candidateArray = Array.isArray(rawOutput)
+		? rawOutput
+		: Array.isArray((rawOutput as { fields?: unknown[] } | null | undefined)?.fields)
+			? ((rawOutput as { fields?: unknown[] }).fields as unknown[])
+			: [];
+
+	return candidateArray
+		.map((field) => (field && typeof field === "object" ? normalizeGeminiField(field as Record<string, unknown>) : null))
+		.filter((field): field is ExtractedCandidateField => Boolean(field));
+};
+
+const extractWithGemini = async (input: DocumentExtractionInput, fileBytes: Buffer, startedAt: number) => {
+	const geminiExtract = await vertexService.generateStructuredJson({
+		model: env.VERTEX_DOCUMENT_MODEL,
+		promptVersion: "doc_extract_v2",
+		schema: geminiFallbackSchema,
+		prompt: GEMINI_DOCUMENT_EXTRACTION_PROMPT,
+		fileData: {
+			mimeType: input.fileType,
+			data: fileBytes.toString("base64"),
+		},
+	});
+
+	if ("validationErrors" in geminiExtract && geminiExtract.validationErrors?.length) {
+		throw new Error(geminiExtract.validationErrors.join(", "));
+	}
+
+	const rawOutput = (geminiExtract as { output?: unknown }).output;
+	const normalizedFields = normalizeGeminiOutputFields(rawOutput);
+	const fields = dedupeCandidates(mergeChoiceCandidates(normalizedFields));
+	return {
+		providerMode: "live" as const,
+		providerName: "gemini-document-extractor",
+		model: env.VERTEX_DOCUMENT_MODEL,
+		fields,
+		documentText: "",
+		textBlocks: [],
+		keyValuePairs: fields
+			.filter((field) => field.valueHint)
+			.map((field) => ({
+				label: field.label,
+				value: field.valueHint as string,
+				confidence: field.confidence,
+				page: 1,
+			})),
+		tables: [],
+		pageCount: 1,
+		detectedLanguage: null,
+		rawResponse: geminiExtract,
+		latencyMs: Date.now() - startedAt,
+		validationStatus: fields.length > 0 ? "passed" as const : "requires_human" as const,
+		validationErrors: fields.length > 0 ? [] : ["gemini_returned_no_fields"],
+		fallbackReason: fields.length > 0 ? null : "gemini_returned_no_fields",
+		reviewRequired: fields.length === 0,
+	};
+};
+
+const callDocumentAiProcessor = async (
+	processorId: string,
+	fileBytes: Buffer,
+	fileType: string,
+	accessToken: string,
+) => {
+	const endpoint = `https://${env.DOCUMENT_AI_LOCATION}-documentai.googleapis.com/v1/projects/${env.GCP_PROJECT_ID}/locations/${env.DOCUMENT_AI_LOCATION}/processors/${processorId}:process`;
+	return fetch(endpoint, {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${accessToken}`,
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			skipHumanReview: true,
+			rawDocument: {
+				content: fileBytes.toString("base64"),
+				mimeType: fileType,
+			},
+		}),
+	});
 };
 
 export class DocumentAiService {
@@ -320,110 +583,74 @@ export class DocumentAiService {
 
 		try {
 			const fileBytes = await downloadDocumentBytes(input.gcsPath);
-			const accessToken = await getGoogleAccessToken();
-			const endpoint = `https://${env.DOCUMENT_AI_LOCATION}-documentai.googleapis.com/v1/projects/${env.GCP_PROJECT_ID}/locations/${env.DOCUMENT_AI_LOCATION}/processors/${env.DOCUMENT_AI_PROCESSOR_ID}:process`;
-			const response = await fetch(endpoint, {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					skipHumanReview: true,
-					rawDocument: {
-						content: fileBytes.toString("base64"),
-						mimeType: input.fileType,
-					},
-				}),
+			console.info("Document extraction started", {
+				documentId: input.documentId,
+				fileName: input.fileName,
+				fileType: input.fileType,
+				vertexModel: env.VERTEX_DOCUMENT_MODEL,
 			});
 
-			if (!response.ok) {
-				const errorBody = await response.text();
-				console.error(`Document AI failed: ${errorBody}. Falling back to Gemini.`);
-				// Gemini Fallback
-				const geminiExtract = await vertexService.generateStructuredJson({
-					model: "gemini-1.5-pro-001",
-					promptVersion: "doc_extract_v1",
-					schema: geminiFallbackSchema,
-					prompt: "Extract all form fields, keys, and values from this document. If it is a blank form, extract the fields that need to be filled. For each field, provide the label, an inferred inputType (e.g. text, number, boolean, date), and a valueHint if there is a filled value.",
-					fileData: {
-						mimeType: input.fileType,
-						data: fileBytes.toString("base64")
-					}
+			try {
+				const geminiResult = await extractWithGemini(input, fileBytes, startedAt);
+				console.info("Gemini extraction result", {
+					documentId: input.documentId,
+					candidateCount: geminiResult.fields.length,
+					validationStatus: geminiResult.validationStatus,
 				});
-
-				if ("validationErrors" in geminiExtract && geminiExtract.validationErrors?.length) {
-					console.error("Gemini fallback also failed:", geminiExtract.validationErrors);
-					// If both fail, return empty fields so it doesn't crash the pipeline,
-					// or return the raw text-based extraction if we had any.
-					return {
-						providerMode: "live",
-						providerName: "fallback-failed",
-						model: "none",
-						fields: [],
-						documentText: "",
-						textBlocks: [],
-						keyValuePairs: [],
-						tables: [],
-						pageCount: 1,
-						detectedLanguage: null,
-						rawResponse: geminiExtract,
-						latencyMs: Date.now() - startedAt,
-						validationStatus: "requires_human",
-						validationErrors: ["document_ai_failed", ...geminiExtract.validationErrors],
-						fallbackReason: "both_document_ai_and_gemini_failed",
-						reviewRequired: true,
-					};
+				if (geminiResult.fields.length > 0) {
+					return geminiResult;
 				}
-
-				return {
-					providerMode: "live",
-					providerName: "gemini-fallback",
-					model: "gemini-1.5-pro-001",
-					fields: dedupeCandidates((geminiExtract as any).output?.fields || []),
-					documentText: "",
-					textBlocks: [],
-					keyValuePairs: [],
-					tables: [],
-					pageCount: 1,
-					detectedLanguage: null,
-					rawResponse: geminiExtract,
-					latencyMs: Date.now() - startedAt,
-					validationStatus: "passed",
-					validationErrors: [],
-					fallbackReason: "document_ai_failed_used_gemini",
-					reviewRequired: true,
-				};
+			} catch (geminiError) {
+				console.error("Gemini extraction failed", {
+					documentId: input.documentId,
+					error: geminiError instanceof Error ? geminiError.message : geminiError,
+				});
 			}
 
-			const payload = (await response.json()) as unknown;
-			const parsed = parseDocumentAiPayload(payload);
-			const validationStatus =
-				parsed.validationErrors.length > 0
-					? parsed.fields.length > 0
-						? "fallback"
-						: "requires_human"
-					: "passed";
+			if (input.fileType === "application/pdf") {
+				try {
+					const parsedPdfText = await extractPdfText(fileBytes);
+					const localPdfFallback = buildLocalTextFallbackResult(
+						input,
+						parsedPdfText,
+						"document_ai_failed_used_local_pdf_text",
+						"local-pdf-text-fallback",
+						"pdf-parse",
+						startedAt,
+					);
+					if (localPdfFallback) {
+						return localPdfFallback;
+					}
+				} catch (pdfError) {
+					console.error("Local PDF text fallback failed", pdfError);
+				}
+			}
 
-			return {
-				providerMode: "live",
-				providerName: "document-ai",
-				model: `document-ai:${env.DOCUMENT_AI_PROCESSOR_ID}`,
-				fields: parsed.fields,
-				documentText: parsed.documentText,
-				textBlocks: parsed.textBlocks,
-				keyValuePairs: parsed.keyValuePairs,
-				tables: parsed.tables,
-				pageCount: parsed.pageCount,
-				detectedLanguage: parsed.detectedLanguage,
-				rawResponse: payload,
-				latencyMs: Date.now() - startedAt,
-				validationStatus,
-				validationErrors: parsed.validationErrors,
-				fallbackReason:
-					parsed.validationErrors.length > 0 ? parsed.validationErrors.join(",") : null,
-				reviewRequired: validationStatus !== "passed",
-			};
+			if (input.fileType.startsWith("image/")) {
+				try {
+					const imageText = await extractImageText(fileBytes);
+					const localImageFallback = buildLocalTextFallbackResult(
+						input,
+						imageText,
+						"document_ai_failed_used_local_image_ocr",
+						"local-image-ocr-fallback",
+						"tesseract.js",
+						startedAt,
+					);
+					if (localImageFallback) {
+						return localImageFallback;
+					}
+				} catch (imageError) {
+					console.error("Local image OCR fallback failed", imageError);
+				}
+			}
+
+			return buildManualReviewResult(
+				input,
+				"no_fields_detected_after_gemini_and_local_fallbacks",
+				startedAt,
+			);
+
 		} catch (error) {
 			return buildManualReviewResult(
 				input,

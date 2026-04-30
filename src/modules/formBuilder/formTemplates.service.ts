@@ -146,6 +146,20 @@ type ExtractionCandidateField = {
 	required?: boolean;
 };
 
+type ExtractionKeyValuePair = {
+	label?: string;
+	value?: string;
+};
+
+type NormalizedExtractionField = {
+	label: string;
+	inputType: string;
+	options: unknown;
+	required: boolean;
+	fieldCatalogId: string | null;
+	isCustom: boolean;
+};
+
 const TEMPLATE_STATUSES = new Set(["draft", "active", "archived"]);
 const VERSION_STATUSES = new Set(["draft", "review_pending", "published", "archived"]);
 
@@ -302,59 +316,148 @@ const assertDraftVersion = (version: { status: string; is_published: boolean }) 
 	}
 };
 
+const normalizeFieldIdentity = (field: Pick<NormalizedExtractionField, "label" | "fieldCatalogId">) => {
+	if (field.fieldCatalogId) {
+		return `catalog:${field.fieldCatalogId}`;
+	}
+
+	return `label:${field.label
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "_")
+		.replace(/^_+|_+$/g, "")}`;
+};
+
+const dedupeOrderedFields = (fields: NormalizedExtractionField[]) => {
+	const seen = new Set<string>();
+	return fields.filter((field) => {
+		const identity = normalizeFieldIdentity(field);
+		if (seen.has(identity)) {
+			return false;
+		}
+
+		seen.add(identity);
+		return true;
+	});
+};
+
+const mapMappedFields = (fields: ExtractionMappedField[]) => {
+	return dedupeOrderedFields(fields
+		.filter((field) => field.label && field.inputType)
+		.map((field) => ({
+			label: field.label as string,
+			inputType: field.inputType as string,
+			options: field.options ?? null,
+			required: Boolean(field.required),
+			fieldCatalogId: field.fieldCatalogId || null,
+			isCustom: field.isCustom ?? !field.fieldCatalogId,
+		})));
+};
+
+const mapCandidateFields = (fields: ExtractionCandidateField[]) => {
+	return dedupeOrderedFields(fields
+		.filter((field) => field.label && field.inputType)
+		.map((field) => ({
+			label: field.label as string,
+			inputType: field.inputType as string,
+			options: field.options ?? null,
+			required: Boolean(field.required),
+			fieldCatalogId: null,
+			isCustom: true,
+		})));
+};
+
+const mapKeyValuePairs = (pairs: ExtractionKeyValuePair[]) => {
+	return dedupeOrderedFields(pairs
+		.filter((pair) => pair.label)
+		.map((pair) => ({
+			label: pair.label as string,
+			inputType: "text",
+			options: null,
+			required: false,
+			fieldCatalogId: null,
+			isCustom: true,
+		})));
+};
+
+const mergeOrderedFields = (
+	sourceFields: NormalizedExtractionField[],
+	mappedFields: NormalizedExtractionField[],
+) => {
+	return dedupeOrderedFields(
+		sourceFields.map((sourceField, index) => {
+			const mappedField = mappedFields[index];
+			if (!mappedField) {
+				return sourceField;
+			}
+
+			return {
+				label: mappedField.label,
+				inputType: mappedField.inputType,
+				options: mappedField.options,
+				required: mappedField.required,
+				fieldCatalogId: mappedField.fieldCatalogId,
+				isCustom: mappedField.isCustom,
+			};
+		}),
+	);
+};
+
 const parseExtractionFields = (extraction: unknown) => {
 	const parsed = fromJson(extraction) as
 		| {
 				mappedFields?: ExtractionMappedField[];
 				extractedFields?: ExtractionCandidateField[];
+				fieldMapping?: {
+					mappedFields?: ExtractionMappedField[];
+				};
+				documentAi?: {
+					fields?: ExtractionCandidateField[];
+					keyValuePairs?: ExtractionKeyValuePair[];
+				};
 			}
 		| null;
 
 	if (!parsed) {
-		return [] as {
-			label: string;
-			inputType: string;
-			options: unknown;
-			required: boolean;
-			fieldCatalogId: string | null;
-			isCustom: boolean;
-		}[];
+		return [] as NormalizedExtractionField[];
+	}
+
+	const sourceCandidateFields = Array.isArray(parsed.documentAi?.fields)
+		? mapCandidateFields(parsed.documentAi.fields)
+		: Array.isArray(parsed.extractedFields)
+			? mapCandidateFields(parsed.extractedFields)
+			: [];
+	const sourceMappedFields = Array.isArray(parsed.fieldMapping?.mappedFields)
+		? mapMappedFields(parsed.fieldMapping.mappedFields)
+		: Array.isArray(parsed.mappedFields)
+			? mapMappedFields(parsed.mappedFields)
+			: [];
+
+	if (sourceCandidateFields.length > 0 && sourceMappedFields.length > 0) {
+		return mergeOrderedFields(sourceCandidateFields, sourceMappedFields);
 	}
 
 	if (Array.isArray(parsed.mappedFields) && parsed.mappedFields.length > 0) {
-		return parsed.mappedFields
-			.filter((field) => field.label && field.inputType)
-			.map((field) => ({
-				label: field.label as string,
-				inputType: field.inputType as string,
-				options: field.options ?? null,
-				required: Boolean(field.required),
-				fieldCatalogId: field.fieldCatalogId || null,
-				isCustom: field.isCustom ?? !field.fieldCatalogId,
-			}));
+		return mapMappedFields(parsed.mappedFields);
 	}
 
 	if (Array.isArray(parsed.extractedFields) && parsed.extractedFields.length > 0) {
-		return parsed.extractedFields
-			.filter((field) => field.label && field.inputType)
-			.map((field) => ({
-				label: field.label as string,
-				inputType: field.inputType as string,
-				options: field.options ?? null,
-				required: Boolean(field.required),
-				fieldCatalogId: null,
-				isCustom: true,
-			}));
+		return mapCandidateFields(parsed.extractedFields);
 	}
 
-	return [] as {
-		label: string;
-		inputType: string;
-		options: unknown;
-		required: boolean;
-		fieldCatalogId: string | null;
-		isCustom: boolean;
-	}[];
+	if (Array.isArray(parsed.fieldMapping?.mappedFields) && parsed.fieldMapping.mappedFields.length > 0) {
+		return mapMappedFields(parsed.fieldMapping.mappedFields);
+	}
+
+	if (Array.isArray(parsed.documentAi?.fields) && parsed.documentAi.fields.length > 0) {
+		return mapCandidateFields(parsed.documentAi.fields);
+	}
+
+	if (Array.isArray(parsed.documentAi?.keyValuePairs) && parsed.documentAi.keyValuePairs.length > 0) {
+		return mapKeyValuePairs(parsed.documentAi.keyValuePairs);
+	}
+
+	return [] as NormalizedExtractionField[];
 };
 
 const humanizeKey = (key: string) => {
@@ -727,13 +830,41 @@ export class FormTemplatesService {
 			throw new AppError(400, "No form field values provided for update");
 		}
 
-		const [updatedField] = (await db("form_fields")
-			.where({ id: fieldId })
-			.update({
-				...payload,
-				updated_at: new Date(),
-			})
-			.returning("*")) as FormFieldRow[];
+		const [updatedField] = await db.transaction(async (trx) => {
+			if (
+				input.display_order !== undefined &&
+				input.display_order !== fieldWithContext.display_order
+			) {
+				const siblingFields = (await trx("form_fields")
+					.where({ template_version_id: fieldWithContext.template_version_id })
+					.orderBy("display_order", "asc")) as FormFieldRow[];
+
+				const targetPosition = Math.max(1, input.display_order);
+				const reorderedIds = siblingFields
+					.filter((field) => field.id !== fieldId)
+					.map((field) => field.id);
+				reorderedIds.splice(Math.min(targetPosition - 1, reorderedIds.length), 0, fieldId);
+
+				for (let index = 0; index < reorderedIds.length; index += 1) {
+					await trx("form_fields")
+						.where({ id: reorderedIds[index] })
+						.update({
+							display_order: index + 1,
+							updated_at: new Date(),
+						});
+				}
+
+				delete payload.display_order;
+			}
+
+			return (await trx("form_fields")
+				.where({ id: fieldId })
+				.update({
+					...payload,
+					updated_at: new Date(),
+				})
+				.returning("*")) as FormFieldRow[];
+		});
 
 		return mapField(updatedField);
 	}
@@ -821,6 +952,11 @@ export class FormTemplatesService {
 		assertOrgScope(user, document.org_id);
 
 		let extractedFields = parseExtractionFields(document.extraction_result_json);
+		console.info("Create template from document parsed fields", {
+			documentId: document.id,
+			fileName: document.file_name,
+			parsedFieldCount: extractedFields.length,
+		});
 
 		if (extractedFields.length === 0) {
 			const rawExtraction = fromJson(document.extraction_result_json) as
@@ -870,6 +1006,13 @@ export class FormTemplatesService {
 		}
 
 		if (extractedFields.length === 0) {
+			console.warn("No extraction fields found in document result", {
+				documentId: document.id,
+				extractionKeys:
+					typeof document.extraction_result_json === "string"
+						? Object.keys((fromJson(document.extraction_result_json) as Record<string, unknown>) || {})
+						: Object.keys((document.extraction_result_json as Record<string, unknown>) || {}),
+			});
 			throw new AppError(400, "No extraction fields available in document extraction result");
 		}
 

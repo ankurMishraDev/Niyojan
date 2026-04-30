@@ -329,6 +329,15 @@ export class DocumentsService {
 				fileName: document.file_name,
 				fileType: document.file_type,
 			});
+			console.info("Document extraction completed", {
+				documentId: document.id,
+				provider: extraction.documentAi.providerName,
+				documentAiFieldCount: extraction.documentAi.fields.length,
+				extractedFieldsCount: extraction.extractedFields.length,
+				mappedFieldsCount: extraction.mappedFields.length,
+				validationStatus: extraction.documentAi.validationStatus,
+				fallbackReason: extraction.documentAi.fallbackReason,
+			});
 
 			const [updatedDocument] = (await db("documents")
 				.where({ id: document.id })
@@ -355,6 +364,10 @@ export class DocumentsService {
 			};
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : "Unknown extraction error";
+			console.error("Document extraction failed", {
+				documentId: document.id,
+				errorMessage,
+			});
 
 			await db("documents").where({ id: document.id }).update({
 				status: "failed",

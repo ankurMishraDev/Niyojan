@@ -165,12 +165,12 @@ export function FormBuilderPage() {
         name: file.name.replace(/\.[^/.]+$/, "") + " Template",
       });
 
-      return newTemplate as { id: string };
+      return newTemplate;
     },
-    onSuccess: async (template: { id: string }) => {
+    onSuccess: async (result) => {
       setFeedback("Form template successfully created from AI extraction!");
-      setSelectedTemplateId(template.id);
-      setSelectedVersionId("");
+      setSelectedTemplateId(result.template.id);
+      setSelectedVersionId(result.version.id);
       await refreshAll();
     },
     onError: (err: Error) => {
@@ -195,6 +195,9 @@ export function FormBuilderPage() {
   }
 
   const selectedVersion = versionQuery.data;
+  const orderedFields = [...(selectedVersion?.fields ?? [])].sort(
+    (left, right) => left.displayOrder - right.displayOrder,
+  );
 
   return (
     <div className="space-y-6">
@@ -223,6 +226,7 @@ export function FormBuilderPage() {
                 Scan AI Document
               </Button>
               <input
+                title="image"
                 type="file"
                 ref={fileInputRef}
                 className="hidden"
@@ -322,6 +326,10 @@ export function FormBuilderPage() {
                 Edit labels, required flags, and display ordering against the
                 live backend version.
               </p>
+              <p className="mt-2 text-xs text-on-surface-variant">
+                If extraction creates fields in the wrong sequence, adjust the
+                display order numbers below and save the affected rows.
+              </p>
             </div>
             <Button
               disabled={!selectedVersionId || publishMutation.isPending}
@@ -337,7 +345,7 @@ export function FormBuilderPage() {
             </p>
           ) : (
             <div className="space-y-4">
-              {selectedVersion.fields?.map((field) => (
+              {orderedFields.map((field) => (
                 <FieldEditorCard
                   field={field}
                   key={field.id}
@@ -450,8 +458,22 @@ function FieldEditorCard({
   const [isRequired, setIsRequired] = useState(field.isRequired);
   const [working, setWorking] = useState(false);
 
+  useEffect(() => {
+    setLabel(field.label);
+    setInputType(field.inputType);
+    setDisplayOrder(field.displayOrder);
+    setIsRequired(field.isRequired);
+  }, [field.displayOrder, field.id, field.inputType, field.isRequired, field.label]);
+
   return (
     <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
+      <div className="mb-3 grid gap-3 text-[11px] font-bold uppercase tracking-[0.12em] text-on-surface-variant md:grid-cols-[1.2fr_0.8fr_0.6fr_0.6fr_auto]">
+        <span>Label</span>
+        <span>Type</span>
+        <span>Order</span>
+        <span>Required</span>
+        <span>Actions</span>
+      </div>
       <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.6fr_0.6fr_auto]">
         <Input
           value={label}
@@ -486,13 +508,16 @@ function FieldEditorCard({
             disabled={working}
             onClick={async () => {
               setWorking(true);
-              await onSave({
-                label,
-                input_type: inputType,
-                display_order: displayOrder,
-                is_required: isRequired,
-              });
-              setWorking(false);
+              try {
+                await onSave({
+                  label,
+                  input_type: inputType,
+                  display_order: displayOrder,
+                  is_required: isRequired,
+                });
+              } finally {
+                setWorking(false);
+              }
             }}
             type="button"
             variant="secondary"
@@ -503,8 +528,11 @@ function FieldEditorCard({
             disabled={working}
             onClick={async () => {
               setWorking(true);
-              await onDelete();
-              setWorking(false);
+              try {
+                await onDelete();
+              } finally {
+                setWorking(false);
+              }
             }}
             type="button"
             variant="danger"

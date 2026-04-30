@@ -29,11 +29,15 @@ const envSchema = z.object({
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
   DOCUMENT_AI_LOCATION: z.string().default("us"),
   DOCUMENT_AI_PROCESSOR_ID: z.string().optional(),
+  DOCUMENT_AI_PROCESSOR_ID_OCR: z.string().optional(),
+  DOCUMENT_AI_PROCESSOR_ID_FORM: z.string().optional(),
 
   VERTEX_LOCATION: z.string().default("us-central1"),
-  VERTEX_DOCUMENT_MODEL: z.string().default("gemini-2.0-flash-001"),
-  VERTEX_REASONING_MODEL: z.string().default("gemini-2.0-flash-001"),
-  VERTEX_SURVEY_MODEL: z.string().default("gemini-2.0-flash-001"),
+  VERTEX_GEMINI_MODEL: z.string().optional(),
+  VERTEX_GEMINI_FAST_MODEL: z.string().optional(),
+  VERTEX_DOCUMENT_MODEL: z.string().optional(),
+  VERTEX_REASONING_MODEL: z.string().optional(),
+  VERTEX_SURVEY_MODEL: z.string().optional(),
 
   MATCH_SKILL_WEIGHT: z.coerce.number().min(0).max(1).default(0.5),
   MATCH_AVAILABILITY_WEIGHT: z.coerce.number().min(0).max(1).default(0.3),
@@ -77,6 +81,16 @@ if (
 
 export const env = {
   ...parsed.data,
+  DOCUMENT_AI_PROCESSOR_ID_FORM:
+    parsed.data.DOCUMENT_AI_PROCESSOR_ID_FORM || parsed.data.DOCUMENT_AI_PROCESSOR_ID || undefined,
+  DOCUMENT_AI_PROCESSOR_ID_OCR:
+    parsed.data.DOCUMENT_AI_PROCESSOR_ID_OCR || parsed.data.DOCUMENT_AI_PROCESSOR_ID || undefined,
+  VERTEX_DOCUMENT_MODEL:
+    parsed.data.VERTEX_DOCUMENT_MODEL || parsed.data.VERTEX_GEMINI_MODEL || "gemini-2.0-flash-001",
+  VERTEX_REASONING_MODEL:
+    parsed.data.VERTEX_REASONING_MODEL || parsed.data.VERTEX_GEMINI_MODEL || "gemini-2.0-flash-001",
+  VERTEX_SURVEY_MODEL:
+    parsed.data.VERTEX_SURVEY_MODEL || parsed.data.VERTEX_GEMINI_FAST_MODEL || parsed.data.VERTEX_GEMINI_MODEL || "gemini-2.0-flash-001",
   DB_SSL: toBool(parsed.data.DB_SSL),
   CORS_ORIGINS: splitCsv(parsed.data.CORS_ORIGINS),
 } as const;
@@ -105,8 +119,10 @@ if (!isTestEnv && !env.GCP_PROJECT_ID) {
   throw new Error("Environment validation failed: GCP_PROJECT_ID is required");
 }
 
-if (!isTestEnv && !env.DOCUMENT_AI_PROCESSOR_ID) {
-  throw new Error("Environment validation failed: DOCUMENT_AI_PROCESSOR_ID is required");
+if (!isTestEnv && !env.DOCUMENT_AI_PROCESSOR_ID_FORM && !env.DOCUMENT_AI_PROCESSOR_ID_OCR) {
+  throw new Error(
+    "Environment validation failed: provide DOCUMENT_AI_PROCESSOR_ID_FORM and/or DOCUMENT_AI_PROCESSOR_ID_OCR",
+  );
 }
 
 if (!env.GCS_BUCKET_NAME) {
