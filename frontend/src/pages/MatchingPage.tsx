@@ -1,52 +1,10 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Input, LoaderBlock, PageHeader, Panel, Select, StatusBadge } from "@/components/ui";
-import { assignmentsApi, authApi, needsApi, pipelineApi, surveysApi, volunteersApi } from "@/lib/services";
+import { Button, InlineError, Input, LoaderBlock, PageHeader, Panel, StatusBadge } from "@/components/ui";
+import { assignmentsApi, authApi, matchingApi, needsApi, pipelineApi, surveysApi } from "@/lib/services";
 import { formatDateTime, formatPercent, sentence, toneForStatus } from "@/lib/format";
-import { inferVolunteerDomain } from "@/lib/volunteerDomains";
-
-const toRadians = (value: number) => (value * Math.PI) / 180;
-
-const haversineKm = (
-  fromLat: number | null,
-  fromLon: number | null,
-  toLat: number | null,
-  toLon: number | null,
-) => {
-  if (fromLat === null || fromLon === null || toLat === null || toLon === null) {
-    return null;
-  }
-
-  const earthRadiusKm = 6371;
-  const deltaLat = toRadians(toLat - fromLat);
-  const deltaLon = toRadians(toLon - fromLon);
-  const lat1 = toRadians(fromLat);
-  const lat2 = toRadians(toLat);
-
-  const a =
-    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return Number((earthRadiusKm * c).toFixed(2));
-};
-
-const availabilityScore = (status: string) => {
-  if (status === "available") return 1;
-  if (status === "limited" || status === "part_time") return 0.65;
-  if (status === "busy") return 0.3;
-  return 0.1;
-};
-
-const locationScore = (distanceKm: number | null) => {
-  if (distanceKm === null) return 0;
-  if (distanceKm <= 10) return 1;
-  if (distanceKm <= 25) return 0.8;
-  if (distanceKm <= 50) return 0.6;
-  if (distanceKm <= 100) return 0.35;
-  return 0.15;
-};
+import type { MatchResult, Need } from "@/types/api";
 
 const formatDistance = (distanceKm: number | null) => {
   if (distanceKm === null) {
@@ -56,12 +14,18 @@ const formatDistance = (distanceKm: number | null) => {
   return `${distanceKm} km`;
 };
 
+const priorityCopy: Record<string, string> = {
+  critical: "Immediate action recommended",
+  high: "Should be assigned soon",
+  medium: "Schedule with available capacity",
+  low: "Can be queued behind urgent cases",
+};
+
 export function MatchingPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchSurveyId, setSearchSurveyId] = useState(searchParams.get("surveyId") ?? "");
   const [selectedNeedId, setSelectedNeedId] = useState("");
-  const [selectedDomain, setSelectedDomain] = useState("");
   const surveyId = searchParams.get("surveyId") ?? "";
 
   useEffect(() => {
@@ -91,17 +55,6 @@ export function MatchingPage() {
     queryFn: () => needsApi.list({ page: 1, pageSize: 25, status: "open", survey_id: surveyId }),
   });
 
-  const volunteersQuery = useQuery({
-    enabled: Boolean(surveyId),
-    queryKey: ["matching-volunteers", surveyId],
-    queryFn: () =>
-      volunteersApi.list({
-        page: 1,
-        pageSize: 100,
-        is_active: "true",
-      }),
-  });
-
   const needs = needsQuery.data?.items ?? [];
 
   useEffect(() => {
@@ -115,101 +68,50 @@ export function MatchingPage() {
     }
   }, [needs, selectedNeedId]);
 
-  const selectedNeed = useMemo(
-    () => needs.find((need) => need.id === selectedNeedId) ?? null,
-    [needs, selectedNeedId],
-  );
+  const selectedNeed = needs.find((need) => need.id === selectedNeedId) ?? null;
 
-  const rankedVolunteers = useMemo(() => {
-    const survey = surveyQuery.data;
-    const volunteers = volunteersQuery.data?.items ?? [];
-    if (!survey) {
-      return [];
-    }
+  const matchesQuery = useQuery({
+    enabled: Boolean(selectedNeedId),
+    queryKey: ["matching-results", selectedNeedId],
+    queryFn: () => matchingApi.getMatches(selectedNeedId),
+  });
 
-    const needSkillKeys = new Set(selectedNeed?.skills.map((skill) => skill.key) ?? []);
-
-    return volunteers
-      .filter((volunteer) => {
-        if (!selectedDomain) {
-          return true;
-        }
-
-        const effectiveDomain = inferVolunteerDomain({
-          primaryDomain: volunteer.primaryDomain,
-          profession: volunteer.profession,
-          profileSummary: volunteer.profileSummary,
-          skills: volunteer.skills,
-        });
-
-        return effectiveDomain === selectedDomain;
-      })
-      .map((volunteer) => {
-        const volunteerSkillKeys = volunteer.skills.map((skill) => skill.key);
-        const matchedSkills = volunteerSkillKeys.filter((skill) => needSkillKeys.has(skill));
-        const missingSkills = [...needSkillKeys].filter((skill) => !volunteerSkillKeys.includes(skill));
-        const skillScore = needSkillKeys.size === 0 ? 0.5 : matchedSkills.length / needSkillKeys.size;
-        const distanceKm = haversineKm(survey.latitude, survey.longitude, volunteer.latitude, volunteer.longitude);
-        const location = locationScore(distanceKm);
-        const availability = availabilityScore(volunteer.availabilityStatus);
-        const manualScore = Number((skillScore * 0.35 + location * 0.45 + availability * 0.2).toFixed(2));
-
-        return {
-          ...volunteer,
-          effectiveDomain: inferVolunteerDomain({
-            primaryDomain: volunteer.primaryDomain,
-            profession: volunteer.profession,
-            profileSummary: volunteer.profileSummary,
-            skills: volunteer.skills,
-          }),
-          distanceKm,
-          matchedSkills,
-          missingSkills,
-          manualScore,
-        };
-      })
-      .sort((left, right) => {
-        if (left.distanceKm === null && right.distanceKm !== null) return 1;
-        if (left.distanceKm !== null && right.distanceKm === null) return -1;
-        if (left.distanceKm !== null && right.distanceKm !== null && left.distanceKm !== right.distanceKm) {
-          return left.distanceKm - right.distanceKm;
-        }
-
-        return right.manualScore - left.manualScore || left.createdAt.localeCompare(right.createdAt);
-      });
-  }, [selectedDomain, selectedNeed, surveyQuery.data, volunteersQuery.data?.items]);
+  const rankedVolunteers = matchesQuery.data?.matches ?? [];
+  const selectedNeedMatches = matchesQuery.data;
 
   const assignMutation = useMutation({
     mutationFn: (payload: {
       volunteerId: string;
       distanceKm: number | null;
-      manualScore: number;
+      matchScore: number;
       matchedSkills: string[];
       missingSkills: string[];
       volunteerName: string;
-      volunteerDomain: string | null | undefined;
-      volunteerProfession: string | null | undefined;
+      explanation: string;
+      breakdown: {
+        skillScore: number;
+        availabilityScore: number;
+        locationScore: number;
+      };
     }) =>
       assignmentsApi.create({
         survey_id: surveyId,
         need_id: selectedNeed?.id || undefined,
         volunteer_id: payload.volunteerId,
         status: "suggested",
-        match_score: payload.manualScore,
+        match_score: payload.matchScore,
         match_reason_json: {
-          assignment_mode: "manual_nearest",
+          assignment_mode: "ranked_match",
           survey_id: surveyId,
           selected_need_id: selectedNeed?.id || null,
           selected_need_summary: selectedNeed?.summary || null,
-          ai_review_summary: reviewQuery.data?.reasoningOutput?.case_summary || null,
-          ai_review_assessment: reviewQuery.data?.reasoningOutput || null,
+          case_summary: reviewQuery.data?.reasoningOutput?.case_summary || null,
           volunteer_name: payload.volunteerName,
-          volunteer_domain: payload.volunteerDomain || null,
-          volunteer_profession: payload.volunteerProfession || null,
           distance_km: payload.distanceKm,
+          score_breakdown: payload.breakdown,
           matched_skills: payload.matchedSkills,
           missing_skills: payload.missingSkills,
-          explanation: `${payload.volunteerName} was selected manually based on nearest availability${payload.volunteerDomain ? ` and ${payload.volunteerDomain} domain fit` : ""}.`,
+          explanation: payload.explanation,
         },
       }),
     onSuccess: (assignment) => {
@@ -235,9 +137,9 @@ export function MatchingPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Manual Volunteer System"
-        title="Survey Matching"
-        description="Search by submitted survey ID, review the case needs, find the nearest volunteers, filter them by profession domain, and assign the case manually."
+        eyebrow="Operations Matching"
+        title="Case Assignment"
+        description="Load a submitted case, select the operational need, and review ranked volunteers using backend scoring for skill fit, availability, and distance."
       />
 
       <Panel className="space-y-4">
@@ -247,32 +149,28 @@ export function MatchingPage() {
             value={searchSurveyId}
             onChange={(event) => setSearchSurveyId(event.target.value)}
           />
-          <Button type="submit">Find nearest volunteers</Button>
+          <Button type="submit">Open case</Button>
         </form>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Select value={selectedDomain} onChange={(event) => setSelectedDomain(event.target.value)}>
-            <option value="">All profession domains</option>
-            {(optionsQuery.data?.domains ?? []).map((domain) => (
-              <option key={domain} value={domain}>
-                {sentence(domain)}
-              </option>
-            ))}
-          </Select>
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
           <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
-            {surveyId ? `Selected survey: ${surveyId}` : "Enter a survey ID to load the case and nearby volunteers."}
+            {surveyId ? `Loaded case: ${surveyId}` : "Enter a survey ID to load the case and ranked volunteers."}
+          </div>
+          <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3">
+            <p className="label-caps">Coverage</p>
+            <p className="mt-2 text-sm font-semibold text-white">{optionsQuery.data?.domains.length ?? 0} domains configured</p>
           </div>
         </div>
       </Panel>
 
       {!surveyId ? null : surveyQuery.isLoading || needsQuery.isLoading || reviewQuery.isLoading ? (
-        <LoaderBlock label="Loading survey case and nearest volunteers..." />
+        <LoaderBlock label="Loading case details and assignment context..." />
       ) : surveyQuery.data ? (
         <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
           <div className="space-y-6">
-            <Panel className="space-y-4">
+            <Panel className="space-y-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xl font-black text-white">Submitted survey</p>
+                  <p className="text-xl font-black text-white">Case intake</p>
                   <p className="mt-1 text-sm text-on-surface-variant">
                     {surveyQuery.data.respondentName || "Unnamed respondent"}
                   </p>
@@ -282,33 +180,38 @@ export function MatchingPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <InfoCard label="Location" value={surveyQuery.data.locationText || "No location"} />
                 <InfoCard label="Submitted" value={formatDateTime(surveyQuery.data.submittedAt)} />
+                <InfoCard label="Open needs" value={String(needs.length)} />
+                <InfoCard
+                  label="Priority focus"
+                  value={selectedNeed ? sentence(selectedNeed.priorityLevel) : "Select a need"}
+                />
               </div>
               <Panel className="bg-surface-container-low">
-                <p className="label-caps">AI case summary</p>
+                <p className="label-caps">Case summary</p>
                 <p className="mt-3 text-sm leading-6 text-on-surface-variant">
-                  {String(reviewQuery.data?.reasoningOutput?.case_summary || "AI review summary is not available yet.")}
+                  {String(reviewQuery.data?.reasoningOutput?.case_summary || "Case review summary is not available yet.")}
                 </p>
               </Panel>
             </Panel>
 
             <Panel className="space-y-4">
               <div>
-                <p className="text-xl font-black text-white">Survey needs</p>
+                <p className="text-xl font-black text-white">Assignment needs</p>
                 <p className="mt-1 text-sm text-on-surface-variant">
-                  Select the need that best represents the volunteer assignment. If no need exists, you can still assign the survey for manual support.
+                  Select the need that best reflects the case. Assignment rankings update from the backend for the need you choose.
                 </p>
               </div>
               {needs.length === 0 ? (
                 <p className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
-                  No AI-generated needs were found for this survey. You can still assign the case manually based on the full survey and AI assessment.
+                  No case needs were generated for this survey yet. Review or reprocess the case before assigning a volunteer.
                 </p>
               ) : (
                 <div className="space-y-3">
                   {needs.map((need) => (
                     <button
-                      className={`w-full rounded-md border px-4 py-4 text-left ${
+                      className={`w-full rounded-xl border px-4 py-4 text-left transition ${
                         selectedNeedId === need.id
-                          ? "border-primary bg-primary/10"
+                          ? "border-primary bg-primary/10 shadow-[0_0_0_1px_rgba(120,220,119,0.2)]"
                           : "border-outline-variant bg-surface-container-low hover:border-primary/50"
                       }`}
                       key={need.id}
@@ -322,6 +225,11 @@ export function MatchingPage() {
                         </div>
                         <StatusBadge tone={toneForStatus(need.priorityLevel)}>{need.priorityLevel}</StatusBadge>
                       </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <MiniStat label="Urgency" value={`${need.urgencyScore}`} />
+                        <MiniStat label="Skills" value={String(need.skills.length)} />
+                        <MiniStat label="Status" value={sentence(need.status)} />
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -329,94 +237,115 @@ export function MatchingPage() {
             </Panel>
           </div>
 
-          <Panel className="space-y-4">
+          <Panel className="space-y-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xl font-black text-white">Nearest volunteers</p>
+                <p className="text-xl font-black text-white">Ranked volunteers</p>
                 <p className="mt-1 text-sm text-on-surface-variant">
-                  Volunteers are ordered from nearest to farthest using the submitted survey coordinates.
+                  Results come from backend ranking. Use the score, distance, availability, and skill coverage to make the assignment call.
                 </p>
               </div>
               <StatusBadge tone="success">{rankedVolunteers.length} found</StatusBadge>
             </div>
 
-            {volunteersQuery.isLoading ? (
-              <LoaderBlock label="Finding nearest volunteers..." />
+            {selectedNeed ? <SelectedNeedSummary need={selectedNeed} result={selectedNeedMatches} /> : null}
+
+            {!selectedNeed ? (
+              <p className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+                Select a need to load ranked volunteers.
+              </p>
+            ) : matchesQuery.isLoading ? (
+              <LoaderBlock label="Loading ranked volunteers..." />
+            ) : matchesQuery.isError ? (
+              <InlineError
+                message="Could not load ranked volunteers for the selected need."
+                onRetry={() => void matchesQuery.refetch()}
+              />
             ) : rankedVolunteers.length === 0 ? (
               <p className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
-                No volunteers matched the current domain filter.
+                No ranked volunteers are available for this need.
               </p>
             ) : (
               <div className="space-y-4">
-                {rankedVolunteers.map((volunteer) => (
-                  <Panel className="space-y-4 bg-surface-container-low" key={volunteer.id}>
+                {rankedVolunteers.map((volunteer, index) => (
+                  <Panel className="space-y-4 bg-surface-container-low" key={volunteer.volunteerId}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-xl font-black text-white">{volunteer.name || volunteer.profession || volunteer.id}</p>
-                        <p className="mt-1 text-sm text-on-surface-variant">{volunteer.email || volunteer.profession || "No profession provided"}</p>
+                        <p className="label-caps text-primary">Rank #{index + 1}</p>
+                        <p className="text-xl font-black text-white">{volunteer.name || volunteer.volunteerId}</p>
+                        <p className="mt-1 text-sm text-on-surface-variant">{volunteer.email || "No email provided"}</p>
                       </div>
-                      <StatusBadge tone="success">{formatDistance(volunteer.distanceKm)}</StatusBadge>
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <InfoCard label="Volunteer ID" value={volunteer.id} />
-                      <InfoCard label="Domain" value={sentence(volunteer.effectiveDomain || "other")} />
-                      <InfoCard label="Availability" value={volunteer.availabilityStatus} />
-                      <InfoCard label="Manual fit score" value={formatPercent(volunteer.manualScore, 0)} />
-                    </div>
-
-                    <div>
-                      <p className="label-caps">Matched skills</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {volunteer.matchedSkills.length > 0 ? volunteer.matchedSkills.map((skill) => (
-                          <span
-                            className="rounded-md border border-primary/50 bg-primary/10 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-primary"
-                            key={`${volunteer.id}-${skill}`}
-                          >
-                            {skill}
-                          </span>
-                        )) : <span className="text-xs text-on-surface-variant">No skill overlap detected</span>}
+                      <div className="space-y-2 text-right">
+                        <StatusBadge tone="success">{formatPercent(volunteer.matchScore, 0)} match</StatusBadge>
+                        <p className="text-xs text-on-surface-variant">{formatDistance(volunteer.distanceKm)}</p>
                       </div>
                     </div>
 
-                    {volunteer.missingSkills.length > 0 ? (
+                    <div className="grid gap-3 md:grid-cols-4">
+                      <InfoCard label="Availability" value={sentence(volunteer.availabilityStatus)} />
+                      <InfoCard label="Skill fit" value={formatPercent(volunteer.breakdown.skillScore, 0)} />
+                      <InfoCard label="Location fit" value={formatPercent(volunteer.breakdown.locationScore, 0)} />
+                      <InfoCard label="Readiness" value={readinessLabel(volunteer.matchScore)} />
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
                       <div>
-                        <p className="label-caps">Missing skills</p>
+                        <p className="label-caps">Covered skills</p>
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {volunteer.missingSkills.map((skill) => (
+                          {volunteer.matchedSkills.length > 0 ? volunteer.matchedSkills.map((skill) => (
                             <span
-                              className="rounded-md border border-warning/50 bg-warning/10 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-warning"
-                              key={`${volunteer.id}-missing-${skill}`}
+                              className="rounded-md border border-primary/50 bg-primary/10 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-primary"
+                              key={`${volunteer.volunteerId}-${skill}`}
                             >
                               {skill}
                             </span>
-                          ))}
+                          )) : <span className="text-xs text-on-surface-variant">No required skills covered</span>}
                         </div>
                       </div>
-                    ) : null}
+
+                      <div>
+                        <p className="label-caps">Gaps to note</p>
+                        {volunteer.missingSkills.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {volunteer.missingSkills.map((skill) => (
+                              <span
+                                className="rounded-md border border-warning/50 bg-warning/10 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-warning"
+                                key={`${volunteer.volunteerId}-missing-${skill}`}
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-xs text-on-surface-variant">All listed skills are covered for this need.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <Panel className="bg-black/10">
+                      <p className="label-caps">Assignment note</p>
+                      <p className="mt-3 text-sm leading-6 text-on-surface-variant">
+                        {volunteer.matchReason.explanation}
+                      </p>
+                    </Panel>
 
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm leading-6 text-on-surface-variant">
-                        {selectedNeed
-                          ? `${volunteer.id} is ${formatDistance(volunteer.distanceKm)} away and has ${volunteer.matchedSkills.length} matched skill(s) for the selected need.`
-                          : `${volunteer.id} is ${formatDistance(volunteer.distanceKm)} away from the submitted survey location and can be assigned for manual support.`}
-                      </p>
                       <Button
                         disabled={assignMutation.isPending}
                         onClick={() =>
                           void assignMutation.mutate({
-                            volunteerId: volunteer.id,
+                            volunteerId: volunteer.volunteerId,
                             distanceKm: volunteer.distanceKm,
-                            manualScore: volunteer.manualScore,
+                            matchScore: volunteer.matchScore,
                             matchedSkills: volunteer.matchedSkills,
                             missingSkills: volunteer.missingSkills,
-                            volunteerName: volunteer.name || volunteer.profession || volunteer.id,
-                            volunteerDomain: volunteer.effectiveDomain,
-                            volunteerProfession: volunteer.profession,
+                            volunteerName: volunteer.name || volunteer.volunteerId,
+                            explanation: volunteer.matchReason.explanation,
+                            breakdown: volunteer.breakdown,
                           })
                         }
                       >
-                        {assignMutation.isPending ? "Assigning..." : "Assign"}
+                        {assignMutation.isPending ? "Assigning..." : "Assign volunteer"}
                       </Button>
                     </div>
                   </Panel>
@@ -426,7 +355,7 @@ export function MatchingPage() {
           </Panel>
         </div>
       ) : (
-        <LoaderBlock label="Survey not found for the supplied ID." />
+        <InlineError message="Survey not found for the supplied ID." />
       )}
     </div>
   );
@@ -439,4 +368,55 @@ function InfoCard({ label, value }: { label: string; value: string }) {
       <p className="mt-2 text-sm font-semibold text-white">{value}</p>
     </div>
   );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="rounded-full border border-outline-variant bg-black/10 px-3 py-1 text-[11px] text-on-surface-variant">
+      <span className="text-white">{value}</span> {label}
+    </span>
+  );
+}
+
+function SelectedNeedSummary({
+  need,
+  result,
+}: {
+  need: Need;
+  result: MatchResult | undefined;
+}) {
+  return (
+    <div className="rounded-xl border border-outline-variant bg-black/10 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="label-caps">Selected need</p>
+          <p className="mt-2 text-lg font-black text-white">{need.summary}</p>
+          <p className="mt-1 text-sm text-on-surface-variant">{sentence(need.category)}</p>
+        </div>
+        <StatusBadge tone={toneForStatus(need.priorityLevel)}>{need.priorityLevel}</StatusBadge>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <InfoCard label="Required skills" value={String(result?.need.requiredSkills.length ?? need.skills.length)} />
+        <InfoCard label="Top score" value={result?.matches[0] ? formatPercent(result.matches[0].matchScore, 0) : "No match"} />
+        <InfoCard label="Assignment pace" value={priorityCopy[need.priorityLevel] ?? "Review manually"} />
+      </div>
+    </div>
+  );
+}
+
+function readinessLabel(score: number) {
+  if (score >= 0.8) {
+    return "Ready now";
+  }
+
+  if (score >= 0.6) {
+    return "Good fit";
+  }
+
+  if (score >= 0.4) {
+    return "Review closely";
+  }
+
+  return "Fallback option";
 }

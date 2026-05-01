@@ -1,13 +1,13 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
-  font-family: Inter, system-ui, sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(120, 220, 119, 0.08), transparent 22%),
-    linear-gradient(180deg, #121414 0%, #0d0e0f 100%);
+  color-scheme: light;
+  font-family: "DM Sans", system-ui, sans-serif;
+  background: #f4f3f0;
 }
 
 html,
@@ -18,21 +18,30 @@ body,
 
 body {
   margin: 0;
-  background-color: #121414;
-  color: #e3e2e2;
+  background-color: #f4f3f0;
+  color: #1a1916;
+  font-family: "DM Sans", system-ui, sans-serif;
+  line-height: 1.5;
 }
 
 * {
   box-sizing: border-box;
 }
 
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
 ::selection {
-  background: rgba(120, 220, 119, 0.3);
+  background: rgba(26, 107, 60, 0.14);
 }
 
 @layer components {
   .panel {
-    @apply rounded-panel border border-outline-variant bg-surface-container shadow-panel;
+    @apply rounded-panel border border-outline-variant bg-surface shadow-panel;
   }
 
   .panel-muted {
@@ -40,22 +49,39 @@ body {
   }
 
   .label-caps {
-    @apply text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant;
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant;
   }
 
   .field-control {
-    @apply w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20;
+    @apply w-full rounded-md border border-outline-variant bg-surface px-3 py-2.5 text-[15px] leading-6 text-on-surface outline-none transition;
+  }
+
+  .field-control::placeholder {
+    color: #a8a49c;
+  }
+
+  .field-control:hover {
+    border-color: #c8c4bb;
+  }
+
+  .field-control:focus {
+    border-color: #1a6b3c;
+    box-shadow: 0 0 0 3px rgba(26, 107, 60, 0.15);
   }
 
   .action-button {
-    @apply inline-flex items-center justify-center rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold transition;
+    @apply inline-flex min-h-[42px] items-center justify-center rounded-md border px-4 py-2 text-sm font-medium transition;
   }
 
   .action-button-primary {
-    @apply action-button border-primary-strong bg-primary-strong text-on-primary hover:brightness-110;
+    @apply action-button border-primary bg-primary text-on-primary hover:bg-primary-strong;
   }
 
   .action-button-secondary {
-    @apply action-button bg-surface-container text-on-surface hover:border-primary hover:text-primary;
+    @apply action-button border-outline-variant bg-surface text-on-surface hover:bg-surface-container-low hover:border-outline;
+  }
+
+  .page-shell {
+    @apply mx-auto w-full max-w-[960px];
   }
 }

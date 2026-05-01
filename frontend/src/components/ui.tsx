@@ -14,7 +14,7 @@ export function Panel({
 }: PropsWithChildren<{
   className?: string;
 }>) {
-  return <section className={cn("panel p-4", className)}>{children}</section>;
+  return <section className={cn("panel p-6 md:p-8", className)}>{children}</section>;
 }
 
 export function PageHeader({
@@ -29,12 +29,12 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-      <div className="space-y-1.5">
+    <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div className="space-y-2">
         {eyebrow ? <p className="label-caps text-primary">{eyebrow}</p> : null}
-        <h1 className="text-2xl font-black text-white">{title}</h1>
+        <h1 className="text-[30px] font-semibold leading-tight text-on-surface">{title}</h1>
         {description ? (
-          <p className="max-w-3xl text-[13px] leading-5 text-on-surface-variant">{description}</p>
+          <p className="max-w-3xl text-[15px] leading-7 text-on-surface-variant">{description}</p>
         ) : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
@@ -55,8 +55,8 @@ export function Button({
         "action-button disabled:cursor-not-allowed disabled:opacity-50",
         variant === "primary" && "action-button-primary",
         variant === "secondary" && "action-button-secondary",
-        variant === "ghost" && "border-transparent bg-transparent text-on-surface-variant hover:text-white",
-        variant === "danger" && "border-danger/70 bg-danger/15 text-danger hover:bg-danger/20",
+        variant === "ghost" && "border-transparent bg-transparent text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface",
+        variant === "danger" && "border-danger/20 bg-transparent text-danger hover:border-danger/30 hover:bg-danger/10",
         className,
       )}
       {...props}
@@ -85,11 +85,11 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-sm px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em]",
-        tone === "default" && "bg-surface-container-high text-on-surface-variant",
-        tone === "success" && "bg-success/20 text-primary",
-        tone === "warning" && "bg-warning/20 text-warning",
-        tone === "danger" && "bg-danger/20 text-danger",
+        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]",
+        tone === "default" && "bg-surface-container text-on-surface-variant",
+        tone === "success" && "bg-success/10 text-success",
+        tone === "warning" && "bg-warning/15 text-warning",
+        tone === "danger" && "bg-danger/10 text-danger",
       )}
     >
       {children}
@@ -107,10 +107,10 @@ export function MetricCard({
   accent?: ReactNode;
 }) {
   return (
-    <Panel className="space-y-2">
+    <Panel className="space-y-3">
       <p className="label-caps">{label}</p>
       <div className="flex items-end justify-between gap-3">
-        <div className="text-3xl font-black text-white">{value}</div>
+        <div className="text-[30px] font-semibold leading-tight text-on-surface">{value}</div>
         {accent ? <div className="text-sm font-semibold text-primary">{accent}</div> : null}
       </div>
     </Panel>
@@ -128,8 +128,8 @@ export function EmptyState({
 }) {
   return (
     <Panel className="flex min-h-[150px] flex-col items-center justify-center gap-3 text-center">
-      <p className="text-xl font-bold text-white">{title}</p>
-      <p className="max-w-lg text-sm text-on-surface-variant">{description}</p>
+      <p className="text-xl font-semibold text-on-surface">{title}</p>
+      <p className="max-w-lg text-sm leading-7 text-on-surface-variant">{description}</p>
       {action}
     </Panel>
   );
@@ -140,7 +140,7 @@ export function LoaderBlock({ label = "Loading..." }: { label?: string }) {
     <Panel className="flex min-h-[120px] items-center justify-center">
       <div className="space-y-3 text-center">
         <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-outline-variant border-t-primary" />
-        <p className="text-sm text-on-surface-variant">{label}</p>
+        <p className="text-sm leading-6 text-on-surface-variant">{label}</p>
       </div>
     </Panel>
   );
@@ -154,10 +154,10 @@ export function InlineError({
   onRetry?: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-danger/50 bg-danger/10 px-3 py-2 text-xs text-danger">
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
       <span>{message}</span>
       {onRetry ? (
-        <button className="font-bold uppercase tracking-[0.14em] text-danger" onClick={onRetry} type="button">
+        <button className="font-semibold uppercase tracking-[0.12em] text-danger" onClick={onRetry} type="button">
           Retry
         </button>
       ) : null}
