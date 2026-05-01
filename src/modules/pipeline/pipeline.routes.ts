@@ -18,6 +18,10 @@ const reviewBodySchema = z.object({
 	review_notes: z.string().optional(),
 	approved_fields: z.record(z.string(), z.unknown()).optional(),
 });
+const assessmentUpdateBodySchema = z.object({
+	field: z.string().min(1).max(120),
+	value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]),
+});
 const createFormBodySchema = z.object({ name: z.string().optional() });
 
 pipelineRouter.use(requireAuth);
@@ -43,11 +47,39 @@ pipelineRouter.get(
 	pipelineController.getReviewPackage,
 );
 
+pipelineRouter.get(
+	"/surveys/:id/review-package",
+	allowRoles(["superadmin"]),
+	validate({ params: documentIdParamsSchema }),
+	pipelineController.getSurveyReviewPackage,
+);
+
 pipelineRouter.post(
 	"/documents/:id/review",
 	allowRoles(["superadmin"]),
 	validate({ params: documentIdParamsSchema, body: reviewBodySchema }),
 	pipelineController.submitReview,
+);
+
+pipelineRouter.patch(
+	"/documents/:id/review-assessment",
+	allowRoles(["superadmin"]),
+	validate({ params: documentIdParamsSchema, body: assessmentUpdateBodySchema }),
+	pipelineController.updateDocumentAssessment,
+);
+
+pipelineRouter.post(
+	"/surveys/:id/review",
+	allowRoles(["superadmin"]),
+	validate({ params: documentIdParamsSchema, body: reviewBodySchema }),
+	pipelineController.submitSurveyReview,
+);
+
+pipelineRouter.patch(
+	"/surveys/:id/review-assessment",
+	allowRoles(["superadmin"]),
+	validate({ params: documentIdParamsSchema, body: assessmentUpdateBodySchema }),
+	pipelineController.updateSurveyAssessment,
 );
 
 pipelineRouter.post(

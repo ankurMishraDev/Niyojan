@@ -7,6 +7,8 @@ type VolunteerRow = {
 	id: string;
 	org_id: string | null;
 	user_id: string;
+	user_name?: string | null;
+	user_email?: string | null;
 	availability_status: string;
 	location_text: string | null;
 	latitude: string | number | null;
@@ -70,6 +72,7 @@ type ListVolunteersQuery = {
 	pageSize?: string | number;
 	org_id?: string;
 	availability_status?: string;
+	primary_domain?: string;
 	is_active?: string;
 	user_id?: string;
 	skill_id?: string;
@@ -138,6 +141,8 @@ const mapVolunteer = (volunteer: VolunteerRow, skills: VolunteerSkillRow[]) => {
 		id: volunteer.id,
 		orgId: volunteer.org_id,
 		userId: volunteer.user_id,
+		name: volunteer.user_name,
+		email: volunteer.user_email,
 		availabilityStatus: volunteer.availability_status,
 		locationText: volunteer.location_text,
 		latitude: volunteer.latitude === null ? null : Number(volunteer.latitude),
@@ -218,7 +223,11 @@ export class VolunteersService {
 	}
 
 	async getVolunteerById(volunteerId: string, user: AuthenticatedUser) {
-		const volunteer = (await db("volunteers").where({ id: volunteerId }).first()) as
+		const volunteer = (await db("volunteers as v")
+			.leftJoin("users as u", "v.user_id", "u.id")
+			.where("v.id", volunteerId)
+			.select("v.*", db.raw("u.name as user_name"), db.raw("u.email as user_email"))
+			.first()) as
 			| VolunteerRow
 			| undefined;
 
@@ -237,7 +246,9 @@ export class VolunteersService {
 	async listVolunteers(query: ListVolunteersQuery, user: AuthenticatedUser) {
 		const { page, pageSize, offset } = getPaginationParams(query.page, query.pageSize);
 
-		const baseQuery = db("volunteers as v").select("v.*");
+		const baseQuery = db("volunteers as v")
+			.leftJoin("users as u", "v.user_id", "u.id")
+			.select("v.*", db.raw("u.name as user_name"), db.raw("u.email as user_email"));
 
 		if (user.role === "superadmin") {
 			if (query.org_id) {
@@ -255,6 +266,10 @@ export class VolunteersService {
 
 		if (query.availability_status) {
 			baseQuery.andWhere("v.availability_status", query.availability_status);
+		}
+
+		if (query.primary_domain) {
+			baseQuery.andWhere("v.primary_domain", query.primary_domain);
 		}
 
 		const isActive = parseOptionalBoolean(query.is_active);

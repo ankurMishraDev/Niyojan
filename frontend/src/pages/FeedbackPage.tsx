@@ -1,16 +1,23 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api, ApiError } from "@/lib/api";
 import { assignmentsApi, feedbackApi } from "@/lib/services";
 import { useAuth } from "@/features/auth/AuthProvider";
-import { Button, Input, LoaderBlock, PageHeader, Panel, Select, Textarea } from "@/components/ui";
-import { formatDateTime } from "@/lib/format";
+import { Button, Input, LoaderBlock, PageHeader, Panel, Select, StatusBadge, Textarea } from "@/components/ui";
+import { formatDateTime, toneForStatus } from "@/lib/format";
+
+function StatusPill({ value }: { value: string }) {
+  return <StatusBadge tone={toneForStatus(value)}>{value}</StatusBadge>;
+}
 
 export function FeedbackIndexPage() {
   const { user } = useAuth();
-  const canListAssignments = user?.role === "superadmin" || user?.role === "volunteer";
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
+  const canListAssignments =
+    user?.role === "superadmin" ||
+    user?.role === "volunteer" ||
+    user?.role === "ngo_admin" ||
+    user?.role === "field_worker";
   const assignmentsQuery = useQuery({
     enabled: canListAssignments,
     queryKey: ["feedback-assignments"],
@@ -18,12 +25,6 @@ export function FeedbackIndexPage() {
   });
 
   const availableAssignments = assignmentsQuery.data?.items ?? [];
-
-  useEffect(() => {
-    if (!selectedAssignmentId && availableAssignments[0]?.id) {
-      setSelectedAssignmentId(availableAssignments[0].id);
-    }
-  }, [availableAssignments, selectedAssignmentId]);
 
   if (assignmentsQuery.isLoading && canListAssignments) {
     return <LoaderBlock label="Loading feedback workspace..." />;
@@ -52,43 +53,39 @@ export function FeedbackIndexPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Feedback"
-        title={user?.role === "volunteer" ? "Select an open case" : "Choose an assignment"}
+        title={user?.role === "volunteer" ? "Select an open case" : user?.role === "superadmin" ? "Choose an assignment" : "Review volunteer field feedback"}
         description={user?.role === "volunteer"
           ? "Choose one of your assigned cases and submit the observed ground reality after the field visit."
-          : "Assignments drive volunteer feedback submission and admin case closure."}
+          : user?.role === "superadmin"
+            ? "Assignments drive volunteer feedback submission and admin case closure."
+            : "Review volunteer actions against your submitted surveys and verify whether the field response actually happened."}
       />
-      {user?.role === "volunteer" ? (
-        <Panel className="max-w-3xl space-y-4">
-          <Select
-            value={selectedAssignmentId}
-            onChange={(event) => setSelectedAssignmentId(event.target.value)}
-          >
-            {availableAssignments.map((assignment) => (
-              <option key={assignment.id} value={assignment.id}>
-                {assignment.needSummary} ({assignment.status})
-              </option>
-            ))}
-          </Select>
-          <Link
-            className="action-button-secondary"
-            to={selectedAssignmentId ? `/feedback/assignments/${selectedAssignmentId}` : "/feedback"}
-          >
-            Open selected case
-          </Link>
-        </Panel>
-      ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {availableAssignments.map((assignment) => (
-            <Panel className="space-y-3" key={assignment.id}>
-              <p className="text-lg font-bold text-white">{assignment.needSummary}</p>
-              <p className="text-sm text-on-surface-variant">{assignment.volunteerName}</p>
-              <Link className="action-button-secondary" to={`/feedback/assignments/${assignment.id}`}>
-                Open feedback record
-              </Link>
-            </Panel>
-          ))}
-        </div>
-      )}
+      <div className="grid gap-4 xl:grid-cols-2">
+        {availableAssignments.map((assignment) => (
+          <Panel className="space-y-3" key={assignment.id}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-lg font-bold text-white">{assignment.needSummary}</p>
+                <p className="text-sm text-on-surface-variant">
+                  {user?.role === "volunteer"
+                    ? assignment.needPriorityLevel
+                    : user?.role === "superadmin"
+                      ? assignment.volunteerName
+                      : assignment.needPriorityLevel}
+                </p>
+              </div>
+              <StatusPill value={assignment.status} />
+            </div>
+            <Link className="action-button-secondary" to={`/feedback/assignments/${assignment.id}`}>
+              {user?.role === "volunteer"
+                ? "Open field feedback"
+                : user?.role === "superadmin"
+                  ? "Open feedback record"
+                  : "Review volunteer response"}
+            </Link>
+          </Panel>
+        ))}
+      </div>
     </div>
   );
 }
@@ -161,6 +158,8 @@ export function FeedbackPage() {
   const canCloseNeed = Boolean(
     user && feedback && (user.role === "superadmin" || user.role === "ngo_admin"),
   );
+  const isVolunteer = user?.role === "volunteer";
+  const isNgo = user?.role === "ngo_admin" || user?.role === "field_worker";
 
   return (
     <div className="space-y-6">
@@ -190,7 +189,28 @@ export function FeedbackPage() {
             <InfoCell label="Assigned" value={formatDateTime(assignment.assignedAt)} />
           </div>
 
-          {!feedback ? (
+          {assignment.survey ? (
+            <Panel className="bg-surface-container-low">
+              <p className="label-caps">Survey details</p>
+              <div className="mt-3 grid gap-4 md:grid-cols-2">
+                <InfoCell label="Respondent" value={assignment.survey.respondentName || "Unnamed respondent"} />
+                <InfoCell label="Location" value={assignment.survey.locationText || "No location"} />
+                <InfoCell label="Survey status" value={assignment.survey.status} />
+                <InfoCell label="Submitted" value={formatDateTime(assignment.survey.submittedAt)} />
+              </div>
+            </Panel>
+          ) : null}
+
+          {assignment.aiReview ? (
+            <Panel className="bg-surface-container-low">
+              <p className="label-caps">AI review assessment</p>
+              <p className="mt-3 text-sm leading-7 text-on-surface-variant">
+                {assignment.aiReview.caseSummary || "No AI summary available."}
+              </p>
+            </Panel>
+          ) : null}
+
+          {!feedback && isVolunteer ? (
             <form
               className="space-y-4"
               onSubmit={(event: FormEvent<HTMLFormElement>) => {
@@ -277,7 +297,7 @@ export function FeedbackPage() {
                 {submitMutation.isPending ? "Submitting..." : "Submit feedback"}
               </Button>
             </form>
-          ) : (
+          ) : feedback ? (
             <div className="space-y-4">
               <InfoCell label="Visit completed" value={String(feedback.visitCompleted)} />
               <InfoCell label="Visit date" value={formatDateTime(feedback.visitDate)} />
@@ -298,6 +318,14 @@ export function FeedbackPage() {
                 </div>
               </Panel>
             </div>
+          ) : (
+            <Panel className="bg-surface-container-low">
+              <p className="text-sm text-on-surface-variant">
+                {isNgo
+                  ? "The assigned volunteer has not submitted any field feedback yet. Once they submit their response, you can review it here and verify the actions taken."
+                  : "No feedback has been submitted for this assignment yet."}
+              </p>
+            </Panel>
           )}
         </Panel>
 

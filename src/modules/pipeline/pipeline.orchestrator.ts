@@ -5,6 +5,7 @@ import { AppError } from "../../middleware/errorHandler";
 import { auditService } from "../../services/auditService";
 import { AuthenticatedUser } from "../../types/auth";
 import { formTemplatesService } from "../formBuilder/formTemplates.service";
+import { surveysService } from "../surveys/surveys.service";
 import { stage10ReviewPrep } from "./stages/stage10_review_prep";
 import { stage1Ingestion } from "./stages/stage1_ingestion";
 import { stage2Extraction } from "./stages/stage2_extraction";
@@ -25,6 +26,7 @@ type DocumentRow = {
   file_type: string;
   status: string;
   extraction_result_json: unknown;
+  assessment_overrides_json: unknown;
   created_at: Date;
   updated_at: Date;
 };
@@ -61,6 +63,57 @@ type HumanReviewRow = {
   id: string;
   review_action: string;
   reviewed_at: Date;
+  review_notes?: string | null;
+  field_corrections?: unknown;
+  approved_fields?: unknown;
+};
+
+type SurveyReviewRow = {
+  id: string;
+  org_id: string;
+  respondent_name: string | null;
+  location_text: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  template_version_id: string;
+  status: string;
+  assessment_overrides_json: unknown;
+  submitted_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+};
+
+type SurveyResponseReviewRow = {
+  id: string;
+  input_type: string;
+  value_text: string | null;
+  value_number: string | number | null;
+  value_bool: boolean | null;
+  value_json: unknown;
+  field_label: string;
+  field_display_order: number;
+};
+
+type SurveyNeedRow = {
+  id: string;
+  org_id: string;
+  survey_id: string;
+  category: string;
+  summary: string;
+  urgency_score: number;
+  priority_level: string;
+  status: string;
+  created_at: Date;
+  updated_at: Date;
+  location_text: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  respondent_name: string | null;
+  template_version_id: string | null;
+  skill_id: string | null;
+  skill_key: string | null;
+  skill_name: string | null;
+  skill_category: string | null;
 };
 
 type IntakeSurveyRow = {
@@ -117,6 +170,192 @@ const getSurveyStatusById = async (surveyId: string) => {
     .where({ id: surveyId })
     .select("id", "status")
     .first()) as { id: string; status: string } | undefined;
+};
+
+const getSurveyReviewRowById = async (surveyId: string) => {
+  return (await db("surveys")
+    .where({ id: surveyId })
+    .select(
+      "id",
+      "org_id",
+      "respondent_name",
+      "location_text",
+      "latitude",
+      "longitude",
+      "template_version_id",
+      "status",
+      "assessment_overrides_json",
+      "submitted_at",
+      "created_at",
+      "updated_at",
+    )
+    .first()) as SurveyReviewRow | undefined;
+};
+
+const getSurveyResponsesForReview = async (surveyId: string) => {
+  return (await db("survey_responses as sr")
+    .join("form_fields as ff", "sr.form_field_id", "ff.id")
+    .where("sr.survey_id", surveyId)
+    .orderBy("ff.display_order", "asc")
+    .select(
+      "sr.id",
+      "sr.input_type",
+      "sr.value_text",
+      "sr.value_number",
+      "sr.value_bool",
+      "sr.value_json",
+      "ff.label as field_label",
+      "ff.display_order as field_display_order",
+    )) as SurveyResponseReviewRow[];
+};
+
+const getSurveyNeedsBySurveyId = async (surveyId: string) => {
+  const rows = (await db("needs_analysis as n")
+    .join("surveys as s", "n.survey_id", "s.id")
+    .leftJoin("need_skills as ns", "ns.need_id", "n.id")
+    .leftJoin("skills as sk", "sk.id", "ns.skill_id")
+    .where("n.survey_id", surveyId)
+    .select(
+      "n.id",
+      "n.org_id",
+      "n.survey_id",
+      "n.category",
+      "n.summary",
+      "n.urgency_score",
+      "n.priority_level",
+      "n.status",
+      "n.created_at",
+      "n.updated_at",
+      "s.location_text",
+      "s.latitude",
+      "s.longitude",
+      "s.respondent_name",
+      "s.template_version_id",
+      db.raw("sk.id as skill_id"),
+      db.raw("sk.key as skill_key"),
+      db.raw("sk.name as skill_name"),
+      db.raw("sk.category as skill_category"),
+    )
+    .orderBy("n.created_at", "asc")) as SurveyNeedRow[];
+
+  const grouped = new Map<string, Record<string, unknown>>();
+
+  for (const row of rows) {
+    const existing = grouped.get(row.id);
+    const skill = row.skill_id
+      ? {
+          skillId: row.skill_id,
+          key: row.skill_key,
+          name: row.skill_name,
+          category: row.skill_category,
+        }
+      : null;
+
+    if (!existing) {
+      grouped.set(row.id, {
+        id: row.id,
+        orgId: row.org_id,
+        surveyId: row.survey_id,
+        category: row.category,
+        summary: row.summary,
+        urgencyScore: Number(row.urgency_score),
+        priorityLevel: row.priority_level,
+        status: row.status,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        locationText: row.location_text,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        respondentName: row.respondent_name,
+        templateVersionId: row.template_version_id,
+        skills: skill ? [skill] : [],
+      });
+      continue;
+    }
+
+    if (skill) {
+      const skills = existing.skills as Array<{ skillId: string }>;
+      if (!skills.some((item) => item.skillId === skill.skillId)) {
+        skills.push(skill);
+      }
+    }
+  }
+
+  return Array.from(grouped.values());
+};
+
+const formatSurveyResponseValue = (response: SurveyResponseReviewRow) => {
+  const parsedJson = fromJson(response.value_json);
+
+  if (response.value_text && response.value_text.trim()) {
+    return response.value_text.trim();
+  }
+
+  if (response.value_number !== null && response.value_number !== undefined) {
+    return String(response.value_number);
+  }
+
+  if (response.value_bool !== null && response.value_bool !== undefined) {
+    return response.value_bool ? "Yes" : "No";
+  }
+
+  if (Array.isArray(parsedJson)) {
+    return parsedJson.map((item) => String(item)).join(", ");
+  }
+
+  if (parsedJson && typeof parsedJson === "object") {
+    return JSON.stringify(parsedJson);
+  }
+
+  if (parsedJson !== null && parsedJson !== undefined && String(parsedJson).trim()) {
+    return String(parsedJson).trim();
+  }
+
+  return "Not provided";
+};
+
+const priorityRank = (value: string) => {
+  if (value === "critical") return 4;
+  if (value === "high") return 3;
+  if (value === "medium") return 2;
+  if (value === "low") return 1;
+  return 0;
+};
+
+const urgencyLabelFromScore = (score: number) => {
+  if (score >= 90) return "critical";
+  if (score >= 75) return "high";
+  if (score >= 50) return "medium";
+  return "low";
+};
+
+const applyFieldOverrides = (
+  trustedFields: Record<string, unknown>,
+  latestReview?: { approved_fields?: unknown; field_corrections?: unknown } | null,
+) => {
+  const approvedFields = fromJson(latestReview?.approved_fields);
+  const fieldCorrections = fromJson(latestReview?.field_corrections);
+
+  return {
+    ...trustedFields,
+    ...(approvedFields && typeof approvedFields === "object" ? approvedFields : {}),
+    ...(fieldCorrections && typeof fieldCorrections === "object" ? fieldCorrections : {}),
+  };
+};
+
+const applyAssessmentOverrides = (
+  reasoningOutput: Record<string, unknown> | null,
+  overrides: unknown,
+) => {
+  const parsedOverrides = fromJson(overrides);
+  if (!parsedOverrides || typeof parsedOverrides !== "object") {
+    return reasoningOutput;
+  }
+
+  return {
+    ...(reasoningOutput || {}),
+    ...parsedOverrides,
+  };
 };
 
 const createPipelineLogger = (documentId: string) => {
@@ -211,6 +450,19 @@ export class PipelineOrchestrator {
       sourceSurveyStatus: sourceSurvey.status,
       fileName: document.file_name,
       fileType: document.file_type,
+    });
+
+    currentStage = "survey_need_analysis";
+    logStage(currentStage, { action: "start", surveyId: document.source_survey_id });
+    const analyzedSurvey = await surveysService.analyzeNeeds(
+      document.source_survey_id,
+      user,
+    );
+    logStage(currentStage, {
+      action: "completed",
+      surveyId: document.source_survey_id,
+      createdNeedCount: analyzedSurvey.createdCount,
+      surveyStatus: analyzedSurvey.survey.status,
     });
 
     const job = await jobService.createJob({
@@ -681,7 +933,7 @@ export class PipelineOrchestrator {
     if (!manifest)
       throw new AppError(404, "Pipeline manifest not found for document");
 
-    const [projection, piiMap, extraction, validated, reasoning, reviews] =
+    const [projection, piiMap, extraction, validated, reasoning, reviews, surveyNeeds] =
       await Promise.all([
         db("canonical_projections").where({ document_id: documentId }).first(),
         db("pii_token_maps").where({ document_id: documentId }).first(),
@@ -697,7 +949,23 @@ export class PipelineOrchestrator {
         db("human_reviews")
           .where({ document_id: documentId })
           .orderBy("reviewed_at", "desc"),
+        document.source_survey_id
+          ? getSurveyNeedsBySurveyId(document.source_survey_id)
+          : Promise.resolve([]),
       ]);
+
+    const latestReview = reviews[0] as
+      | {
+          approved_fields?: unknown;
+          field_corrections?: unknown;
+        }
+      | undefined;
+    const trustedFieldsWithOverrides = validated
+      ? applyFieldOverrides(
+          (fromJson(validated.trusted_fields) as Record<string, unknown>) || {},
+          latestReview,
+        )
+      : {};
 
     const signed = await generateSignedReadUrl(document.gcs_path);
 
@@ -710,6 +978,8 @@ export class PipelineOrchestrator {
         readUrl: signed.url,
         readUrlExpiresAt: signed.expiresAt,
       },
+      sourceDocumentId: document.id,
+      sourceSurveyId: document.source_survey_id,
       manifest: mapManifest(manifest),
       canonicalProjection: projection
         ? {
@@ -742,15 +1012,16 @@ export class PipelineOrchestrator {
             ...validated,
             field_trust_map: fromJson(validated.field_trust_map),
             validation_flags: fromJson(validated.validation_flags),
-            trusted_fields: fromJson(validated.trusted_fields),
+            trusted_fields: trustedFieldsWithOverrides,
             untrusted_fields: fromJson(validated.untrusted_fields),
           }
         : null,
-      reasoningOutput: reasoning
-        ? {
+      reasoningOutput: applyAssessmentOverrides(
+        reasoning
+          ? {
 					...reasoning,
 					case_summary: reasoning.case_summary,
-					urgency_reasons: fromJson(reasoning.urgency_reasons),
+                    urgency_reasons: fromJson(reasoning.urgency_reasons),
             urgency_evidence_refs: fromJson(reasoning.urgency_evidence_refs),
             recommended_skill_keys: fromJson(reasoning.recommended_skill_keys),
             verification_risk_reasons: fromJson(
@@ -759,11 +1030,137 @@ export class PipelineOrchestrator {
             validation_errors: fromJson(reasoning.validation_errors),
           }
         : null,
+        document.assessment_overrides_json,
+      ),
       humanReviews: reviews.map((review) => ({
         ...review,
         field_corrections: fromJson(review.field_corrections),
         approved_fields: fromJson(review.approved_fields),
       })),
+      surveyNeeds: surveyNeeds,
+    };
+  }
+
+  async getSurveyReviewPackage(surveyId: string, user: AuthenticatedUser) {
+    const survey = await getSurveyReviewRowById(surveyId);
+    if (!survey) throw new AppError(404, "Survey not found");
+    if (user.role !== "superadmin" && user.orgId !== survey.org_id)
+      throw new AppError(403, "Cross-organization access is not allowed");
+
+    const [responses, surveyNeeds, reviews] = await Promise.all([
+      getSurveyResponsesForReview(surveyId),
+      getSurveyNeedsBySurveyId(surveyId),
+      db("survey_human_reviews")
+        .where({ survey_id: surveyId })
+        .orderBy("reviewed_at", "desc"),
+    ]);
+
+    const rawTrustedFields = Object.fromEntries(
+      responses.map((response) => [
+        response.field_label,
+        formatSurveyResponseValue(response),
+      ]),
+    );
+    const latestReview = reviews[0] as
+      | {
+          approved_fields?: unknown;
+          field_corrections?: unknown;
+        }
+      | undefined;
+    const trustedFields = applyFieldOverrides(rawTrustedFields, latestReview);
+    const topUrgencyScore = surveyNeeds.reduce(
+      (highest, need) => Math.max(highest, Number(need.urgencyScore || 0)),
+      0,
+    );
+    const topPriority = surveyNeeds.reduce(
+      (selected, need) =>
+        priorityRank(String(need.priorityLevel)) > priorityRank(selected)
+          ? String(need.priorityLevel)
+          : selected,
+      "low",
+    );
+    const uniqueSkillKeys = Array.from(
+      new Set(
+        surveyNeeds.flatMap((need) =>
+          (need.skills as Array<{ key: string }>).map((skill) => skill.key),
+        ),
+      ),
+    );
+    const evidenceRefs = responses
+      .map((response) => `${response.field_label}: ${formatSurveyResponseValue(response)}`)
+      .filter((value) => !value.endsWith(": Not provided"))
+      .slice(0, 4);
+    const caseSummary = surveyNeeds.length > 0
+      ? `This manually submitted survey appears to request ${surveyNeeds.length} area(s) of support. The strongest needs are ${surveyNeeds
+          .slice(0, 2)
+          .map((need) => String(need.summary))
+          .join(" and ")}.`
+      : "This manually submitted survey has been reviewed, but no needs were detected automatically. The admin should still review the responses and consider volunteer support.";
+
+    return {
+      document: {
+        id: survey.id,
+        fileName: survey.respondent_name
+          ? `Manual survey: ${survey.respondent_name}`
+          : "Manual survey submission",
+        fileType: "survey/manual",
+        status: survey.status,
+        readUrl: "",
+        readUrlExpiresAt: "",
+      },
+      sourceDocumentId: null,
+      sourceSurveyId: survey.id,
+      manifest: null,
+      canonicalProjection: null,
+      piiTokenMap: null,
+      aiExtraction: null,
+      validatedCandidate: {
+        trusted_fields: trustedFields,
+        untrusted_fields: {},
+      },
+      reasoningOutput: applyAssessmentOverrides({
+        case_summary: caseSummary,
+        urgency_score: topUrgencyScore,
+        urgency_label: urgencyLabelFromScore(topUrgencyScore),
+        urgency_reasons:
+          surveyNeeds.length > 0
+            ? [
+                `The survey responses produced ${surveyNeeds.length} identified support need(s).`,
+                `The highest detected priority is ${topPriority}.`,
+              ]
+            : [
+                "No needs were detected automatically from the survey responses.",
+                "Manual review is still required to understand whether volunteer support should be offered.",
+              ],
+        urgency_evidence_refs:
+          evidenceRefs.length > 0
+            ? evidenceRefs
+            : ["The review is based on the manually filled survey responses."],
+        need_category:
+          surveyNeeds.length > 0 ? String(surveyNeeds[0].category) : "general",
+        need_subcategory: null,
+        recommended_skill_keys: uniqueSkillKeys,
+        recommended_action:
+          surveyNeeds.length > 0
+            ? "Review the generated needs and continue to volunteer matching for this survey."
+            : "Review the survey manually and continue to volunteer matching if support is still required.",
+        reasoning_confidence: surveyNeeds.length > 0 ? 0.72 : 0.45,
+        verification_risk: surveyNeeds.length > 0 ? "medium" : "high",
+        verification_risk_reasons:
+          surveyNeeds.length > 0
+            ? [
+                "This is a manually filled survey, so an admin should confirm the detected needs before assignment.",
+              ]
+            : [
+                "No needs were detected automatically, so an admin should review the responses carefully.",
+              ],
+      }, survey.assessment_overrides_json),
+      humanReviews: reviews.map((review) => ({
+        ...review,
+        field_corrections: fromJson(review.field_corrections),
+        approved_fields: fromJson(review.approved_fields),
+      })),
+      surveyNeeds,
     };
   }
 
@@ -874,6 +1271,104 @@ export class PipelineOrchestrator {
       field_corrections: fromJson(review.field_corrections),
       approved_fields: fromJson(review.approved_fields),
     };
+  }
+
+  async submitSurveyHumanReview(
+    surveyId: string,
+    input: {
+      review_action:
+        | "approved"
+        | "rejected"
+        | "edited"
+        | "requested_reextraction";
+      field_corrections?: Record<string, unknown>;
+      review_notes?: string;
+      approved_fields?: Record<string, unknown>;
+    },
+    user: AuthenticatedUser,
+  ) {
+    const survey = await getSurveyReviewRowById(surveyId);
+    if (!survey) throw new AppError(404, "Survey not found");
+    if (user.role !== "superadmin" && user.orgId !== survey.org_id)
+      throw new AppError(403, "Cross-organization access is not allowed");
+
+    const [review] = (await db("survey_human_reviews")
+      .insert({
+        survey_id: surveyId,
+        reviewed_by: user.id,
+        review_action: input.review_action,
+        field_corrections: JSON.stringify(input.field_corrections || {}),
+        review_notes: input.review_notes?.trim() || null,
+        approved_fields: JSON.stringify(input.approved_fields || {}),
+        reviewed_at: new Date(),
+      })
+      .returning("*")) as HumanReviewRow[];
+
+    await auditService.logEvent({
+      orgId: survey.org_id,
+      eventType: "survey_human_review_submitted",
+      entityType: "survey",
+      entityId: surveyId,
+      actorId: user.id,
+      newValue: {
+        reviewAction: input.review_action,
+        reviewNotes: input.review_notes?.trim() || null,
+      },
+    });
+
+    return {
+      ...review,
+      field_corrections: fromJson(review.field_corrections),
+      approved_fields: fromJson(review.approved_fields),
+    };
+  }
+
+  async updateDocumentAssessmentField(
+    documentId: string,
+    input: { field: string; value: unknown },
+    user: AuthenticatedUser,
+  ) {
+    const document = await getDocumentById(documentId);
+    if (!document) throw new AppError(404, "Document not found");
+    if (user.role !== "superadmin" && user.orgId !== document.org_id)
+      throw new AppError(403, "Cross-organization access is not allowed");
+
+    const currentOverrides = (fromJson(document.assessment_overrides_json) as Record<string, unknown>) || {};
+    const nextOverrides = {
+      ...currentOverrides,
+      [input.field]: input.value,
+    };
+
+    await db("documents").where({ id: documentId }).update({
+      assessment_overrides_json: JSON.stringify(nextOverrides),
+      updated_at: new Date(),
+    });
+
+    return nextOverrides;
+  }
+
+  async updateSurveyAssessmentField(
+    surveyId: string,
+    input: { field: string; value: unknown },
+    user: AuthenticatedUser,
+  ) {
+    const survey = await getSurveyReviewRowById(surveyId);
+    if (!survey) throw new AppError(404, "Survey not found");
+    if (user.role !== "superadmin" && user.orgId !== survey.org_id)
+      throw new AppError(403, "Cross-organization access is not allowed");
+
+    const currentOverrides = (fromJson(survey.assessment_overrides_json) as Record<string, unknown>) || {};
+    const nextOverrides = {
+      ...currentOverrides,
+      [input.field]: input.value,
+    };
+
+    await db("surveys").where({ id: surveyId }).update({
+      assessment_overrides_json: JSON.stringify(nextOverrides),
+      updated_at: new Date(),
+    });
+
+    return nextOverrides;
   }
 
   async createDraftFormFromPipeline(

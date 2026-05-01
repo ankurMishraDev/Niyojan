@@ -24,7 +24,7 @@ class PipelineController {
 		}
 	};
 
-	getReviewPackage = async (req: Request, res: Response, next: NextFunction) => {
+  getReviewPackage = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			if (!req.user) throw new AppError(401, "Authentication is required");
 			const result = await pipelineOrchestrator.getReviewPackage(req.params.id as string, req.user);
@@ -32,9 +32,19 @@ class PipelineController {
 		} catch (error) {
 			next(error);
 		}
-	};
+  };
 
-	submitReview = async (req: Request, res: Response, next: NextFunction) => {
+  getSurveyReviewPackage = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new AppError(401, "Authentication is required");
+      const result = await pipelineOrchestrator.getSurveyReviewPackage(req.params.id as string, req.user);
+      return sendSuccess(res, result, "Survey review package");
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  submitReview = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			if (!req.user) throw new AppError(401, "Authentication is required");
 			const result = await pipelineOrchestrator.submitHumanReview(req.params.id as string, req.body, req.user);
@@ -42,7 +52,37 @@ class PipelineController {
 		} catch (error) {
 			next(error);
 		}
-	};
+  };
+
+  updateDocumentAssessment = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new AppError(401, "Authentication is required");
+      const result = await pipelineOrchestrator.updateDocumentAssessmentField(req.params.id as string, req.body, req.user);
+      return sendSuccess(res, result, "Document assessment updated");
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  submitSurveyReview = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new AppError(401, "Authentication is required");
+      const result = await pipelineOrchestrator.submitSurveyHumanReview(req.params.id as string, req.body, req.user);
+      return sendSuccess(res, result, "Survey human review submitted");
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateSurveyAssessment = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) throw new AppError(401, "Authentication is required");
+      const result = await pipelineOrchestrator.updateSurveyAssessmentField(req.params.id as string, req.body, req.user);
+      return sendSuccess(res, result, "Survey assessment updated");
+    } catch (error) {
+      next(error);
+    }
+  };
 
 	createForm = async (req: Request, res: Response, next: NextFunction) => {
 		try {

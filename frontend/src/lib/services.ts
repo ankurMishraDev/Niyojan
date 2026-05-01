@@ -20,6 +20,7 @@ import type {
   PipelineStatus,
   ReviewPackage,
   SignedUpload,
+  SubmittedSurveyCase,
   Survey,
   UrgentNeed,
   UserProfile,
@@ -60,6 +61,8 @@ export const dashboardApi = {
     (await api.get<DashboardSummary>("/dashboard/summary")).data,
   urgentNeeds: async () =>
     (await api.get<UrgentNeed[]>("/dashboard/urgent-needs")).data,
+  submittedSurveys: async (query?: Record<string, unknown>) =>
+    (await api.get<SubmittedSurveyCase[]>("/dashboard/submitted-surveys", query)).data,
   volunteerAvailability: async () =>
     (await api.get<VolunteerAvailability>("/dashboard/volunteer-availability"))
       .data,
@@ -120,6 +123,12 @@ export const pipelineApi = {
   reviewPackage: async (documentId: string) =>
     (await api.get<ReviewPackage>(`/documents/${documentId}/review-package`))
       .data,
+  surveyReviewPackage: async (surveyId: string) =>
+    (await api.get<ReviewPackage>(`/surveys/${surveyId}/review-package`)).data,
+  updateReviewAssessment: async (documentId: string, body: Record<string, unknown>) =>
+    (await api.patch<Record<string, unknown>>(`/documents/${documentId}/review-assessment`, body)).data,
+  updateSurveyReviewAssessment: async (surveyId: string, body: Record<string, unknown>) =>
+    (await api.patch<Record<string, unknown>>(`/surveys/${surveyId}/review-assessment`, body)).data,
   submitReview: async (documentId: string, body: Record<string, unknown>) =>
     (
       await api.post<Record<string, unknown>>(
@@ -127,6 +136,9 @@ export const pipelineApi = {
         body,
       )
     ).data,
+  submitSurveyReview: async (surveyId: string, body: Record<string, unknown>) =>
+    (await api.post<Record<string, unknown>>(`/surveys/${surveyId}/review`, body))
+      .data,
   createForm: async (documentId: string, body: Record<string, unknown>) =>
     (
       await api.post<Record<string, unknown>>(

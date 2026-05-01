@@ -37,6 +37,7 @@ const volunteersQuerySchema = z.object({
 	pageSize: z.coerce.number().int().positive().optional(),
 	org_id: z.string().uuid().optional(),
 	availability_status: z.string().optional(),
+	primary_domain: z.string().optional(),
 	is_active: z.enum(["true", "false"]).optional(),
 	user_id: z.string().uuid().optional(),
 	skill_id: z.string().uuid().optional(),

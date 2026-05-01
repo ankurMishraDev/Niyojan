@@ -30,6 +30,19 @@ class DashboardController {
 		}
 	};
 
+	getSubmittedSurveyCases = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) {
+				throw new AppError(401, "Authentication is required");
+			}
+
+			const submittedSurveys = await dashboardService.getSubmittedSurveyCases(req.user, req.query);
+			return sendSuccess(res, submittedSurveys, "Submitted survey cases");
+		} catch (error) {
+			next(error);
+		}
+	};
+
 	getVolunteerAvailability = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			if (!req.user) {

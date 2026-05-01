@@ -1,17 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Button, Input, LoaderBlock, PageHeader, Panel, Select, StatusBadge, Textarea } from "@/components/ui";
-import { formatDateTime, formatPercent, sentence, toneForStatus } from "@/lib/format";
-import { documentsApi, pipelineApi } from "@/lib/services";
-
-function parseJsonInput(value: string) {
-  if (!value.trim()) {
-    return undefined;
-  }
-
-  return JSON.parse(value);
-}
+import { Button, LoaderBlock, PageHeader, Panel, Select, StatusBadge, Textarea } from "@/components/ui";
+import { formatDateTime, sentence, toneForStatus } from "@/lib/format";
+import { documentsApi, pipelineApi, surveysApi } from "@/lib/services";
 
 function stringList(value: unknown) {
   if (!Array.isArray(value)) {
@@ -77,62 +69,6 @@ function toneForUrgency(value: unknown) {
   return "default" as const;
 }
 
-function normalizeReason(item: string) {
-  const lower = item.toLowerCase();
-
-  if (lower.includes("fallback reasoning generated from extracted field density")) {
-    return "The system estimated urgency from the amount of case information captured because a fuller AI explanation was not available.";
-  }
-
-  if (lower.includes("fallback reasoning used due to unavailable or invalid model output")) {
-    return "This case needs manual verification because the AI could not produce a complete reasoning response.";
-  }
-
-  return item;
-}
-
-function isCrypticEvidenceReference(item: string) {
-  return /^p\d+:b\d+$/i.test(item.trim());
-}
-
-function buildEvidenceList(items: string[], fieldLabels: string[]) {
-  const readableItems = items.filter((item) => !isCrypticEvidenceReference(item));
-  if (readableItems.length > 0) {
-    return readableItems;
-  }
-
-  if (fieldLabels.length > 0) {
-    return [
-      `The intake includes these reported details: ${fieldLabels.slice(0, 4).join(", ")}.`,
-    ];
-  }
-
-  return [];
-}
-
-function buildSummary(
-  reasoning: Record<string, unknown>,
-  trustedFields: Record<string, unknown>,
-  untrustedFields: Record<string, unknown>,
-) {
-  const storedSummary = String(reasoning.case_summary ?? "").trim();
-  if (storedSummary) {
-    return storedSummary;
-  }
-
-  const category = String(reasoning.need_category ?? "case support").replace(/_/g, " ").trim();
-  const urgency = String(reasoning.urgency_label ?? "under review").replace(/_/g, " ").trim();
-  const labels = [...Object.keys(trustedFields), ...Object.keys(untrustedFields)]
-    .map(sentenceLabel)
-    .slice(0, 4);
-
-  if (labels.length > 0) {
-    return `This intake appears to be about ${category} and includes details about ${labels.join(", ")}. It is currently marked ${urgency} priority and should be reviewed by an admin.`;
-  }
-
-  return `This intake appears to be about ${category}. It is currently marked ${urgency} priority and should be reviewed by an admin.`;
-}
-
 function ReviewMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3">
@@ -142,31 +78,35 @@ function ReviewMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ReviewList({
-  title,
-  items,
-  emptyMessage,
+function EditableAssessmentField({
+  label,
+  value,
+  isEditing,
+  onChange,
+  onEdit,
+  onSave,
+  disabled,
 }: {
-  title: string;
-  items: string[];
-  emptyMessage: string;
+  label: string;
+  value: string;
+  isEditing: boolean;
+  onChange: (nextValue: string) => void;
+  onEdit: () => void;
+  onSave: () => void;
+  disabled: boolean;
 }) {
   return (
-    <div className="min-w-0 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3">
-      <p className="label-caps">{title}</p>
-      {items.length === 0 ? (
-        <p className="mt-3 text-sm text-on-surface-variant">{emptyMessage}</p>
+    <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <p className="label-caps">{label}</p>
+        <Button disabled={disabled} onClick={isEditing ? onSave : onEdit} type="button" variant="ghost">
+          {isEditing ? "Save" : "Edit"}
+        </Button>
+      </div>
+      {isEditing ? (
+        <Textarea className="mt-3 min-h-[90px]" value={value} onChange={(event) => onChange(event.target.value)} />
       ) : (
-        <ul className="mt-3 space-y-2 text-sm leading-6 text-on-surface">
-          {items.map((item, index) => (
-            <li
-              className="break-words rounded-md border border-outline-variant/60 bg-surface-container-lowest px-3 py-2"
-              key={`${title}-${index}`}
-            >
-              {item}
-            </li>
-          ))}
-        </ul>
+        <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-on-surface">{value || "Not provided"}</p>
       )}
     </div>
   );
@@ -235,23 +175,23 @@ function VerificationFieldGroup({ labels }: { labels: string[] }) {
 export function AiReviewIndexPage() {
   const [feedback, setFeedback] = useState("");
 
-  const documentsQuery = useQuery({
+  const reviewCandidatesQuery = useQuery({
     queryKey: ["review-candidates"],
-    queryFn: () => documentsApi.list({ page: 1, pageSize: 20 }),
+    queryFn: pipelineApi.intake,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (documentId: string) => documentsApi.delete(documentId),
+    mutationFn: (surveyId: string) => surveysApi.delete(surveyId),
     onSuccess: async () => {
       setFeedback("Review package deleted.");
-      await documentsQuery.refetch();
+      await reviewCandidatesQuery.refetch();
     },
     onError: (error) => {
       setFeedback(error instanceof Error ? error.message : "Delete failed.");
     },
   });
 
-  if (documentsQuery.isLoading) {
+  if (reviewCandidatesQuery.isLoading) {
     return <LoaderBlock label="Loading review candidates..." />;
   }
 
@@ -260,7 +200,7 @@ export function AiReviewIndexPage() {
       <PageHeader
         eyebrow="AI Review"
         title="Select a review package"
-        description="Review packages are attached to documents that have pipeline artifacts available."
+        description="Every submitted survey has an AI review package, whether it was filled manually or backed by an uploaded document."
       />
 
       {feedback ? (
@@ -270,20 +210,21 @@ export function AiReviewIndexPage() {
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        {documentsQuery.data?.items.map((document) => (
-          <Panel className="space-y-3" key={document.id}>
+        {reviewCandidatesQuery.data?.map((item) => (
+          <Panel className="space-y-3" key={item.surveyId}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-2">
-                <p className="text-lg font-bold text-white">{document.fileName}</p>
-                <StatusBadge tone={toneForStatus(document.status)}>{document.status}</StatusBadge>
+                <p className="text-lg font-bold text-white">{item.respondentName || "Unnamed respondent"}</p>
+                <p className="text-sm text-on-surface-variant">{item.locationText || "No location"}</p>
+                <StatusBadge tone={toneForStatus(item.surveyStatus)}>{item.surveyStatus}</StatusBadge>
               </div>
               <Button
                 disabled={deleteMutation.isPending}
                 onClick={() => {
-                  if (!window.confirm(`Delete review package ${document.fileName}?`)) {
+                  if (!window.confirm(`Delete review package for survey ${item.surveyId}?`)) {
                     return;
                   }
-                  void deleteMutation.mutate(document.id);
+                  void deleteMutation.mutate(item.surveyId);
                 }}
                 type="button"
                 variant="danger"
@@ -291,7 +232,10 @@ export function AiReviewIndexPage() {
                 Delete
               </Button>
             </div>
-            <Link className="action-button-secondary" to={`/ai-review/${document.id}`}>
+            <Link
+              className="action-button-secondary"
+              to={item.sourceDocumentId ? `/ai-review/${item.sourceDocumentId}` : `/ai-review/surveys/${item.surveyId}`}
+            >
               Open review screen
             </Link>
           </Panel>
@@ -303,27 +247,38 @@ export function AiReviewIndexPage() {
 
 export function AiReviewPage() {
   const navigate = useNavigate();
-  const { documentId = "" } = useParams();
+  const { documentId = "", surveyId = "" } = useParams();
   const [reviewAction, setReviewAction] = useState("approved");
   const [reviewNotes, setReviewNotes] = useState("");
-  const [correctionsText, setCorrectionsText] = useState("");
-  const [approvedFieldsText, setApprovedFieldsText] = useState("");
-  const [formName, setFormName] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [editingAssessmentField, setEditingAssessmentField] = useState<string | null>(null);
+  const [assessmentDrafts, setAssessmentDrafts] = useState<Record<string, string>>({});
+  const isSurveyReview = Boolean(surveyId);
+  const reviewTargetId = surveyId || documentId;
 
   const reviewQuery = useQuery({
-    queryKey: ["review-package", documentId],
-    queryFn: () => pipelineApi.reviewPackage(documentId),
+    queryKey: ["review-package", isSurveyReview ? "survey" : "document", reviewTargetId],
+    queryFn: () =>
+      isSurveyReview ? pipelineApi.surveyReviewPackage(reviewTargetId) : pipelineApi.reviewPackage(reviewTargetId),
   });
+
+  const reviewPackageData = reviewQuery.data;
+  const trustedFields =
+    (reviewPackageData?.validatedCandidate?.trusted_fields as Record<string, unknown> | undefined) ?? {};
 
   const submitReviewMutation = useMutation({
     mutationFn: async () =>
-      pipelineApi.submitReview(documentId, {
+      (isSurveyReview ? pipelineApi.submitSurveyReview(reviewTargetId, {
         review_action: reviewAction,
         review_notes: reviewNotes || undefined,
-        field_corrections: parseJsonInput(correctionsText),
-        approved_fields: parseJsonInput(approvedFieldsText),
-      }),
+        field_corrections: {},
+        approved_fields: {},
+      }) : pipelineApi.submitReview(reviewTargetId, {
+        review_action: reviewAction,
+        review_notes: reviewNotes || undefined,
+        field_corrections: {},
+        approved_fields: {},
+      })),
     onSuccess: async () => {
       setFeedback("Review submitted.");
       await reviewQuery.refetch();
@@ -333,19 +288,15 @@ export function AiReviewPage() {
     },
   });
 
-  const createFormMutation = useMutation({
-    mutationFn: () => pipelineApi.createForm(documentId, { name: formName || undefined }),
-    onSuccess: async () => {
-      setFeedback("Draft form created from approved review.");
-      await reviewQuery.refetch();
-    },
-    onError: (error) => {
-      setFeedback(error instanceof Error ? error.message : "Draft form creation failed.");
-    },
-  });
-
   const deleteMutation = useMutation({
-    mutationFn: () => documentsApi.delete(documentId),
+    mutationFn: async () => {
+      if (isSurveyReview || !reviewQuery.data?.sourceDocumentId) {
+        await surveysApi.delete(reviewQuery.data?.sourceSurveyId || reviewTargetId);
+        return;
+      }
+
+      await documentsApi.delete(reviewQuery.data.sourceDocumentId);
+    },
     onSuccess: async () => {
       navigate("/ai-review");
     },
@@ -354,42 +305,83 @@ export function AiReviewPage() {
     },
   });
 
+  const updateAssessmentMutation = useMutation({
+    mutationFn: async (payload: { field: string; value: string; kind: "text" | "number" | "list" }) => {
+      const normalizedValue =
+        payload.kind === "number"
+          ? Number(payload.value)
+          : payload.kind === "list"
+            ? payload.value
+                .split(/\r?\n/)
+                .map((item) => item.trim())
+                .filter((item) => item.length > 0)
+            : payload.value;
+
+      return isSurveyReview
+        ? pipelineApi.updateSurveyReviewAssessment(reviewTargetId, {
+            field: payload.field,
+            value: normalizedValue,
+          })
+        : pipelineApi.updateReviewAssessment(reviewTargetId, {
+            field: payload.field,
+            value: normalizedValue,
+          });
+    },
+    onSuccess: async () => {
+      setFeedback("AI assessment field updated.");
+      setEditingAssessmentField(null);
+      await reviewQuery.refetch();
+    },
+    onError: (error) => {
+      setFeedback(error instanceof Error ? error.message : "Assessment update failed.");
+    },
+  });
+
   if (reviewQuery.isLoading) {
     return <LoaderBlock label="Loading review package..." />;
   }
 
   if (reviewQuery.isError || !reviewQuery.data) {
-    return <LoaderBlock label="Review package is unavailable for this document." />;
+    return <LoaderBlock label="Review package is unavailable for this submission." />;
   }
 
-  const reviewPackage = reviewQuery.data;
-  const trustedFields =
-    (reviewPackage.validatedCandidate?.trusted_fields as Record<string, unknown> | undefined) ?? {};
+  const resolvedReviewPackage = reviewQuery.data;
   const untrustedFields =
-    (reviewPackage.validatedCandidate?.untrusted_fields as Record<string, unknown> | undefined) ?? {};
-  const reasoning = (reviewPackage.reasoningOutput as Record<string, unknown> | null) ?? {};
+    (resolvedReviewPackage.validatedCandidate?.untrusted_fields as Record<string, unknown> | undefined) ?? {};
+  const reasoning = (resolvedReviewPackage.reasoningOutput as Record<string, unknown> | null) ?? {};
   const verificationLabels = Object.keys(untrustedFields).map(sentenceLabel);
-  const allFieldLabels = [...Object.keys(trustedFields), ...Object.keys(untrustedFields)].map(sentenceLabel);
-  const urgencyReasons = stringList(reasoning.urgency_reasons).map(normalizeReason);
-  const urgencyEvidence = buildEvidenceList(stringList(reasoning.urgency_evidence_refs), allFieldLabels);
-  const recommendedSkills = stringList(reasoning.recommended_skill_keys);
-  const verificationRiskReasons = stringList(reasoning.verification_risk_reasons).map(normalizeReason);
-  const confidence =
-    typeof reasoning.reasoning_confidence === "number"
-      ? formatPercent(reasoning.reasoning_confidence, 0)
-      : "Not available";
-  const urgencyScore =
-    typeof reasoning.urgency_score === "number" ? `${reasoning.urgency_score}/100` : "Not available";
   const trustedCount = Object.keys(trustedFields).length;
   const untrustedCount = Object.keys(untrustedFields).length;
-  const summary = buildSummary(reasoning, trustedFields, untrustedFields);
+  const surveyNeeds = resolvedReviewPackage.surveyNeeds ?? [];
+  const reviewPackage = resolvedReviewPackage;
+
+  const assessmentFields = [
+    { key: "case_summary", label: "Case summary", kind: "text" as const, value: String(reasoning.case_summary ?? "") },
+    { key: "urgency_score", label: "Urgency score", kind: "number" as const, value: String(reasoning.urgency_score ?? "") },
+    { key: "urgency_label", label: "Urgency label", kind: "text" as const, value: String(reasoning.urgency_label ?? "") },
+    { key: "need_category", label: "Need category", kind: "text" as const, value: String(reasoning.need_category ?? "") },
+    { key: "need_subcategory", label: "Need subcategory", kind: "text" as const, value: String(reasoning.need_subcategory ?? "") },
+    { key: "verification_risk", label: "Verification risk", kind: "text" as const, value: String(reasoning.verification_risk ?? "") },
+    { key: "reasoning_confidence", label: "Confidence", kind: "number" as const, value: String(reasoning.reasoning_confidence ?? "") },
+    { key: "recommended_action", label: "Recommended action", kind: "text" as const, value: String(reasoning.recommended_action ?? "") },
+    { key: "urgency_reasons", label: "Urgency reasons", kind: "list" as const, value: stringList(reasoning.urgency_reasons).join("\n") },
+    { key: "urgency_evidence_refs", label: "Evidence from intake", kind: "list" as const, value: stringList(reasoning.urgency_evidence_refs).join("\n") },
+    { key: "recommended_skill_keys", label: "Recommended skills", kind: "list" as const, value: stringList(reasoning.recommended_skill_keys).join("\n") },
+    { key: "verification_risk_reasons", label: "Verification risk reasons", kind: "list" as const, value: stringList(reasoning.verification_risk_reasons).join("\n") },
+  ];
+
+  useEffect(() => {
+    setAssessmentDrafts(
+      Object.fromEntries(assessmentFields.map((field) => [field.key, field.value])),
+    );
+  }, [reviewTargetId, reasoning]);
 
   return (
     <div className="space-y-6 overflow-x-hidden">
       <PageHeader
         eyebrow="AI Review"
         title={reviewPackage.document.fileName}
-        description="Review the AI case summary, verify extracted fields, and record the final human decision before form generation."
+        description="Review the AI case summary, verify extracted fields, and record the final human decision before moving this case to matching."
         actions={
           <div className="flex flex-wrap gap-3">
             <Button
@@ -422,9 +414,13 @@ export function AiReviewPage() {
         <Panel className="min-w-0 space-y-4 overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xl font-black text-white">Original document</p>
+              <p className="text-xl font-black text-white">
+                {reviewPackage.sourceDocumentId ? "Original document" : "Submitted survey"}
+              </p>
               <p className="mt-1 text-sm text-on-surface-variant">
-                Signed URL expires at {formatDateTime(reviewPackage.document.readUrlExpiresAt)}
+                {reviewPackage.sourceDocumentId
+                  ? `Signed URL expires at ${formatDateTime(reviewPackage.document.readUrlExpiresAt)}`
+                  : "This review package was created from a manually filled survey submission."}
               </p>
             </div>
             <StatusBadge tone={toneForStatus(reviewPackage.document.status)}>
@@ -433,14 +429,18 @@ export function AiReviewPage() {
           </div>
 
           <div className="h-[min(58vh,540px)] overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
-            {reviewPackage.document.fileType.includes("pdf") ? (
+            {reviewPackage.sourceDocumentId && reviewPackage.document.fileType.includes("pdf") ? (
               <iframe className="h-full w-full" src={reviewPackage.document.readUrl} title="Document preview" />
-            ) : (
+            ) : reviewPackage.sourceDocumentId ? (
               <img
                 alt={reviewPackage.document.fileName}
                 className="h-full w-full object-contain"
                 src={reviewPackage.document.readUrl}
               />
+            ) : (
+              <div className="flex h-full items-center justify-center p-6 text-center text-sm leading-6 text-on-surface-variant">
+                Manual survey submissions do not have an uploaded document preview. This AI review is based on the survey responses and generated needs.
+              </div>
             )}
           </div>
         </Panel>
@@ -459,48 +459,34 @@ export function AiReviewPage() {
               </StatusBadge>
             </div>
 
-            <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3">
-              <p className="label-caps">Case summary</p>
-              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-on-surface">{summary}</p>
-            </div>
-
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <ReviewMetric label="Urgency score" value={urgencyScore} />
-              <ReviewMetric label="Need category" value={displayValue(reasoning.need_category)} />
-              <ReviewMetric label="Need subcategory" value={displayValue(reasoning.need_subcategory)} />
-              <ReviewMetric label="Verification risk" value={displayValue(reasoning.verification_risk)} />
-              <ReviewMetric label="Confidence" value={confidence} />
               <ReviewMetric label="Validated fields" value={`${trustedCount} trusted / ${untrustedCount} flagged`} />
             </div>
 
-            <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3">
-              <p className="label-caps">Recommended action</p>
-              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-on-surface">
-                {displayValue(reasoning.recommended_action)}
-              </p>
-            </div>
-
             <div className="grid gap-4 lg:grid-cols-2">
-              <ReviewList
-                emptyMessage="AI did not provide urgency reasons."
-                items={urgencyReasons}
-                title="Why AI marked this urgency"
-              />
-              <ReviewList
-                emptyMessage="AI did not provide readable evidence from the intake."
-                items={urgencyEvidence}
-                title="Evidence from the intake"
-              />
-              <ReviewList
-                emptyMessage="No skill recommendations were provided."
-                items={recommendedSkills.map(sentenceLabel)}
-                title="Recommended skills"
-              />
-              <ReviewList
-                emptyMessage="No verification concerns were noted."
-                items={verificationRiskReasons}
-                title="Why this case still needs verification"
-              />
+              {assessmentFields.map((field) => (
+                <EditableAssessmentField
+                  disabled={updateAssessmentMutation.isPending}
+                  isEditing={editingAssessmentField === field.key}
+                  key={field.key}
+                  label={field.label}
+                  onChange={(nextValue) =>
+                    setAssessmentDrafts((current) => ({
+                      ...current,
+                      [field.key]: nextValue,
+                    }))
+                  }
+                  onEdit={() => setEditingAssessmentField(field.key)}
+                  onSave={() =>
+                    void updateAssessmentMutation.mutate({
+                      field: field.key,
+                      kind: field.kind,
+                      value: assessmentDrafts[field.key] ?? field.value,
+                    })
+                  }
+                  value={assessmentDrafts[field.key] ?? field.value}
+                />
+              ))}
             </div>
           </Panel>
 
@@ -517,6 +503,57 @@ export function AiReviewPage() {
 
             <TrustedFieldGroup fields={trustedFields} />
             <VerificationFieldGroup labels={verificationLabels} />
+          </Panel>
+
+          <Panel className="min-w-0 space-y-4 overflow-hidden">
+            <div>
+              <p className="text-xl font-black text-white">AI-defined needs</p>
+              <p className="mt-1 text-sm text-on-surface-variant">
+                These needs were generated from the submitted survey and will be used for volunteer matching.
+              </p>
+            </div>
+
+            {surveyNeeds.length === 0 ? (
+              <p className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+                No needs have been generated for this survey yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {surveyNeeds.map((need) => (
+                  <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-4" key={need.id}>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-white">{need.summary}</p>
+                        <p className="mt-1 text-sm text-on-surface-variant">
+                          {sentenceLabel(need.category)}
+                          {need.locationText ? ` • ${need.locationText}` : ""}
+                        </p>
+                      </div>
+                      <StatusBadge tone={toneForStatus(need.priorityLevel)}>{need.priorityLevel}</StatusBadge>
+                    </div>
+
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      <ReviewMetric label="Urgency" value={`${need.urgencyScore}`} />
+                      <ReviewMetric label="Status" value={sentenceLabel(need.status)} />
+                      <ReviewMetric label="Skills" value={`${need.skills.length}`} />
+                    </div>
+
+                    {need.skills.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {need.skills.map((skill) => (
+                          <span
+                            className="rounded-md border border-outline-variant px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-on-surface-variant"
+                            key={skill.skillId}
+                          >
+                            {skill.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
           </Panel>
 
           <Panel className="min-w-0 space-y-4 overflow-hidden">
@@ -562,6 +599,14 @@ export function AiReviewPage() {
               >
                 {submitReviewMutation.isPending ? "Submitting..." : "Submit human review"}
               </Button>
+              {reviewPackage.sourceSurveyId ? (
+                <Link
+                  className="action-button-secondary w-full justify-center sm:w-fit"
+                  to={`/matching?surveyId=${reviewPackage.sourceSurveyId}`}
+                >
+                  Open matching
+                </Link>
+              ) : null}
             </div>
           </Panel>
 

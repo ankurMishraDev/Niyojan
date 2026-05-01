@@ -109,6 +109,51 @@ export function AssignmentsPage() {
                 <InfoRow label="Completed at" value={formatDateTime(detailQuery.data.completedAt)} />
               </div>
 
+              {detailQuery.data.survey ? (
+                <Panel className="bg-surface-container-low space-y-4">
+                  <p className="text-lg font-black text-white">Survey details</p>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <InfoRow label="Respondent" value={detailQuery.data.survey.respondentName || "Unnamed respondent"} />
+                    <InfoRow label="Location" value={detailQuery.data.survey.locationText || "No location"} />
+                    <InfoRow label="Survey status" value={detailQuery.data.survey.status} />
+                    <InfoRow label="Submitted" value={formatDateTime(detailQuery.data.survey.submittedAt)} />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="label-caps">Submitted responses</p>
+                    <div className="space-y-2">
+                      {detailQuery.data.survey.responses.map((response) => (
+                        <div className="rounded-md border border-outline-variant px-3 py-3" key={response.label}>
+                          <p className="text-xs uppercase tracking-[0.14em] text-on-surface-variant">{response.label}</p>
+                          <p className="mt-2 text-sm text-white">{response.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Panel>
+              ) : null}
+
+              {detailQuery.data.aiReview ? (
+                <Panel className="bg-surface-container-low space-y-4">
+                  <p className="text-lg font-black text-white">AI review assessment</p>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <InfoRow label="Urgency" value={detailQuery.data.aiReview.urgencyLabel || "Not set"} />
+                    <InfoRow label="Verification risk" value={detailQuery.data.aiReview.verificationRisk || "Not set"} />
+                  </div>
+                  <div>
+                    <p className="label-caps">Case summary</p>
+                    <p className="mt-2 text-sm leading-7 text-on-surface-variant">
+                      {detailQuery.data.aiReview.caseSummary || "No AI summary available."}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="label-caps">Recommended action</p>
+                    <p className="mt-2 text-sm leading-7 text-on-surface-variant">
+                      {detailQuery.data.aiReview.recommendedAction || "No AI action recommendation available."}
+                    </p>
+                  </div>
+                </Panel>
+              ) : null}
+
               <div className="flex flex-wrap gap-3">
                 {!isVolunteer ? (
                   <Select

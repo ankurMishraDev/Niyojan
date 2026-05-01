@@ -22,13 +22,19 @@ const listAssignmentsQuerySchema = z.object({
 	status: z.string().optional(),
 });
 
-const createAssignmentBodySchema = z.object({
-	need_id: uuidSchema,
-	volunteer_id: uuidSchema,
-	status: z.enum(["suggested", "accepted", "in_progress", "completed", "cancelled"]).optional(),
-	match_score: z.number().min(0).max(1).optional(),
-	match_reason_json: z.record(z.string(), z.unknown()).optional(),
-});
+const createAssignmentBodySchema = z
+	.object({
+		need_id: uuidSchema.optional(),
+		survey_id: uuidSchema.optional(),
+		volunteer_id: uuidSchema,
+		status: z.enum(["suggested", "accepted", "in_progress", "completed", "cancelled"]).optional(),
+		match_score: z.number().min(0).max(1).optional(),
+		match_reason_json: z.record(z.string(), z.unknown()).optional(),
+	})
+	.refine((value) => Boolean(value.need_id || value.survey_id), {
+		message: "Either need_id or survey_id is required",
+		path: ["need_id"],
+	});
 
 const updateAssignmentStatusBodySchema = z.object({
 	status: z.enum(["suggested", "accepted", "in_progress", "completed", "cancelled"]),
@@ -45,14 +51,14 @@ assignmentsRouter.post(
 
 assignmentsRouter.get(
 	"/assignments",
-	allowRoles(["superadmin", "volunteer"]),
+	allowRoles(["superadmin", "ngo_admin", "field_worker", "volunteer"]),
 	validate({ query: listAssignmentsQuerySchema }),
 	assignmentsController.listAssignments,
 );
 
 assignmentsRouter.get(
 	"/assignments/:id",
-	allowRoles(["superadmin", "volunteer"]),
+	allowRoles(["superadmin", "ngo_admin", "field_worker", "volunteer"]),
 	validate({ params: assignmentIdParamsSchema }),
 	assignmentsController.getAssignmentById,
 );

@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Button, InlineError, LoaderBlock, MetricCard, PageHeader, Panel, StatusBadge } from "@/components/ui";
+import { Button, InlineError, LoaderBlock, MetricCard, PageHeader, Panel, Select, StatusBadge } from "@/components/ui";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { getApiErrorMessage } from "@/lib/api";
 import { dashboardApi, onboardingApi } from "@/lib/services";
@@ -19,6 +20,11 @@ export function DashboardPage() {
 
 function NgoDashboard({ user }: { user: UserProfile | null }) {
   const isVolunteer = user?.role === "volunteer";
+  const submittedSurveysQuery = useQuery({
+    enabled: !isVolunteer,
+    queryKey: ["ngo-dashboard-submitted-surveys"],
+    queryFn: () => dashboardApi.submittedSurveys(),
+  });
 
   if (isVolunteer) {
     return (
@@ -105,19 +111,74 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
           Profile
         </Link>
       </Panel>
+
+      <Panel className="space-y-4">
+        <div>
+          <p className="text-xl font-black text-white">Submitted surveys</p>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            Review your past submissions and open the volunteer feedback response linked to each case.
+          </p>
+        </div>
+
+        {submittedSurveysQuery.isLoading ? (
+          <LoaderBlock label="Loading submitted surveys..." />
+        ) : submittedSurveysQuery.isError ? (
+          <InlineError
+            message={getApiErrorMessage(submittedSurveysQuery.error)}
+            onRetry={() => void submittedSurveysQuery.refetch()}
+          />
+        ) : (
+          <div className="space-y-3">
+            {(submittedSurveysQuery.data ?? []).map((survey) => (
+              <div className="rounded-md border border-outline-variant bg-surface-container-low p-4" key={survey.id}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-white">{survey.respondentName || "Unnamed respondent"}</p>
+                    <p className="mt-1 text-xs text-on-surface-variant">{survey.id}</p>
+                    <p className="mt-1 text-sm text-on-surface-variant">{survey.locationText || "No location"}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <StatusBadge tone={toneForStatus(survey.priorityLevel)}>{survey.priorityLevel}</StatusBadge>
+                    <StatusBadge tone={toneForStatus(survey.caseStatus)}>{survey.caseStatus}</StatusBadge>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
+                  <span>Submitted {formatDateTime(survey.submittedAt || survey.createdAt)}</span>
+                  <span>{survey.needCount} need(s)</span>
+                  <span>{survey.feedbackSubmitted ? "Volunteer feedback submitted" : "Waiting for volunteer feedback"}</span>
+                  {survey.volunteerName ? <span>Volunteer: {survey.volunteerName}</span> : null}
+                </div>
+                {survey.assignmentId ? (
+                  <div className="mt-3">
+                    <Link className="action-button-secondary" to={`/feedback/assignments/${survey.assignmentId}`}>
+                      Open feedback response
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }
 
 function AdminDashboard({ user }: { user: UserProfile | null }) {
   const queryClient = useQueryClient();
+  const [priorityFilter, setPriorityFilter] = useState("");
+  const [caseStatusFilter, setCaseStatusFilter] = useState("");
   const summaryQuery = useQuery({
     queryKey: ["dashboard-summary"],
     queryFn: dashboardApi.summary,
   });
-  const urgentNeedsQuery = useQuery({
-    queryKey: ["dashboard-urgent-needs"],
-    queryFn: dashboardApi.urgentNeeds,
+  const submittedSurveysQuery = useQuery({
+    queryKey: ["dashboard-submitted-surveys", priorityFilter, caseStatusFilter],
+    queryFn: () =>
+      dashboardApi.submittedSurveys({
+        priority: priorityFilter || undefined,
+        case_status: caseStatusFilter || undefined,
+      }),
   });
   const volunteerAvailabilityQuery = useQuery({
     queryKey: ["dashboard-volunteer-availability"],
@@ -147,7 +208,7 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
 
   const isInitialLoading =
     summaryQuery.isLoading &&
-    urgentNeedsQuery.isLoading &&
+    submittedSurveysQuery.isLoading &&
     volunteerAvailabilityQuery.isLoading &&
     pipelineHealthQuery.isLoading;
 
@@ -161,7 +222,7 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
     pendingReviews: 0,
     submittedSurveys: 0,
   };
-  const urgentNeeds = urgentNeedsQuery.data ?? [];
+  const submittedSurveys = submittedSurveysQuery.data ?? [];
   const volunteerAvailability = volunteerAvailabilityQuery.data ?? {
     breakdown: [],
     totalActiveVolunteers: 0,
@@ -199,18 +260,32 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
         <Panel className="overflow-hidden p-0">
           <div className="flex items-center justify-between border-b border-outline-variant px-4 py-3">
             <div>
-              <p className="text-lg font-black text-white">Urgent needs</p>
+              <p className="text-lg font-black text-white">Submitted surveys</p>
               <p className="mt-1 text-xs text-on-surface-variant">
-                Critical resource allocation requiring immediate review.
+                All submitted survey cases with derived priority and operational state.
               </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
+                <option value="">All priorities</option>
+                <option value="critical">critical</option>
+                <option value="high">high</option>
+                <option value="medium">medium</option>
+                <option value="low">low</option>
+              </Select>
+              <Select value={caseStatusFilter} onChange={(event) => setCaseStatusFilter(event.target.value)}>
+                <option value="">All cases</option>
+                <option value="open">open</option>
+                <option value="resolved">resolved</option>
+              </Select>
             </div>
           </div>
 
-          {urgentNeedsQuery.isError ? (
+          {submittedSurveysQuery.isError ? (
             <div className="p-3">
               <InlineError
-                message={getApiErrorMessage(urgentNeedsQuery.error)}
-                onRetry={() => void urgentNeedsQuery.refetch()}
+                message={getApiErrorMessage(submittedSurveysQuery.error)}
+                onRetry={() => void submittedSurveysQuery.refetch()}
               />
             </div>
           ) : null}
@@ -219,38 +294,42 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
             <table className="min-w-full text-left text-xs">
               <thead className="bg-surface-container-low text-on-surface-variant">
                 <tr>
-                  <th className="px-4 py-2">Need</th>
+                  <th className="px-4 py-2">Survey</th>
                   <th className="px-4 py-2">Location</th>
                   <th className="px-4 py-2">Priority</th>
-                  <th className="px-4 py-2">Status</th>
-                  <th className="px-4 py-2">Created</th>
+                  <th className="px-4 py-2">Case status</th>
+                  <th className="px-4 py-2">Needs</th>
+                  <th className="px-4 py-2">Submitted</th>
                 </tr>
               </thead>
               <tbody>
-                {urgentNeeds.map((need) => (
+                {submittedSurveys.map((survey) => (
                   <tr
                     className="border-t border-outline-variant/70 hover:bg-surface-container-low"
-                    key={need.id}
+                    key={survey.id}
                   >
                     <td className="px-4 py-3">
-                      <p className="font-semibold text-white">{need.summary}</p>
+                      <p className="font-semibold text-white">{survey.respondentName || "Unnamed respondent"}</p>
                       <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-on-surface-variant">
-                        {need.category}
+                        {survey.id}
                       </p>
                     </td>
                     <td className="px-4 py-3 text-on-surface-variant">
-                      {need.locationText ?? "Unspecified"}
+                      {survey.locationText ?? "Unspecified"}
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge tone={toneForStatus(need.priorityLevel)}>
-                        {need.priorityLevel}
+                      <StatusBadge tone={toneForStatus(survey.priorityLevel)}>
+                        {survey.priorityLevel}
                       </StatusBadge>
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge tone={toneForStatus(need.status)}>{need.status}</StatusBadge>
+                      <StatusBadge tone={toneForStatus(survey.caseStatus)}>{survey.caseStatus}</StatusBadge>
                     </td>
                     <td className="px-4 py-3 text-on-surface-variant">
-                      {formatDateTime(need.createdAt)}
+                      {formatNumber(survey.needCount)}
+                    </td>
+                    <td className="px-4 py-3 text-on-surface-variant">
+                      {formatDateTime(survey.submittedAt || survey.createdAt)}
                     </td>
                   </tr>
                 ))}

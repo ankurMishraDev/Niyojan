@@ -109,6 +109,18 @@ const assertOrgScope = (user: AuthenticatedUser, orgId: string) => {
 	}
 };
 
+const canAccessAssignment = (user: AuthenticatedUser, assignment: AssignmentRow) => {
+	if (user.role === "superadmin") {
+		return true;
+	}
+
+	if (user.role === "volunteer") {
+		return assignment.volunteer_user_id === user.id;
+	}
+
+	return Boolean(user.orgId && user.orgId === assignment.org_id);
+};
+
 const fromJson = (value: unknown) => {
 	if (value === null || value === undefined) {
 		return [] as string[];
@@ -247,8 +259,7 @@ export class FeedbackService {
 			throw new AppError(404, "Assignment not found");
 		}
 
-		assertOrgScope(user, assignment.org_id);
-		if (user.role === "volunteer" && user.id !== assignment.volunteer_user_id) {
+		if (!canAccessAssignment(user, assignment)) {
 			throw new AppError(403, "Only the assigned volunteer can submit feedback");
 		}
 
@@ -322,8 +333,7 @@ export class FeedbackService {
 			throw new AppError(404, "Assignment not found");
 		}
 
-		assertOrgScope(user, assignment.org_id);
-		if (user.role === "volunteer" && user.id !== assignment.volunteer_user_id) {
+		if (!canAccessAssignment(user, assignment)) {
 			throw new AppError(403, "Only the assigned volunteer can view this feedback");
 		}
 
@@ -341,8 +351,7 @@ export class FeedbackService {
 			throw new AppError(404, "Assignment not found");
 		}
 
-		assertOrgScope(user, assignment.org_id);
-		if (user.role === "volunteer" && user.id !== assignment.volunteer_user_id) {
+		if (!canAccessAssignment(user, assignment)) {
 			throw new AppError(403, "Only the assigned volunteer can upload evidence");
 		}
 

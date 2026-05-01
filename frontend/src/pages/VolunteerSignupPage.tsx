@@ -4,31 +4,11 @@ import { Link, Navigate } from "react-router-dom";
 import { Button, Input, LoaderBlock, Panel, Select, Textarea } from "@/components/ui";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { authApi } from "@/lib/services";
+import { scoreSkillForDomain } from "@/lib/volunteerDomains";
 
 type SelectedSkill = {
   skillId: string;
   proficiency: number;
-};
-
-const DOMAIN_KEYWORDS: Record<string, string[]> = {
-  medical: ["health", "medical", "triage", "first aid", "aid", "nursing"],
-  counsellor: ["counsel", "mental", "psychosocial", "support"],
-  distributor: ["distribution", "food", "shelter", "supply", "logistics"],
-  technical: ["technical", "data", "digital", "it", "documentation", "analysis"],
-  manager: ["management", "manager", "coordination", "case", "lead"],
-  community_outreach: ["community", "outreach", "mobilization", "translation"],
-  logistics: ["logistics", "transport", "inventory", "warehouse"],
-  other: [],
-};
-
-const scoreSkillForDomain = (skill: { key: string; name: string; category: string }, domain: string) => {
-  const keywords = DOMAIN_KEYWORDS[domain] ?? [];
-  if (keywords.length === 0) {
-    return 1;
-  }
-
-  const haystack = `${skill.key} ${skill.name} ${skill.category}`.toLowerCase();
-  return keywords.reduce((score, keyword) => (haystack.includes(keyword) ? score + 1 : score), 0);
 };
 
 export function VolunteerSignupPage() {

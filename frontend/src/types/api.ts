@@ -124,6 +124,23 @@ export type UrgentNeed = {
   createdAt: string;
 };
 
+export type SubmittedSurveyCase = {
+  id: string;
+  orgId: string;
+  respondentName: string | null;
+  locationText: string | null;
+  surveyStatus: string;
+  priorityLevel: string;
+  caseStatus: string;
+  needCount: number;
+  assignmentId: string | null;
+  feedbackSubmitted: boolean;
+  volunteerName: string | null;
+  submittedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type VolunteerAvailability = {
   breakdown: Array<{
     availabilityStatus: string;
@@ -172,6 +189,8 @@ export type Volunteer = {
   id: string;
   orgId: string | null;
   userId: string;
+  name?: string | null;
+  email?: string | null;
   availabilityStatus: string;
   locationText: string | null;
   latitude: number | null;
@@ -285,13 +304,16 @@ export type ReviewPackage = {
     readUrl: string;
     readUrlExpiresAt: string;
   };
-  manifest: PipelineManifest;
+  sourceDocumentId: string | null;
+  sourceSurveyId: string | null;
+  manifest: PipelineManifest | null;
   canonicalProjection: Record<string, unknown> | null;
   piiTokenMap: Record<string, unknown> | null;
   aiExtraction: Record<string, unknown> | null;
   validatedCandidate: Record<string, unknown> | null;
   reasoningOutput: Record<string, unknown> | null;
   humanReviews: Array<Record<string, unknown>>;
+  surveyNeeds: Need[];
 };
 
 export type FormTemplate = {
@@ -429,6 +451,7 @@ export type Assignment = {
   id: string;
   orgId: string;
   needId: string;
+  surveyId?: string;
   volunteerId: string;
   matchScore: number | null;
   matchReason: Record<string, unknown> | null;
@@ -445,6 +468,41 @@ export type Assignment = {
   volunteerAvailabilityStatus: string;
   volunteerName: string;
   volunteerEmail: string;
+  survey?: {
+    id: string;
+    respondentName: string | null;
+    locationText: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    status: string;
+    submittedAt: string | null;
+    responses: Array<{
+      label: string;
+      value: string;
+    }>;
+    needs: Array<{
+      id: string;
+      category: string;
+      summary: string;
+      urgencyScore: number;
+      priorityLevel: string;
+      status: string;
+    }>;
+  };
+  aiReview?: {
+    caseSummary: string | null;
+    urgencyScore: number | null;
+    urgencyLabel: string | null;
+    urgencyReasons: string[];
+    urgencyEvidenceRefs: string[];
+    needCategory: string | null;
+    needSubcategory: string | null;
+    recommendedSkillKeys: string[];
+    recommendedAction: string | null;
+    verificationRisk: string | null;
+    verificationRiskReasons: string[];
+    reasoningConfidence: number | null;
+  } | null;
 };
 
 export type Feedback = {

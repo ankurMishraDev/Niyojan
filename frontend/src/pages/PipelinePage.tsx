@@ -81,8 +81,8 @@ export function PipelinePage() {
     onSuccess: async (result) => {
       setActionFeedback(
         result.createdCount > 0
-          ? `Survey analyzed and ${result.createdCount} need record(s) created.`
-          : "Survey was already analyzed. Existing needs were loaded.",
+          ? `Survey pipeline completed and ${result.createdCount} need record(s) were created.`
+          : "Survey pipeline was already completed. Existing needs were loaded.",
       );
       await intakeQuery.refetch();
     },
@@ -100,7 +100,7 @@ export function PipelinePage() {
       <PageHeader
         eyebrow="Operation Pipeline"
         title="Submitted Case Pipeline"
-        description="Every submitted survey enters this pipeline. Manual surveys can be analyzed directly into needs for matching, while uploaded source documents can also run through the document review pipeline."
+        description="Every submitted survey enters this pipeline. Starting the survey pipeline creates needs from the submitted form, and uploaded source documents can also run through the document review pipeline."
       />
 
       {actionFeedback ? (
@@ -125,6 +125,7 @@ export function PipelinePage() {
                   <th className="px-4 py-3">Survey</th>
                   <th className="px-4 py-3">Source document</th>
                   <th className="px-4 py-3">Submitted</th>
+                  <th className="px-4 py-3">Survey ID</th>
                   <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
@@ -161,6 +162,23 @@ export function PipelinePage() {
                     </td>
                     <td className="px-4 py-4 align-top text-on-surface-variant">
                       {formatDateTime(item.submittedAt || item.createdAt)}
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-xs text-on-surface-variant">{item.surveyId}</span>
+                        <Button
+                          className="px-2 py-1 text-xs"
+                          onClick={async (event) => {
+                            event.stopPropagation();
+                            await navigator.clipboard.writeText(item.surveyId);
+                            setActionFeedback(`Survey ID copied: ${item.surveyId}`);
+                          }}
+                          type="button"
+                          variant="secondary"
+                        >
+                          Copy ID
+                        </Button>
+                      </div>
                     </td>
                     <td className="px-4 py-4 align-top">
                       {item.sourceDocumentId ? (
@@ -214,11 +232,11 @@ export function PipelinePage() {
               <div>
                 <p className="text-xl font-black text-white">Selected survey</p>
                 <p className="mt-1 text-sm text-on-surface-variant">
-                  Analyze the submitted survey into operational needs. If a source document exists, you can also run the document review pipeline.
+                  Start the survey pipeline to generate operational needs. If a source document exists, you can also run the document review pipeline.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
-                {selectedIntakeItem?.surveyStatus === "submitted" ? (
+                {selectedIntakeItem ? (
                   <Button
                     disabled={analyzeSurveyMutation.isPending}
                     onClick={() => {
@@ -227,13 +245,8 @@ export function PipelinePage() {
                     }}
                     type="button"
                   >
-                    {analyzeSurveyMutation.isPending ? "Analyzing..." : "Analyze survey"}
+                    {analyzeSurveyMutation.isPending ? "Starting..." : "Start pipeline"}
                   </Button>
-                ) : null}
-                {selectedIntakeItem?.surveyStatus === "analyzed" ? (
-                  <Link className="action-button-secondary" to={`/matching?surveyId=${selectedIntakeItem.surveyId}`}>
-                    Open matching
-                  </Link>
                 ) : null}
                 {selectedDocumentId ? (
                   <Button
@@ -319,9 +332,16 @@ export function PipelinePage() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-on-surface-variant">
-                    This survey has no source document attached, but it can still be analyzed into needs and moved into matching.
-                  </p>
+                  <div className="space-y-3">
+                    <p className="text-sm text-on-surface-variant">
+                      This survey has no source document attached, but the same pipeline and AI review flow still works from the submitted responses.
+                    </p>
+                    {selectedIntakeItem.surveyStatus === "analyzed" ? (
+                      <Link className="action-button-secondary" to={`/ai-review/surveys/${selectedIntakeItem.surveyId}`}>
+                        Open AI review
+                      </Link>
+                    ) : null}
+                  </div>
                 )}
               </>
             ) : (

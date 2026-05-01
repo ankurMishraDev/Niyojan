@@ -64,11 +64,12 @@ export const router = createBrowserRouter([
               { path: "pipeline", element: <PipelinePage /> },
               { path: "ai-review", element: <AiReviewIndexPage /> },
               { path: "ai-review/:documentId", element: <AiReviewPage /> },
+              { path: "ai-review/surveys/:surveyId", element: <AiReviewPage /> },
               { path: "matching", element: <MatchingPage /> },
             ],
           },
           {
-            element: <RouteGuard roles={["superadmin", "ngo_admin", "field_worker"]} />,
+            element: <RouteGuard roles={["ngo_admin", "field_worker"]} />,
             children: [
               { path: "form-builder", element: <FormBuilderPage /> },
               { path: "surveys/new", element: <SurveyNewPage /> },
