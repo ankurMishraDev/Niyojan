@@ -337,24 +337,10 @@ export function AiReviewPage() {
     },
   });
 
-  if (reviewQuery.isLoading) {
-    return <LoaderBlock label="Loading review package..." />;
-  }
-
-  if (reviewQuery.isError || !reviewQuery.data) {
-    return <LoaderBlock label="Review package is unavailable for this submission." />;
-  }
-
-  const resolvedReviewPackage = reviewQuery.data;
+  const resolvedReviewPackage = reviewQuery.data!;
   const untrustedFields =
-    (resolvedReviewPackage.validatedCandidate?.untrusted_fields as Record<string, unknown> | undefined) ?? {};
-  const reasoning = (resolvedReviewPackage.reasoningOutput as Record<string, unknown> | null) ?? {};
-  const verificationLabels = Object.keys(untrustedFields).map(sentenceLabel);
-  const trustedCount = Object.keys(trustedFields).length;
-  const untrustedCount = Object.keys(untrustedFields).length;
-  const surveyNeeds = resolvedReviewPackage.surveyNeeds ?? [];
-  const reviewPackage = resolvedReviewPackage;
-
+    (resolvedReviewPackage?.validatedCandidate?.untrusted_fields as Record<string, unknown> | undefined) ?? {};
+  const reasoning = (resolvedReviewPackage?.reasoningOutput as Record<string, unknown> | null) ?? {};
   const assessmentFields = [
     { key: "case_summary", label: "Case summary", kind: "text" as const, value: String(reasoning.case_summary ?? "") },
     { key: "urgency_score", label: "Urgency score", kind: "number" as const, value: String(reasoning.urgency_score ?? "") },
@@ -374,7 +360,21 @@ export function AiReviewPage() {
     setAssessmentDrafts(
       Object.fromEntries(assessmentFields.map((field) => [field.key, field.value])),
     );
-  }, [reviewTargetId, reasoning]);
+  }, [reviewTargetId, reviewQuery.data]);
+
+  if (reviewQuery.isLoading) {
+    return <LoaderBlock label="Loading review package..." />;
+  }
+
+  if (reviewQuery.isError || !reviewQuery.data) {
+    return <LoaderBlock label="Review package is unavailable for this submission." />;
+  }
+
+  const verificationLabels = Object.keys(untrustedFields).map(sentenceLabel);
+  const trustedCount = Object.keys(trustedFields).length;
+  const untrustedCount = Object.keys(untrustedFields).length;
+  const surveyNeeds = resolvedReviewPackage.surveyNeeds ?? [];
+  const reviewPackage = resolvedReviewPackage;
 
   return (
     <div className="space-y-6 overflow-x-hidden">

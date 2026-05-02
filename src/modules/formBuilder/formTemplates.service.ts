@@ -106,6 +106,11 @@ type UpdateVersionInput = {
   status?: "draft" | "review_pending" | "archived" | "published";
 };
 
+type UpdateTemplateInput = {
+  name?: string;
+  status?: "draft" | "active" | "archived";
+};
+
 type AddFieldInput = {
   field_catalog_id?: string;
   label?: string;
@@ -617,6 +622,69 @@ export class FormTemplatesService {
     };
   }
 
+  async updateTemplate(
+    templateId: string,
+    input: UpdateTemplateInput,
+    user: AuthenticatedUser,
+  ) {
+    const template = await getTemplateByIdInternal(templateId);
+
+    if (!template) {
+      throw new AppError(404, "Form template not found");
+    }
+
+    assertOrgScope(user, template.org_id);
+
+    const payload: Record<string, unknown> = {};
+
+    if (input.name !== undefined) {
+      payload.name = input.name.trim();
+    }
+
+    if (input.status !== undefined) {
+      if (!TEMPLATE_STATUSES.has(input.status)) {
+        throw new AppError(400, "Invalid form template status");
+      }
+      payload.status = input.status;
+    }
+
+    if (Object.keys(payload).length === 0) {
+      throw new AppError(400, "No form template values provided for update");
+    }
+
+    const [updatedTemplate] = (await db("form_templates")
+      .where({ id: templateId })
+      .update({
+        ...payload,
+        updated_at: new Date(),
+      })
+      .returning("*")) as FormTemplateRow[];
+
+    return mapTemplate(updatedTemplate);
+  }
+
+  async deleteTemplate(templateId: string, user: AuthenticatedUser) {
+    const template = await getTemplateByIdInternal(templateId);
+
+    if (!template) {
+      throw new AppError(404, "Form template not found");
+    }
+
+    assertOrgScope(user, template.org_id);
+
+    const linkedSurvey = await db("surveys as s")
+      .join("form_template_versions as v", "s.template_version_id", "v.id")
+      .where("v.template_id", templateId)
+      .first("s.id");
+
+    if (linkedSurvey) {
+      throw new AppError(409, "Cannot delete a template that already has survey submissions");
+    }
+
+    await db("form_templates").where({ id: templateId }).del();
+    return { id: templateId };
+  }
+
   async createVersion(
     templateId: string,
     input: CreateVersionInput,
@@ -784,6 +852,28 @@ export class FormTemplatesService {
       .returning("*")) as FormTemplateVersionRow[];
 
     return mapVersion(updatedVersion);
+  }
+
+  async deleteVersion(versionId: string, user: AuthenticatedUser) {
+    const versionWithTemplate = await getTemplateWithOrgByVersionId(versionId);
+
+    if (!versionWithTemplate) {
+      throw new AppError(404, "Form template version not found");
+    }
+
+    assertOrgScope(user, versionWithTemplate.template_org_id);
+
+    if (versionWithTemplate.is_published || versionWithTemplate.status === "published") {
+      throw new AppError(409, "Published versions cannot be deleted");
+    }
+
+    const linkedSurvey = await db("surveys").where({ template_version_id: versionId }).first("id");
+    if (linkedSurvey) {
+      throw new AppError(409, "Cannot delete a version that already has survey submissions");
+    }
+
+    await db("form_template_versions").where({ id: versionId }).del();
+    return { id: versionId };
   }
 
   async addFieldToVersion(

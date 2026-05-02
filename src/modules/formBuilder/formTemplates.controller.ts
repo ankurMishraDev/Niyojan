@@ -47,6 +47,36 @@ class FormTemplatesController {
 		}
 	};
 
+	updateTemplate = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) {
+				throw new AppError(401, "Authentication is required");
+			}
+
+			const template = await formTemplatesService.updateTemplate(
+				req.params.id as string,
+				req.body,
+				req.user,
+			);
+			return sendSuccess(res, template, "Form template updated");
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	deleteTemplate = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) {
+				throw new AppError(401, "Authentication is required");
+			}
+
+			const result = await formTemplatesService.deleteTemplate(req.params.id as string, req.user);
+			return sendSuccess(res, result, "Form template deleted");
+		} catch (error) {
+			next(error);
+		}
+	};
+
 	createTemplateVersion = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			if (!req.user) {
@@ -108,6 +138,19 @@ class FormTemplatesController {
 			);
 
 			return sendSuccess(res, version, "Form template version updated");
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	deleteTemplateVersion = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) {
+				throw new AppError(401, "Authentication is required");
+			}
+
+			const result = await formTemplatesService.deleteVersion(req.params.id as string, req.user);
+			return sendSuccess(res, result, "Form template version deleted");
 		} catch (error) {
 			next(error);
 		}

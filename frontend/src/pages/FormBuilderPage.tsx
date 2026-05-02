@@ -220,9 +220,58 @@ export function FormBuilderPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const templates = templatesQuery.data?.items ?? [];
-  const recentTemplates = [...templates].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-  const versions = versionsQuery.data ?? [];
+  if (templatesQuery.isLoading) {
+    return <LoaderBlock label="Loading form builder..." />;
+  }
+
+  const renameTemplate = async () => {
+    if (!selectedTemplateId) {
+      return;
+    }
+
+    const currentName =
+      templatesQuery.data?.items.find((template) => template.id === selectedTemplateId)?.name ?? "";
+    const nextName = prompt("Enter template name:", currentName);
+    if (!nextName?.trim()) {
+      return;
+    }
+
+    await formsApi.updateTemplate(selectedTemplateId, { name: nextName.trim() });
+    setFeedback("Template name updated.");
+    await refreshAll();
+  };
+
+  const deleteSelectedTemplate = async () => {
+    if (!selectedTemplateId) {
+      return;
+    }
+
+    if (!window.confirm("Delete this template and all its versions?")) {
+      return;
+    }
+
+    await formsApi.deleteTemplate(selectedTemplateId);
+    setFeedback("Template deleted.");
+    setSelectedTemplateId("");
+    setSelectedVersionId("");
+    await refreshAll();
+  };
+
+  const deleteSelectedVersion = async () => {
+    if (!selectedVersionId) {
+      return;
+    }
+
+    if (!window.confirm("Delete this version?")) {
+      return;
+    }
+
+    await formsApi.deleteVersion(selectedVersionId);
+    setFeedback("Version deleted.");
+    setSelectedVersionId("");
+    await refreshAll();
+  };
+
   const selectedVersion = versionQuery.data;
   const catalogItems = catalogQuery.data?.items ?? [];
   const orderedFields = [...(selectedVersion?.fields ?? [])].sort(
@@ -307,14 +356,67 @@ export function FormBuilderPage() {
         type="file"
       />
 
-      {mode === "gallery" ? (
-        <div className="space-y-6">
-          {templatesQuery.isLoading ? <LoaderBlock label="Loading form workspace..." /> : null}
-          <div className="rounded-panel border border-outline-variant bg-surface px-6 py-5 shadow-panel">
-            <p className="label-caps text-primary">Workspace</p>
-            <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-lg font-semibold text-on-surface">Form builder</p>
-              <p className="text-sm text-on-surface-variant">Create your custom forms by scanning documents or starting from a blank draft.</p>
+      {feedback ? (
+        <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm">
+          {feedback}
+        </div>
+      ) : null}
+
+      <div className="grid gap-6 2xl:grid-cols-[0.7fr_1.4fr_0.9fr]">
+        <Panel className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xl font-black text-white">Templates</p>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <Button
+                disabled={scanDocumentMutation.isPending}
+                onClick={() => fileInputRef.current?.click()}
+                variant="primary"
+              >
+                Scan AI Document
+              </Button>
+              <input
+                title="image"
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*,application/pdf"
+                onChange={onFileChange}
+              />
+              <Button
+                onClick={() => {
+                  const name = prompt("Enter new template name:");
+                  if (name) {
+                    void createTemplateMutation.mutate(name);
+                  }
+                }}
+                variant="secondary"
+                disabled={createTemplateMutation.isPending}
+              >
+                New Template
+              </Button>
+              <Button
+                disabled={
+                  !selectedTemplateId || createVersionMutation.isPending
+                }
+                onClick={() => void createVersionMutation.mutate()}
+                variant="secondary"
+              >
+                New version
+              </Button>
+              <Button
+                disabled={!selectedTemplateId}
+                onClick={() => void renameTemplate()}
+                variant="secondary"
+              >
+                Rename template
+              </Button>
+              <Button
+                disabled={!selectedTemplateId}
+                onClick={() => void deleteSelectedTemplate()}
+                variant="danger"
+              >
+                Delete template
+              </Button>
             </div>
           </div>
 
@@ -339,6 +441,18 @@ export function FormBuilderPage() {
                 </div>
               </button>
 
+          <div className="space-y-3 border-t border-outline-variant pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="label-caps">Versions</p>
+              <Button
+                disabled={!selectedVersionId}
+                onClick={() => void deleteSelectedVersion()}
+                variant="danger"
+              >
+                Delete version
+              </Button>
+            </div>
+            {versionsQuery.data?.map((version) => (
               <button
                 className="flex min-h-[280px] flex-col justify-between rounded-2xl border border-outline-variant bg-surface-container-low p-6 text-left transition hover:border-primary/40 hover:bg-surface"
                 onClick={() => fileInputRef.current?.click()}
