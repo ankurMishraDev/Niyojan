@@ -239,7 +239,7 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
       <PageHeader
         eyebrow="Overview"
         title="Command Dashboard"
-        description="Live NIYOJAN metrics from the current backend."
+        description="Monitor overall system activity, review submitted data, and manage NGO onboarding applications."
       />
 
       {summaryQuery.isError ? (

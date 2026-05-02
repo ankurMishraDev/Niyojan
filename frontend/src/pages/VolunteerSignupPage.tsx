@@ -118,9 +118,14 @@ export function VolunteerSignupPage() {
               Start by choosing your work domain, describe your real-world experience, and then attach the skills you want to be matched against.
             </div>
           </div>
-          <div className="text-xs uppercase tracking-[0.16em] text-on-surface-variant">
-            Volunteer Onboarding
+            <div className="flex flex-wrap gap-4 rounded-full border border-outline-variant bg-surface-container-low px-5 py-3 text-xs uppercase tracking-[0.16em] text-on-surface-variant">
+            <span>Operations Console</span>
+            <span>Global Access</span>
+            <span>Secure Sessions</span>
           </div>
+          {/* <div className="text-xs uppercase tracking-[0.16em] text-on-surface-variant">
+            Volunteer Onboarding
+          </div> */}
         </Panel>
 
         <Panel className="space-y-5">

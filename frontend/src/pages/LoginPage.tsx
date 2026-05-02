@@ -49,7 +49,7 @@ export function LoginPage() {
                 Secure access for administrators, NGO operators, and volunteers.
               </p>
             </div>
-            <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
+            {/* <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
               <p className="label-caps text-primary">System Status</p>
               <h2 className="mt-2 text-2xl font-black text-white">Firebase-first access control</h2>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -66,7 +66,7 @@ export function LoginPage() {
                   </p>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
           <div className="flex flex-wrap gap-4 rounded-full border border-outline-variant bg-surface-container-low px-5 py-3 text-xs uppercase tracking-[0.16em] text-on-surface-variant">
             <span>Operations Console</span>
@@ -80,18 +80,18 @@ export function LoginPage() {
             <p className="label-caps text-primary">Command Access</p>
             <h1 className="mt-2 text-3xl font-black text-white">Authorize NIYOJAN session</h1>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              Sign in with Firebase using your NGO or volunteer account. Access is granted only after email verification.
+              Sign in with Niyojan using your NGO or volunteer account.
             </p>
           </div>
 
-          <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+          {/* <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
             {usingFirebase
               ? "Firebase web config is present. Use email/password sign-in for live auth."
               : "Firebase web config is not fully configured yet. Add the VITE_FIREBASE_* values to enable sign-in and NGO registration."}
-          </div>
+          </div> */}
 
           <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
-            New accounts must verify their email from the Firebase verification link before the session can complete.
+            New accounts must verify their email from the email verification link before the session can complete. If you don't receive the email within a few minutes, please check your spam folder or contact your administrator.
           </div>
 
           {error ? (
@@ -101,7 +101,7 @@ export function LoginPage() {
           ) : null}
 
           <form className="space-y-4" onSubmit={onFirebaseSubmit}>
-            <p className="label-caps">Firebase Sign-In</p>
+            <p className="label-caps">Sign-In</p>
             <Input
               placeholder="Email"
               value={email}

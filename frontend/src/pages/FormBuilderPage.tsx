@@ -261,7 +261,7 @@ export function FormBuilderPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 2xl:grid-cols-[0.7fr_1.4fr_0.9fr]">
+      <div className="grid gap-2 2xl:grid-cols-[.8fr_1.2fr_0.6fr]">
         <Panel className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-xl font-black text-white">Templates</p>

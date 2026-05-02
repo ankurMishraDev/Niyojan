@@ -100,7 +100,7 @@ export function PipelinePage() {
       <PageHeader
         eyebrow="Operation Pipeline"
         title="Submitted Case Pipeline"
-        description="Every submitted survey enters this pipeline. Starting the survey pipeline creates needs from the submitted form, and uploaded source documents can also run through the document review pipeline."
+        description="Starting the survey pipeline extracts the needs from the submitted survey responses."
       />
 
       {actionFeedback ? (
@@ -113,9 +113,9 @@ export function PipelinePage() {
         <Panel className="space-y-5">
           <div>
             <p className="text-xl font-black text-white">Submitted survey intake</p>
-            <p className="mt-1 text-sm text-on-surface-variant">
+            {/* <p className="mt-1 text-sm text-on-surface-variant">
               Intake is driven by submitted surveys, not raw uploads. Manual and document-backed submissions both appear here.
-            </p>
+            </p> */}
           </div>
 
           <div className="overflow-hidden rounded-md border border-outline-variant">

@@ -33,7 +33,6 @@ export function ProfilePage() {
       <PageHeader
         eyebrow="Identity"
         title="Profile"
-        description="Core identity is read-only from `/api/auth/me`. Volunteer-specific operational attributes remain editable when a volunteer record exists."
       />
 
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">

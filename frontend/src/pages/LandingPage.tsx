@@ -35,12 +35,12 @@ export function LandingPage() {
             <a className="transition hover:opacity-70" href="#mission">
               Mission
             </a>
-            <a className="transition hover:opacity-70" href="#impact">
+            {/* <a className="transition hover:opacity-70" href="#impact">
               Impact
             </a>
             <a className="transition hover:opacity-70" href="#contact">
               Contact
-            </a>
+            </a> */}
           </nav>
 
           <Link
@@ -54,7 +54,7 @@ export function LandingPage() {
         <section id="home" className="grid flex-1 gap-10 py-8 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
           <div className="space-y-8">
             <div className="flex items-center justify-between gap-4 text-[#8b8478]">
-              <span className="text-sm font-medium uppercase tracking-[0.18em]">[2024]</span>
+              {/* <span className="text-sm font-medium uppercase tracking-[0.18em]">[2024]</span> */}
               <span className="hidden text-sm md:block">Operational coordination for field teams</span>
             </div>
 
@@ -62,7 +62,7 @@ export function LandingPage() {
               <h1 className="max-w-4xl font-serif text-5xl font-semibold leading-[0.92] tracking-[-0.05em] text-[#171512] md:text-7xl">
                 Intelligence for
                 <br />
-                Global Impact
+                Smart Resource Coordination
               </h1>
               <p className="max-w-xl text-base leading-7 text-[#4f4a40] md:text-lg">
                 NIYOJAN turns NGO intake, volunteer matching, field feedback, and document
