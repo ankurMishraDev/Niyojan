@@ -63,7 +63,7 @@ export function ProfilePage() {
           </div>
         </Panel>
 
-        <Panel className="space-y-4">
+        {/* <Panel className="space-y-4">
           <p className="label-caps">Volunteer Operations Profile</p>
           {!volunteerQuery.data ? (
             <p className="text-sm text-on-surface-variant">
@@ -163,7 +163,7 @@ export function ProfilePage() {
               </div>
             </form>
           )}
-        </Panel>
+        </Panel> */}
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ export default defineConfig({
     port: 5173,
 
     // Allow Cloudflare Quick Tunnel host
-    allowedHosts: [".trycloudflare.com"],
+    allowedHosts: ["niyojan.app"],
 
     proxy: {
       "/api": {
