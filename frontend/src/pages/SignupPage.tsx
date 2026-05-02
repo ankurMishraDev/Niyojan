@@ -20,6 +20,7 @@ export function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   if (status === "authenticated" && user) {
@@ -30,6 +31,7 @@ export function SignupPage() {
     event.preventDefault();
     setSubmitting(true);
     setError("");
+    setSuccess("");
 
     const splitList = (value: string) =>
       value
@@ -52,6 +54,8 @@ export function SignupPage() {
         team_size: teamSize ? Number(teamSize) : undefined,
         founded_year: foundedYear ? Number(foundedYear) : undefined,
       });
+      setPassword("");
+      setSuccess("NGO account created. Check your email for the verification link before signing in.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "NGO registration failed.");
     } finally {
@@ -100,6 +104,12 @@ export function SignupPage() {
           {error ? (
             <div className="rounded-md border border-danger/60 bg-danger/10 px-4 py-3 text-sm text-danger">
               {error}
+            </div>
+          ) : null}
+
+          {success ? (
+            <div className="rounded-md border border-primary/60 bg-primary/10 px-4 py-3 text-sm text-primary">
+              {success}
             </div>
           ) : null}
 
@@ -198,6 +208,9 @@ export function SignupPage() {
               <Button disabled={submitting || !usingFirebase} type="submit">
                 {submitting ? "Submitting..." : "Create NGO Account"}
               </Button>
+              <p className="text-sm text-on-surface-variant">
+                Verification is required before the first sign-in.
+              </p>
               <Link className="text-sm text-on-surface-variant underline-offset-4 hover:text-white hover:underline" to="/login">
                 Back to sign in
               </Link>

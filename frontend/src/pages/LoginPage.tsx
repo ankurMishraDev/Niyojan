@@ -46,7 +46,7 @@ export function LoginPage() {
             <div>
               <p className="text-4xl font-black text-white">NIYOJAN</p>
               <p className="mt-3 max-w-md text-sm leading-6 text-on-surface-variant">
-                Secure access for administrators and NGO operators.
+                Secure access for administrators, NGO operators, and volunteers.
               </p>
             </div>
             <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
@@ -60,7 +60,7 @@ export function LoginPage() {
                   </p>
                 </div>
                 <div className="rounded-md border border-outline-variant bg-surface-container p-4">
-                  <p className="text-sm font-bold text-white">NGO and admin accounts</p>
+                  <p className="text-sm font-bold text-white">NGO, volunteer, and admin accounts</p>
                   <p className="mt-2 text-xs leading-5 text-on-surface-variant">
                     Firebase creates credentials, and the backend resolves the active application profile.
                   </p>
@@ -80,7 +80,7 @@ export function LoginPage() {
             <p className="label-caps text-primary">Command Access</p>
             <h1 className="mt-2 text-3xl font-black text-white">Authorize NIYOJAN session</h1>
             <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              Sign in with Firebase using your admin or NGO account.
+              Sign in with Firebase using your NGO or volunteer account. Access is granted only after email verification.
             </p>
           </div>
 
@@ -88,6 +88,10 @@ export function LoginPage() {
             {usingFirebase
               ? "Firebase web config is present. Use email/password sign-in for live auth."
               : "Firebase web config is not fully configured yet. Add the VITE_FIREBASE_* values to enable sign-in and NGO registration."}
+          </div>
+
+          <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+            New accounts must verify their email from the Firebase verification link before the session can complete.
           </div>
 
           {error ? (

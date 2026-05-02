@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth, resolveAppUser } from "../../middleware/auth";
+import {
+	requireAuth,
+	requireAuthAllowingUnverifiedEmail,
+	resolveAppUser,
+} from "../../middleware/auth";
 import { validate } from "../../middleware/validate";
 import { authController } from "./auth.controller";
 
@@ -52,17 +56,17 @@ authRouter.get(
 	authController.me,
 );
 
-authRouter.post(
+	authRouter.post(
 	"/register-ngo",
-	requireAuth,
+	requireAuthAllowingUnverifiedEmail,
 	resolveAppUser({ allowMissing: true, allowStatuses: ["pending", "active", "rejected", "inactive"] }),
 	validate({ body: registerNgoBodySchema }),
 	authController.registerNgo,
 );
 
-authRouter.post(
+	authRouter.post(
 	"/register-volunteer",
-	requireAuth,
+	requireAuthAllowingUnverifiedEmail,
 	resolveAppUser({ allowMissing: true, allowStatuses: ["pending", "active", "rejected", "inactive"] }),
 	validate({ body: registerVolunteerBodySchema }),
 	authController.registerVolunteer,

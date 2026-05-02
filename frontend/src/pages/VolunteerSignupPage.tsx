@@ -30,6 +30,7 @@ export function VolunteerSignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const optionsQuery = useQuery({
@@ -72,6 +73,7 @@ export function VolunteerSignupPage() {
     event.preventDefault();
     setSubmitting(true);
     setError("");
+    setSuccess("");
 
     try {
       await signUpVolunteer(email, password, {
@@ -92,6 +94,8 @@ export function VolunteerSignupPage() {
           proficiency: skill.proficiency,
         })),
       });
+      setPassword("");
+      setSuccess("Volunteer account created. Check your email for the verification link before signing in.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Volunteer registration failed.");
     } finally {
@@ -128,6 +132,12 @@ export function VolunteerSignupPage() {
           {error ? (
             <div className="rounded-md border border-danger/60 bg-danger/10 px-4 py-3 text-sm text-danger">
               {error}
+            </div>
+          ) : null}
+
+          {success ? (
+            <div className="rounded-md border border-primary/60 bg-primary/10 px-4 py-3 text-sm text-primary">
+              {success}
             </div>
           ) : null}
 
@@ -309,6 +319,9 @@ export function VolunteerSignupPage() {
               <Button disabled={submitting || !usingFirebase} type="submit">
                 {submitting ? "Submitting..." : "Create Volunteer Account"}
               </Button>
+              <p className="text-sm text-on-surface-variant">
+                Verify your email from Firebase before your first sign-in.
+              </p>
               <Link className="text-sm text-on-surface-variant underline-offset-4 hover:text-white hover:underline" to="/login">
                 Back to sign in
               </Link>

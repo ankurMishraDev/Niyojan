@@ -10,6 +10,7 @@ import {
 import {
   createUserWithEmailAndPassword,
   onIdTokenChanged,
+  sendEmailVerification,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
 } from "firebase/auth";
@@ -38,6 +39,9 @@ type AuthContextValue = {
 export const AuthContext = createContext<AuthContextValue | null>(null);
 export type { AuthContextValue };
 
+const EMAIL_VERIFICATION_REQUIRED_MESSAGE =
+  "Your email is not verified. Check your inbox for the verification link, then sign in again.";
+
 async function loadProfile() {
   const profile = await authApi.me();
   return profile;
@@ -55,6 +59,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mounted = useRef(true);
   const registrationInFlight = useRef(false);
 
+  const applySignedOutState = () => {
+    setAccessToken(null);
+    if (!mounted.current) {
+      return;
+    }
+
+    startTransition(() => {
+      setUser(null);
+      setStatus("unauthenticated");
+    });
+  };
+
   useEffect(() => {
     mounted.current = true;
 
@@ -69,7 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     };
 
-    if (!firebaseAuth) {
+    const auth = firebaseAuth;
+    if (!auth) {
       applyProfile(null);
 
       return () => {
@@ -77,22 +94,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    const unsubscribe = onIdTokenChanged(firebaseAuth, async (firebaseUser) => {
+    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
       try {
         setStatus("loading");
 
         if (firebaseUser) {
-          await syncAccessToken(firebaseUser);
           if (registrationInFlight.current) {
             return;
           }
+
+          if (!firebaseUser.emailVerified) {
+            applySignedOutState();
+            await firebaseSignOut(auth);
+            return;
+          }
+
+          await syncAccessToken(firebaseUser);
+
           const profile = await loadProfile();
           applyProfile(profile);
           return;
         }
 
-        setAccessToken(null);
-        applyProfile(null);
+        applySignedOutState();
       } catch {
         applyProfile(null);
       }
@@ -111,12 +135,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-      await syncAccessToken(credential.user);
+      await credential.user.reload();
+      const firebaseUser = firebaseAuth.currentUser ?? credential.user;
+
+      if (!firebaseUser.emailVerified) {
+        await sendEmailVerification(firebaseUser);
+        applySignedOutState();
+        await firebaseSignOut(firebaseAuth);
+        throw new Error(EMAIL_VERIFICATION_REQUIRED_MESSAGE);
+      }
+
+      await syncAccessToken(firebaseUser);
       const profile = await loadProfile();
       setUser(profile);
       setStatus("authenticated");
     } catch (error) {
-      setAccessToken(null);
+      applySignedOutState();
       if (firebaseAuth.currentUser) {
         await firebaseSignOut(firebaseAuth);
       }
@@ -137,11 +171,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       registrationInFlight.current = true;
       const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
       await syncAccessToken(credential.user);
-      const profile = await authApi.registerNgo(payload);
-      setUser(profile);
-      setStatus("authenticated");
+      await authApi.registerNgo(payload);
+      await sendEmailVerification(credential.user);
+      applySignedOutState();
+      await firebaseSignOut(firebaseAuth);
     } catch (error) {
-      setAccessToken(null);
+      applySignedOutState();
       if (firebaseAuth.currentUser) {
         await firebaseSignOut(firebaseAuth);
       }
@@ -164,11 +199,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       registrationInFlight.current = true;
       const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
       await syncAccessToken(credential.user);
-      const profile = await authApi.registerVolunteer(payload);
-      setUser(profile);
-      setStatus("authenticated");
+      await authApi.registerVolunteer(payload);
+      await sendEmailVerification(credential.user);
+      applySignedOutState();
+      await firebaseSignOut(firebaseAuth);
     } catch (error) {
-      setAccessToken(null);
+      applySignedOutState();
       if (firebaseAuth.currentUser) {
         await firebaseSignOut(firebaseAuth);
       }
@@ -179,14 +215,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    setAccessToken(null);
+    applySignedOutState();
 
     if (firebaseAuth?.currentUser) {
       await firebaseSignOut(firebaseAuth);
     }
-
-    setUser(null);
-    setStatus("unauthenticated");
   };
 
   const refreshProfile = async () => {

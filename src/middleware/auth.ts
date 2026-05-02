@@ -6,6 +6,10 @@ import { AppError } from "./errorHandler";
 
 const ALL_STATUSES: UserStatus[] = ["pending", "active", "rejected", "inactive"];
 
+type RequireAuthOptions = {
+	allowUnverifiedEmail?: boolean;
+};
+
 const extractBearerToken = (authorization?: string) => {
 	if (!authorization) {
 		return null;
@@ -27,40 +31,51 @@ const ensureAuthClaims = (req: Request) => {
 	return req.authClaims;
 };
 
-export const requireAuth: RequestHandler = async (
-	req: Request,
-	_res: Response,
-	next: NextFunction,
-) => {
-	try {
-		if (req.authClaims) {
+const buildRequireAuth = (options: RequireAuthOptions = {}): RequestHandler => {
+	return async (req: Request, _res: Response, next: NextFunction) => {
+		try {
+			if (req.authClaims) {
+				return next();
+			}
+
+			const token = extractBearerToken(req.header("authorization"));
+			if (!token) {
+				throw new AppError(401, "Missing or invalid bearer token");
+			}
+
+			const decoded = await getFirebaseAuth().verifyIdToken(token);
+			const emailVerified = decoded.email_verified === true;
+
+			if (!options.allowUnverifiedEmail && !emailVerified) {
+				throw new AppError(403, "Email address is not verified", {
+					code: "EMAIL_NOT_VERIFIED",
+				});
+			}
+
+			req.authClaims = {
+				firebaseUid: decoded.uid,
+				email: decoded.email,
+				emailVerified,
+				name: decoded.name,
+				authSource: "firebase",
+			};
+
 			return next();
+		} catch (error) {
+			console.error("Authentication middleware error:", error);
+			if (error instanceof AppError) {
+				return next(error);
+			}
+
+			return next(new AppError(401, "Unauthorized request"));
 		}
-
-		const token = extractBearerToken(req.header("authorization"));
-		if (!token) {
-			throw new AppError(401, "Missing or invalid bearer token");
-		}
-
-		const decoded = await getFirebaseAuth().verifyIdToken(token);
-
-		req.authClaims = {
-			firebaseUid: decoded.uid,
-			email: decoded.email,
-			name: decoded.name,
-			authSource: "firebase",
-		};
-
-		return next();
-	} catch (error) {
-		console.error("Authentication middleware error:", error);
-		if (error instanceof AppError) {
-			return next(error);
-		}
-
-		return next(new AppError(401, "Unauthorized request"));
-	}
+	};
 };
+
+export const requireAuth = buildRequireAuth();
+export const requireAuthAllowingUnverifiedEmail = buildRequireAuth({
+	allowUnverifiedEmail: true,
+});
 
 export const resolveAppUser = (options?: {
 	allowMissing?: boolean;

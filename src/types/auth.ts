@@ -5,6 +5,7 @@ export type UserStatus = "pending" | "active" | "rejected" | "inactive";
 export interface AuthenticatedClaims {
   firebaseUid: string;
   email?: string;
+  emailVerified?: boolean;
   name?: string;
   authSource: "firebase";
 }
