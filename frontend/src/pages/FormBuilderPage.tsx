@@ -194,6 +194,54 @@ export function FormBuilderPage() {
     return <LoaderBlock label="Loading form builder..." />;
   }
 
+  const renameTemplate = async () => {
+    if (!selectedTemplateId) {
+      return;
+    }
+
+    const currentName =
+      templatesQuery.data?.items.find((template) => template.id === selectedTemplateId)?.name ?? "";
+    const nextName = prompt("Enter template name:", currentName);
+    if (!nextName?.trim()) {
+      return;
+    }
+
+    await formsApi.updateTemplate(selectedTemplateId, { name: nextName.trim() });
+    setFeedback("Template name updated.");
+    await refreshAll();
+  };
+
+  const deleteSelectedTemplate = async () => {
+    if (!selectedTemplateId) {
+      return;
+    }
+
+    if (!window.confirm("Delete this template and all its versions?")) {
+      return;
+    }
+
+    await formsApi.deleteTemplate(selectedTemplateId);
+    setFeedback("Template deleted.");
+    setSelectedTemplateId("");
+    setSelectedVersionId("");
+    await refreshAll();
+  };
+
+  const deleteSelectedVersion = async () => {
+    if (!selectedVersionId) {
+      return;
+    }
+
+    if (!window.confirm("Delete this version?")) {
+      return;
+    }
+
+    await formsApi.deleteVersion(selectedVersionId);
+    setFeedback("Version deleted.");
+    setSelectedVersionId("");
+    await refreshAll();
+  };
+
   const selectedVersion = versionQuery.data;
   const orderedFields = [...(selectedVersion?.fields ?? [])].sort(
     (left, right) => left.displayOrder - right.displayOrder,
@@ -254,6 +302,20 @@ export function FormBuilderPage() {
               >
                 New version
               </Button>
+              <Button
+                disabled={!selectedTemplateId}
+                onClick={() => void renameTemplate()}
+                variant="secondary"
+              >
+                Rename template
+              </Button>
+              <Button
+                disabled={!selectedTemplateId}
+                onClick={() => void deleteSelectedTemplate()}
+                variant="danger"
+              >
+                Delete template
+              </Button>
             </div>
           </div>
 
@@ -288,7 +350,16 @@ export function FormBuilderPage() {
           </div>
 
           <div className="space-y-3 border-t border-outline-variant pt-4">
-            <p className="label-caps">Versions</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="label-caps">Versions</p>
+              <Button
+                disabled={!selectedVersionId}
+                onClick={() => void deleteSelectedVersion()}
+                variant="danger"
+              >
+                Delete version
+              </Button>
+            </div>
             {versionsQuery.data?.map((version) => (
               <button
                 className={`w-full rounded-md border px-4 py-3 text-left ${

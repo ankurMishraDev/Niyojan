@@ -161,11 +161,17 @@ export const formsApi = {
     ),
   getTemplate: async (id: string) =>
     (await api.get<FormTemplate>(`/form-templates/${id}`)).data,
+  updateTemplate: async (id: string, body: Record<string, unknown>) =>
+    (await api.patch<FormTemplate>(`/form-templates/${id}`, body)).data,
+  deleteTemplate: async (id: string) =>
+    (await api.delete<{ id: string }>(`/form-templates/${id}`)).data,
   listVersions: async (id: string) =>
     (await api.get<FormTemplateVersion[]>(`/form-templates/${id}/versions`))
       .data,
   getVersion: async (id: string) =>
     (await api.get<FormTemplateVersion>(`/form-template-versions/${id}`)).data,
+  deleteVersion: async (id: string) =>
+    (await api.delete<{ id: string }>(`/form-template-versions/${id}`)).data,
   createVersion: async (id: string, body?: Record<string, unknown>) =>
     (
       await api.post<FormTemplateVersion>(

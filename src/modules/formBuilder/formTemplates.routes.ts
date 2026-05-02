@@ -32,6 +32,11 @@ const createTemplateBodySchema = z.object({
 	status: z.enum(["draft", "active", "archived"]).optional(),
 });
 
+const updateTemplateBodySchema = z.object({
+	name: z.string().min(1).max(255).optional(),
+	status: z.enum(["draft", "active", "archived"]).optional(),
+});
+
 const listTemplatesQuerySchema = z.object({
 	page: z.coerce.number().int().positive().optional(),
 	pageSize: z.coerce.number().int().positive().max(100).optional(),
@@ -96,6 +101,20 @@ router.get(
 	formTemplatesController.getTemplateById,
 );
 
+router.patch(
+	"/form-templates/:id",
+	allowRoles(["superadmin", "ngo_admin"]),
+	validate({ params: templateIdParamsSchema, body: updateTemplateBodySchema }),
+	formTemplatesController.updateTemplate,
+);
+
+router.delete(
+	"/form-templates/:id",
+	allowRoles(["superadmin", "ngo_admin"]),
+	validate({ params: templateIdParamsSchema }),
+	formTemplatesController.deleteTemplate,
+);
+
 router.post(
 	"/form-templates/:id/versions",
 	allowRoles(["superadmin", "ngo_admin"]),
@@ -129,6 +148,13 @@ router.patch(
 	allowRoles(["superadmin", "ngo_admin"]),
 	validate({ params: versionIdParamsSchema, body: updateVersionBodySchema }),
 	formTemplatesController.updateTemplateVersion,
+);
+
+router.delete(
+	"/form-template-versions/:id",
+	allowRoles(["superadmin", "ngo_admin"]),
+	validate({ params: versionIdParamsSchema }),
+	formTemplatesController.deleteTemplateVersion,
 );
 
 router.post(
