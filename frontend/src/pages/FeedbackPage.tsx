@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api, ApiError } from "@/lib/api";
 import { assignmentsApi, feedbackApi } from "@/lib/services";
-import { useAuth } from "@/features/auth/AuthProvider";
+import { useAuth } from "@/features/auth/useAuth";
 import { Button, Input, LoaderBlock, PageHeader, Panel, Select, StatusBadge, Textarea } from "@/components/ui";
 import { formatDateTime, toneForStatus } from "@/lib/format";
 

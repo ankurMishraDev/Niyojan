@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Button, InlineError, LoaderBlock, MetricCard, PageHeader, Panel, Select, StatusBadge } from "@/components/ui";
-import { useAuth } from "@/features/auth/AuthProvider";
+import { useAuth } from "@/features/auth/useAuth";
 import { getApiErrorMessage } from "@/lib/api";
 import { dashboardApi, onboardingApi } from "@/lib/services";
 import { formatDateTime, formatNumber, toneForStatus } from "@/lib/format";

@@ -1,28 +1,9 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Button, Input, LoaderBlock, PageHeader, Panel, Select, Textarea } from "@/components/ui";
-import { useAuth } from "@/features/auth/AuthProvider";
-import { volunteersApi } from "@/lib/services";
+import { LoaderBlock, PageHeader, Panel } from "@/components/ui";
+import { useAuth } from "@/features/auth/useAuth";
 import { formatDateTime } from "@/lib/format";
 
 export function ProfilePage() {
-  const { user, refreshProfile } = useAuth();
-  const volunteerQuery = useQuery({
-    enabled: Boolean(user),
-    queryKey: ["current-volunteer", user?.id],
-    queryFn: async () => {
-      const result = await volunteersApi.list({ user_id: user?.id, pageSize: 1 });
-      return result.items[0] ?? null;
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
-      volunteersApi.update(volunteerQuery.data?.id ?? "", payload),
-    onSuccess: () => {
-      void volunteerQuery.refetch();
-      void refreshProfile();
-    },
-  });
+  const { user } = useAuth();
 
   if (!user) {
     return <LoaderBlock label="Loading profile..." />;

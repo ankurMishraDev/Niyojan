@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Button, Input, Panel, Textarea } from "@/components/ui";
-import { useAuth } from "@/features/auth/AuthProvider";
+import { useAuth } from "@/features/auth/useAuth";
 
 export function SignupPage() {
   const { status, user, signUpNgo, usingFirebase } = useAuth();

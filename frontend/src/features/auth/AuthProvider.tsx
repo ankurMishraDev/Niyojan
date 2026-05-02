@@ -1,8 +1,6 @@
 import {
-  createContext,
   type ReactNode,
   startTransition,
-  useContext,
   useEffect,
   useRef,
   useState,
@@ -16,28 +14,13 @@ import {
 } from "firebase/auth";
 import { authApi } from "@/lib/services";
 import { firebaseAuth } from "@/lib/firebase";
+import { AuthContext } from "@/features/auth/auth-context";
 import {
   setAccessToken,
 } from "@/features/auth/authSession";
-import type { UserProfile } from "@/types/api";
-import type { NgoRegistrationPayload } from "@/types/api";
-import type { VolunteerRegistrationPayload } from "@/types/api";
+import type { NgoRegistrationPayload, UserProfile, VolunteerRegistrationPayload } from "@/types/api";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
-
-type AuthContextValue = {
-  status: AuthStatus;
-  user: UserProfile | null;
-  usingFirebase: boolean;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpNgo: (email: string, password: string, payload: NgoRegistrationPayload) => Promise<void>;
-  signUpVolunteer: (email: string, password: string, payload: VolunteerRegistrationPayload) => Promise<void>;
-  signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
-};
-
-export const AuthContext = createContext<AuthContextValue | null>(null);
-export type { AuthContextValue };
 
 const EMAIL_VERIFICATION_REQUIRED_MESSAGE =
   "Your email is not verified. Check your inbox for the verification link, then sign in again.";
@@ -246,12 +229,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
-
-  return context;
-};

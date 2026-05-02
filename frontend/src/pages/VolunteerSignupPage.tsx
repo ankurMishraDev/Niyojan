@@ -2,7 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate } from "react-router-dom";
 import { Button, Input, LoaderBlock, Panel, Select, Textarea } from "@/components/ui";
-import { useAuth } from "@/features/auth/AuthProvider";
+import { useAuth } from "@/features/auth/useAuth";
 import { authApi } from "@/lib/services";
 import { scoreSkillForDomain } from "@/lib/volunteerDomains";
 

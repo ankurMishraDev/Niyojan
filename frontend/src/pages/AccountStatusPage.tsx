@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { Button, Panel, StatusBadge } from "@/components/ui";
-import { useAuth } from "@/features/auth/AuthProvider";
+import { useAuth } from "@/features/auth/useAuth";
 
 export function AccountStatusPage() {
   const { user, signOut } = useAuth();

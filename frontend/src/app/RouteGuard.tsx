@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { LoaderBlock, Panel } from "@/components/ui";
-import { useAuth } from "@/features/auth/AuthProvider";
+import { useAuth } from "@/features/auth/useAuth";
 import type { AppRole } from "@/types/api";
 
 export function RouteGuard({ roles }: { roles?: AppRole[] }) {

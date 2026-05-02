@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { AuthContext, type AuthContextValue } from "@/features/auth/AuthProvider";
+import { AuthContext, type AuthContextValue } from "@/features/auth/auth-context";
 import { RouteGuard } from "@/app/RouteGuard";
 
 function renderGuard(contextValue: AuthContextValue, roles?: Array<"ngo_admin" | "volunteer">) {

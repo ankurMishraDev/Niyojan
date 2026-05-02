@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AppShell } from "@/app/AppShell";
 import { RouteGuard } from "@/app/RouteGuard";
-import { useAuth } from "@/features/auth/AuthProvider";
+import { useAuth } from "@/features/auth/useAuth";
 import { LandingPage } from "@/pages/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { SignupPage } from "@/pages/SignupPage";
@@ -15,6 +15,7 @@ import { SurveyNewPage, SurveyDetailPage } from "@/pages/SurveyPages";
 import { MatchingPage } from "@/pages/MatchingPage";
 import { AssignmentsPage } from "@/pages/AssignmentsPage";
 import { FeedbackIndexPage, FeedbackPage } from "@/pages/FeedbackPage";
+import { HelpPage } from "@/pages/HelpPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 
 function AppRedirect() {
@@ -81,6 +82,7 @@ export const router = createBrowserRouter([
             children: [
               { path: "feedback", element: <FeedbackIndexPage /> },
               { path: "feedback/assignments/:assignmentId", element: <FeedbackPage /> },
+              { path: "help", element: <HelpPage /> },
               { path: "profile", element: <ProfilePage /> },
             ],
           },

@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { LoaderBlock, PageHeader, Panel, Select, StatusBadge } from "@/components/ui";
 import { assignmentsApi } from "@/lib/services";
 import { formatDateTime, toneForStatus } from "@/lib/format";
-import { useAuth } from "@/features/auth/AuthProvider";
+import { useAuth } from "@/features/auth/useAuth";
 
 export function AssignmentsPage() {
   const location = useLocation();

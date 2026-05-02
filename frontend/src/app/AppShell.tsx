@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { Button } from "@/components/ui";
+import { useAuth } from "@/features/auth/useAuth";
 import { cn } from "@/lib/cn";
-import { useAuth } from "@/features/auth/AuthProvider";
 import type { AppRole } from "@/types/api";
 
 const navItems: Array<{
@@ -17,8 +17,16 @@ const navItems: Array<{
   { label: "Matching", href: "/matching", roles: ["superadmin"] },
   { label: "Assignments", href: "/assignments", roles: ["superadmin", "volunteer"] },
   { label: "Feedback", href: "/feedback", roles: ["superadmin", "ngo_admin", "field_worker", "volunteer"] },
+  { label: "Help", href: "/help", roles: ["superadmin", "ngo_admin", "field_worker", "volunteer"] },
   { label: "Profile", href: "/profile", roles: ["superadmin", "ngo_admin", "field_worker", "volunteer"] },
 ];
+
+const helpPrompts: Record<AppRole, string> = {
+  superadmin: "Open the command guide for onboarding approvals, matching, pipeline review, and assignment oversight.",
+  ngo_admin: "Open the NGO guide for form builder, data collection, feedback follow-up, and account workflow.",
+  field_worker: "Open the NGO guide for form builder, survey submission, feedback follow-up, and field operations.",
+  volunteer: "Open the volunteer guide for assignments, case review, feedback submission, and profile readiness.",
+};
 
 export function AppShell() {
   const { user, signOut } = useAuth();
@@ -62,13 +70,22 @@ export function AppShell() {
             >
               Sign Out
             </Button>
-            <div className="rounded-md border border-outline-variant bg-surface-container-low px-3 py-3">
+            {/* <div className="rounded-md border border-outline-variant bg-surface-container-low px-3 py-3">
               <p className="text-sm font-semibold text-white">{user?.name}</p>
               <p className="mt-1 text-xs uppercase tracking-[0.16em] text-on-surface-variant">
                 {user?.role}
               </p>
               <p className="mt-3 text-xs text-on-surface-variant">{user?.email}</p>
-            </div>
+            </div> */}
+            {user ? (
+              <div className="rounded-md border border-outline-variant bg-surface-container-low px-3 py-3">
+                <p className="label-caps text-primary">Help</p>
+                <p className="mt-2 text-xs leading-5 text-on-surface-variant">{helpPrompts[user.role]}</p>
+                <NavLink className="action-button-secondary mt-3 flex w-full justify-center" to="/help">
+                  Open Guide
+                </NavLink>
+              </div>
+            ) : null}
           </div>
         </aside>
 

@@ -1,11 +1,11 @@
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { Button, Input, Panel } from "@/components/ui";
-import { useAuth } from "@/features/auth/AuthProvider";
+import { useAuth } from "@/features/auth/useAuth";
 
 export function LoginPage() {
   const location = useLocation();
-  const { status, user, usingFirebase, signInWithEmail } = useAuth();
+  const { status, user, signInWithEmail } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
