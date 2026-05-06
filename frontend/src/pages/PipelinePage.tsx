@@ -232,33 +232,29 @@ export function PipelinePage() {
               <div>
                 <p className="text-xl font-black text-white">Selected survey</p>
                 <p className="mt-1 text-sm text-on-surface-variant">
-                  Start the survey pipeline to generate operational needs. If a source document exists, you can also run the document review pipeline.
+                  Start the review flow for the selected submission. Document-backed surveys use the document pipeline, while manual surveys go straight into survey analysis.
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
                 {selectedIntakeItem ? (
                   <Button
-                    disabled={analyzeSurveyMutation.isPending}
+                    disabled={analyzeSurveyMutation.isPending || startPipelineMutation.isPending}
                     onClick={() => {
                       setActionFeedback("");
+                      if (selectedDocumentId) {
+                        void startPipelineMutation.mutate(selectedDocumentId);
+                        return;
+                      }
+
                       void analyzeSurveyMutation.mutate(selectedIntakeItem.surveyId);
                     }}
                     type="button"
                   >
-                    {analyzeSurveyMutation.isPending ? "Starting..." : "Start pipeline"}
-                  </Button>
-                ) : null}
-                {selectedDocumentId ? (
-                  <Button
-                    disabled={startPipelineMutation.isPending}
-                    onClick={() => {
-                      setActionFeedback("");
-                      void startPipelineMutation.mutate(selectedDocumentId);
-                    }}
-                    type="button"
-                    variant="secondary"
-                  >
-                    {startPipelineMutation.isPending ? "Starting..." : "Start document pipeline"}
+                    {analyzeSurveyMutation.isPending || startPipelineMutation.isPending
+                      ? "Starting..."
+                      : selectedDocumentId
+                        ? "Start document pipeline"
+                        : "Start survey pipeline"}
                   </Button>
                 ) : null}
               </div>

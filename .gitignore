@@ -10,6 +10,7 @@ yarn-debug.log*
 yarn-error.log*
 coverage
 *.tsbuildinfo
+logs/
 frontend/vite.config.js
 frontend/vite.config.d.ts
 playwright-report

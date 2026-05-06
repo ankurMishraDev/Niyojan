@@ -523,7 +523,7 @@ const extractWithGemini = async (input: DocumentExtractionInput, fileBytes: Buff
 	return {
 		providerMode: "live" as const,
 		providerName: "gemini-document-extractor",
-		model: env.VERTEX_DOCUMENT_MODEL,
+		model: geminiExtract.model,
 		fields,
 		documentText: "",
 		textBlocks: [],

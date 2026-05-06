@@ -37,12 +37,42 @@ const getFirstCandidateText = (payload: Record<string, unknown>) => {
 const getUsage = (payload: Record<string, unknown>) =>
 	((payload.usageMetadata as UsageMetadata | undefined) || {}) as UsageMetadata;
 
-const buildVertexEndpoint = (model: string) => {
-	const modelId = model.replace('publishers/google/models/', '');
-	// Note: We need to use projects/.../locations/.../publishers/google/models/... for older models,
-	// but Vertex AI handles standard models using just the endpoint.
-	// Actually, the standard Vertex URL is projects/.../locations/.../publishers/google/models/...
-	return `https://${env.VERTEX_LOCATION}-aiplatform.googleapis.com/v1/projects/${env.GCP_PROJECT_ID}/locations/${env.VERTEX_LOCATION}/publishers/google/models/${modelId}:generateContent`;
+const normalizeModelId = (model: string) =>
+	model
+		.replace(/^publishers\/google\/models\//, "")
+		.replace(/^models\//, "")
+		.trim();
+
+const uniqueStrings = (values: Array<string | undefined>) =>
+	Array.from(
+		new Set(
+			values
+				.map((value) => value?.trim())
+				.filter((value): value is string => Boolean(value)),
+		),
+	);
+
+const getModelCandidates = (requestedModel: string) =>
+	uniqueStrings([
+		normalizeModelId(requestedModel),
+		env.VERTEX_GEMINI_FAST_MODEL ? normalizeModelId(env.VERTEX_GEMINI_FAST_MODEL) : undefined,
+		env.VERTEX_GEMINI_MODEL ? normalizeModelId(env.VERTEX_GEMINI_MODEL) : undefined,
+		"gemini-2.0-flash-001",
+	]);
+
+const getLocationCandidates = () =>
+	uniqueStrings([
+		env.VERTEX_LOCATION,
+		env.VERTEX_LOCATION === "global" ? "us-central1" : undefined,
+		env.VERTEX_LOCATION !== "global" ? "global" : undefined,
+	]);
+
+const getVertexHost = (location: string) =>
+	location === "global" ? "aiplatform.googleapis.com" : `${location}-aiplatform.googleapis.com`;
+
+const buildVertexEndpoint = (model: string, location: string) => {
+	const modelId = normalizeModelId(model);
+	return `https://${getVertexHost(location)}/v1/projects/${env.GCP_PROJECT_ID}/locations/${location}/publishers/google/models/${modelId}:generateContent`;
 };
 
 const normalizeSkillKeys = (keys: string[]) =>
@@ -159,6 +189,74 @@ export class VertexService {
 		};
 	}
 
+	private async requestStructuredContent(options: {
+		model: string;
+		prompt: string;
+		accessToken: string;
+		fileData?: {
+			mimeType: string;
+			data: string;
+		};
+	}) {
+		const parts: Array<Record<string, unknown>> = [];
+		if (options.fileData) {
+			parts.push({
+				inlineData: {
+					mimeType: options.fileData.mimeType,
+					data: options.fileData.data,
+				},
+			});
+		}
+		parts.push({ text: options.prompt });
+
+		const attempts: string[] = [];
+		const errors: string[] = [];
+		for (const location of getLocationCandidates()) {
+			for (const model of getModelCandidates(options.model)) {
+				const endpoint = buildVertexEndpoint(model, location);
+				attempts.push(`${location}:${model}`);
+
+				try {
+					const response = await fetch(endpoint, {
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${options.accessToken}`,
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify({
+							contents: [{ role: "user", parts }],
+							generationConfig: {
+								temperature: 0.1,
+								responseMimeType: "application/json",
+							},
+						}),
+					});
+
+					if (!response.ok) {
+						const errorBody = await response.text();
+						errors.push(`${location}:${model} -> ${response.status} ${errorBody}`);
+						continue;
+					}
+
+					const payload = (await response.json()) as Record<string, unknown>;
+					return {
+						payload,
+						resolvedModel: model,
+						resolvedLocation: location,
+					};
+				} catch (error) {
+					errors.push(
+						`${location}:${model} -> ${error instanceof Error ? error.message : String(error)}`,
+					);
+				}
+			}
+		}
+
+		throw new Error(
+			`Vertex AI request failed after trying ${attempts.join(", ")}: ${errors.join(" | ")}`,
+		);
+	}
+
 	async generateStructuredJson<T>(options: {
 		model: string;
 		promptVersion: string;
@@ -171,46 +269,19 @@ export class VertexService {
 	}) {
 		const startedAt = Date.now();
 		const accessToken = await getGoogleAccessToken();
-
-		const parts: any[] = [];
-		if (options.fileData) {
-			parts.push({
-				inlineData: {
-					mimeType: options.fileData.mimeType,
-					data: options.fileData.data,
-				},
-			});
-		}
-		parts.push({ text: options.prompt });
-
-		const response = await fetch(buildVertexEndpoint(options.model), {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				contents: [{ role: "user", parts }],
-				generationConfig: {
-					temperature: 0.1,
-					responseMimeType: "application/json",
-				},
-			}),
+		const { payload, resolvedModel } = await this.requestStructuredContent({
+			model: options.model,
+			prompt: options.prompt,
+			accessToken,
+			fileData: options.fileData,
 		});
-
-		if (!response.ok) {
-			const errorBody = await response.text();
-			throw new Error(`Vertex AI request failed with status ${response.status}: ${errorBody}`);
-		}
-
-		const payload = (await response.json()) as Record<string, unknown>;
 		const rawText = getFirstCandidateText(payload);
 		const output = parseStructuredJson(rawText, options.schema);
 		const usage = getUsage(payload);
 
 		return {
 			providerName: "vertex-ai",
-			model: options.model,
+			model: resolvedModel,
 			promptVersion: options.promptVersion,
 			output,
 			latencyMs: Date.now() - startedAt,

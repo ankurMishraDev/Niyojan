@@ -49,6 +49,7 @@ type SurveyRow = {
 	latitude: string | number | null;
 	longitude: string | number | null;
 	status: string;
+	assessment_overrides_json: unknown;
 	submitted_at: Date | null;
 	created_at: Date;
 	updated_at: Date;
@@ -85,6 +86,7 @@ type ReasoningRow = {
 	verification_risk: string | null;
 	verification_risk_reasons: unknown;
 	reasoning_confidence: string | number | null;
+	document_assessment_overrides_json?: unknown;
 };
 
 type VolunteerRow = {
@@ -166,6 +168,20 @@ const toNullableNumber = (value: string | number | null | undefined) => {
 	return Number(value);
 };
 
+const mergeAssessmentOverrides = (...sources: unknown[]) => {
+	return sources.reduce<Record<string, unknown>>((merged, source) => {
+		const parsed = fromJson(source);
+		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+			return merged;
+		}
+
+		return {
+			...merged,
+			...parsed,
+		};
+	}, {});
+};
+
 const priorityLevelFromUrgencyLabel = (value?: string | null) => {
 	if (value === "critical" || value === "high") {
 		return "high";
@@ -219,6 +235,10 @@ const mapAssignment = (
 ) => {
 	const survey = context?.survey;
 	const reasoning = context?.reasoning;
+	const assessmentOverrides = mergeAssessmentOverrides(
+		reasoning?.document_assessment_overrides_json,
+		survey?.assessment_overrides_json,
+	);
 	const surveyResponses = (context?.responses || []).map((response) => ({
 		label: response.field_label,
 		value: formatSurveyResponseValue(response),
@@ -231,7 +251,7 @@ const mapAssignment = (
 		priorityLevel: need.priority_level,
 		status: need.status,
 	}));
-	const aiReview = reasoning
+	const baseAiReview = reasoning
 		? {
 			caseSummary: reasoning.case_summary,
 			urgencyScore: toNullableNumber(reasoning.urgency_score),
@@ -271,6 +291,12 @@ const mapAssignment = (
 				reasoningConfidence: null,
 			}
 			: null;
+	const aiReview = baseAiReview
+		? {
+			...baseAiReview,
+			...assessmentOverrides,
+		}
+		: null;
 
 	return {
 		id: assignment.id,
@@ -345,6 +371,7 @@ const getSurveyById = async (surveyId: string) => {
 			"latitude",
 			"longitude",
 			"status",
+			"assessment_overrides_json",
 			"submitted_at",
 			"created_at",
 			"updated_at",
@@ -392,6 +419,7 @@ const getLatestReasoningBySurveyId = async (surveyId: string) => {
 			"r.verification_risk",
 			"r.verification_risk_reasons",
 			"r.reasoning_confidence",
+			"d.assessment_overrides_json as document_assessment_overrides_json",
 		)
 		.first()) as ReasoningRow | undefined;
 };
