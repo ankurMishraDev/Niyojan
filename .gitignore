@@ -19,3 +19,4 @@ test-results
 .vscode/settings.json
 .vscode/mcp.json
 stitch_niyojan
+# gcloud compute scp instance-20260501-192652:/home/am8468616/Niyojan/logs/backend-out.log ~/Downloads --project=helical-button-486909-m8
