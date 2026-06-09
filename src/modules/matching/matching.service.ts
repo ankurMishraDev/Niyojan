@@ -7,7 +7,7 @@ import { weightedMatchScore } from "../../utils/scoring";
 type NeedRow = {
 	id: string;
 	org_id: string;
-	survey_id: string;
+	survey_id?: string;
 	category: string;
 	summary: string;
 	urgency_score: string | number;
@@ -18,6 +18,8 @@ type NeedRow = {
 	survey_longitude: string | number | null;
 	created_at: Date;
 	updated_at: Date;
+	is_aggregate?: boolean;
+	member_count?: number;
 };
 
 type NeedSkillRow = {
@@ -189,11 +191,43 @@ const getNeedById = async (needId: string) => {
 		.first()) as NeedRow | undefined;
 };
 
-const getNeedSkills = async (needId: string) => {
-	return (await db("need_skills as ns")
-		.join("skills as s", "ns.skill_id", "s.id")
-		.where("ns.need_id", needId)
-		.select("ns.skill_id", "s.key", "s.name", "s.category")) as NeedSkillRow[];
+const getAggregateNeedById = async (aggregateId: string) => {
+	const row = await db("aggregate_needs")
+		.where("id", aggregateId)
+		.select(
+			"id",
+			"org_id",
+			"need_category as category",
+			"title as summary",
+			"urgency_score",
+			"urgency_label as priority_level",
+			"status",
+			"created_at",
+			"updated_at",
+			"centroid_lat as survey_latitude",
+			"centroid_lng as survey_longitude",
+			"member_count"
+		)
+		.first();
+		
+	if (row) {
+		return {
+			...row,
+			survey_location_text: `Cluster Center (${row.member_count} needs)`,
+			is_aggregate: true
+		} as NeedRow;
+	}
+	return undefined;
+};
+
+const getNeedSkills = async (needId: string, isAggregate: boolean = false) => {
+	const query = db("need_skills as ns").join("skills as s", "ns.skill_id", "s.id");
+	if (isAggregate) {
+		query.where("ns.aggregate_need_id", needId);
+	} else {
+		query.where("ns.need_id", needId);
+	}
+	return (await query.select("ns.skill_id", "s.key", "s.name", "s.category")) as NeedSkillRow[];
 };
 
 const getVolunteersForOrg = async (orgId: string) => {
@@ -248,15 +282,15 @@ const buildExplanation = (
 };
 
 export class MatchingService {
-	async getMatchesForNeed(needId: string, user: AuthenticatedUser) {
-		const need = await getNeedById(needId);
+	async getMatchesForNeed(needId: string, user: AuthenticatedUser, isAggregate: boolean = false) {
+		const need = isAggregate ? await getAggregateNeedById(needId) : await getNeedById(needId);
 		if (!need) {
-			throw new AppError(404, "Need not found");
+			throw new AppError(404, isAggregate ? "Aggregate need not found" : "Need not found");
 		}
 
 		assertOrgScope(user, need.org_id);
 
-		const needSkills = await getNeedSkills(needId);
+		const needSkills = await getNeedSkills(needId, isAggregate);
 		const volunteers = await getVolunteersForOrg(need.org_id);
 		const volunteerSkills = await getVolunteerSkills(volunteers.map((volunteer) => volunteer.id));
 

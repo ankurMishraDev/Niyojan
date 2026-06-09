@@ -8,14 +8,15 @@ import { AuthenticatedUser } from "../../types/auth";
 type AssignmentRow = {
 	id: string;
 	org_id: string;
-	need_id: string;
+	need_id?: string;
+	aggregate_need_id?: string;
 	volunteer_id: string;
 	status: string;
 	assigned_at: Date | null;
 	completed_at: Date | null;
 	volunteer_user_id: string;
 	volunteer_name: string;
-	need_summary: string;
+	need_summary?: string;
 };
 
 type NeedRow = {
@@ -273,7 +274,8 @@ export class FeedbackService {
 				.insert({
 					assignment_id: assignment.id,
 					volunteer_id: assignment.volunteer_id,
-					need_id: assignment.need_id,
+					need_id: assignment.need_id || null,
+					aggregate_need_id: assignment.aggregate_need_id || null,
 					visit_completed: input.visit_completed,
 					visit_date: input.visit_date || null,
 					need_confirmed: input.need_confirmed ?? null,
@@ -299,10 +301,21 @@ export class FeedbackService {
 			let updatedNeedStatus: string | null = null;
 			if ((input.resolution_status || "pending") === "resolved" || (input.resolution_status || "pending") === "partially_resolved") {
 				updatedNeedStatus = "resolved";
-				await trx("needs_analysis").where({ id: assignment.need_id }).update({
-					status: updatedNeedStatus,
+			if (assignment.aggregate_need_id) {
+				await trx("aggregate_needs").where({ id: assignment.aggregate_need_id }).update({
+					status: "closed",
 					updated_at: new Date(),
 				});
+				await trx("needs_analysis").where({ aggregate_need_id: assignment.aggregate_need_id }).update({
+					status: "closed",
+					updated_at: new Date(),
+				});
+			} else if (assignment.need_id) {
+				await trx("needs_analysis").where({ id: assignment.need_id }).update({
+					status: "closed",
+					updated_at: new Date(),
+				});
+			}
 			}
 
 			await auditService.writeEvent(trx, {

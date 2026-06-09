@@ -10,7 +10,8 @@ class MatchingController {
 				throw new AppError(401, "Authentication is required");
 			}
 
-			const result = await matchingService.getMatchesForNeed(req.params.id as string, req.user);
+			const isAggregate = req.query.type === "aggregate";
+			const result = await matchingService.getMatchesForNeed(req.params.id as string, req.user, isAggregate);
 			return sendSuccess(res, result, "Volunteer matches generated");
 		} catch (error) {
 			next(error);

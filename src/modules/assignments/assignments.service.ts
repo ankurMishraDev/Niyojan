@@ -10,7 +10,9 @@ type AssignmentStatus = "suggested" | "accepted" | "in_progress" | "completed" |
 type AssignmentRow = {
 	id: string;
 	org_id: string;
-	need_id: string;
+	need_id?: string;
+	aggregate_need_id?: string;
+	assignment_scope: string;
 	volunteer_id: string;
 	match_score: string | number;
 	match_reason_json: unknown;
@@ -111,6 +113,7 @@ type ListAssignmentsQuery = {
 
 type CreateAssignmentInput = {
 	need_id?: string;
+	aggregate_need_id?: string;
 	survey_id?: string;
 	volunteer_id: string;
 	status?: AssignmentStatus;
@@ -509,6 +512,15 @@ const ensureNeedForAssignment = async (
 	input: CreateAssignmentInput,
 	user: AuthenticatedUser,
 ) => {
+	if (input.aggregate_need_id) {
+		const aggregate = await trx("aggregate_needs").where({ id: input.aggregate_need_id }).first();
+		if (!aggregate) {
+			throw new AppError(404, "Aggregate need not found");
+		}
+		assertOrgScope(user, aggregate.org_id);
+		return { ...aggregate, is_aggregate: true };
+	}
+
 	if (input.need_id) {
 		const need = await getNeedById(input.need_id);
 		if (!need) {
@@ -584,8 +596,12 @@ const ensureNeedForAssignment = async (
 
 export class AssignmentsService {
 	async createAssignment(input: CreateAssignmentInput, user: AuthenticatedUser) {
+		const aggregate = input.aggregate_need_id ? await db("aggregate_needs").where({ id: input.aggregate_need_id }).first() : undefined;
 		const directNeed = input.need_id ? await getNeedById(input.need_id) : undefined;
 		const survey = input.survey_id ? await getSurveyById(input.survey_id) : undefined;
+		if (input.aggregate_need_id && !aggregate) {
+			throw new AppError(404, "Aggregate need not found");
+		}
 		if (input.need_id && !directNeed) {
 			throw new AppError(404, "Need not found");
 		}
@@ -596,12 +612,16 @@ export class AssignmentsService {
 			throw new AppError(409, "Provided need does not belong to the selected survey");
 		}
 
-		const targetOrgId = directNeed?.org_id || survey?.org_id;
+		const targetOrgId = aggregate?.org_id || directNeed?.org_id || survey?.org_id;
 		if (!targetOrgId) {
 			throw new AppError(400, "Assignment requires a valid need or survey");
 		}
 
 		assertOrgScope(user, targetOrgId);
+
+		if (aggregate && aggregate.status !== "confirmed") {
+			throw new AppError(409, "Assignments can only be created for confirmed aggregate needs");
+		}
 
 		const need = directNeed;
 		if (need && need.status !== "open" && need.status !== "matched") {
@@ -647,7 +667,11 @@ export class AssignmentsService {
 			const resolvedNeed = await ensureNeedForAssignment(trx, input, user);
 
 			const existing = await trx("task_assignments")
-				.where({ need_id: resolvedNeed.id, volunteer_id: input.volunteer_id })
+				.where({ volunteer_id: input.volunteer_id })
+				.where((builder) => {
+					if (resolvedNeed.is_aggregate) builder.where({ aggregate_need_id: resolvedNeed.id });
+					else builder.where({ need_id: resolvedNeed.id });
+				})
 				.whereNot({ status: "cancelled" })
 				.first();
 			if (existing) {
@@ -657,7 +681,9 @@ export class AssignmentsService {
 			const [createdAssignment] = (await trx("task_assignments")
 				.insert({
 					org_id: resolvedNeed.org_id,
-					need_id: resolvedNeed.id,
+					need_id: resolvedNeed.is_aggregate ? null : resolvedNeed.id,
+					aggregate_need_id: resolvedNeed.is_aggregate ? resolvedNeed.id : null,
+					assignment_scope: resolvedNeed.is_aggregate ? "aggregate" : "solo",
 					volunteer_id: input.volunteer_id,
 					match_score: matchScore,
 					match_reason_json: JSON.stringify(matchReason),
@@ -668,12 +694,22 @@ export class AssignmentsService {
 				.returning("*")) as AssignmentRow[];
 
 			let updatedNeedStatus = resolvedNeed.status;
-			if (resolvedNeed.status === "open") {
-				updatedNeedStatus = "matched";
-				await trx("needs_analysis").where({ id: resolvedNeed.id }).update({
-					status: updatedNeedStatus,
-					updated_at: new Date(),
-				});
+			if (resolvedNeed.is_aggregate) {
+				if (resolvedNeed.status === "confirmed") {
+					updatedNeedStatus = "assigned";
+					await trx("aggregate_needs").where({ id: resolvedNeed.id }).update({
+						status: updatedNeedStatus,
+						updated_at: new Date(),
+					});
+				}
+			} else {
+				if (resolvedNeed.status === "open") {
+					updatedNeedStatus = "matched";
+					await trx("needs_analysis").where({ id: resolvedNeed.id }).update({
+						status: updatedNeedStatus,
+						updated_at: new Date(),
+					});
+				}
 			}
 
 			await auditService.writeEvent(trx, {
@@ -684,6 +720,7 @@ export class AssignmentsService {
 				actorId: user.id,
 				newValue: {
 					needId: createdAssignment.need_id,
+					aggregateNeedId: createdAssignment.aggregate_need_id,
 					volunteerId: createdAssignment.volunteer_id,
 					status: createdAssignment.status,
 					matchScore: Number(createdAssignment.match_score),
