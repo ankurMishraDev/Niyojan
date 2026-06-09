@@ -1,3 +1,4 @@
+import { runDocumentPipeline } from "../../langgraph-pipeline/pipelineGraph";
 import { generateSignedReadUrl } from "../../config/gcp";
 import { db } from "../../config/db";
 import { jobService } from "../../jobs/job.service";
@@ -420,6 +421,41 @@ const mapManifest = (manifest: ManifestRow) => ({
 
 export class PipelineOrchestrator {
   async startDocumentPipeline(documentId: string, user: AuthenticatedUser) {
+    if (process.env.USE_LANGGRAPH_PIPELINE === 'true') {
+      const document = await getDocumentById(documentId);
+      if (!document) throw new AppError(404, "Document not found");
+      if (document.status === "processing") throw new AppError(409, "Document pipeline is already in progress");
+      
+      const sourceSurvey = document.source_survey_id ? await getSurveyStatusById(document.source_survey_id) : null;
+      if (!sourceSurvey || !["submitted", "analyzed"].includes(sourceSurvey.status)) {
+        throw new AppError(409, "Pipeline can only start after the linked survey has been submitted");
+      }
+
+      await db("documents").where({ id: document.id }).update({ status: "processing", updated_at: new Date() });
+      
+      try {
+        const result = await runDocumentPipeline(documentId, document.org_id, user.id, document.source_survey_id);
+        
+        // Convert to response format to match existing pipeline
+        return {
+          document: {
+            id: document.id,
+            orgId: document.org_id,
+            fileName: document.file_name,
+            status: result.documentStatus || "review_pending"
+          },
+          manifest: {
+            id: "langgraph-" + Date.now(),
+            pipelineStatus: result.pipelineStatus,
+            currentStage: "completed"
+          }
+        };
+      } catch (error) {
+        await db("documents").where({ id: document.id }).update({ status: "failed", updated_at: new Date() });
+        throw error;
+      }
+    }
+
     const logStage = createPipelineLogger(documentId);
     let currentStage = "loading_document";
     const document = await getDocumentById(documentId);
