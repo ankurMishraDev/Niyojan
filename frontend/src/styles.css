@@ -3,11 +3,9 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
-  font-family: Inter, system-ui, sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(120, 220, 119, 0.08), transparent 22%),
-    linear-gradient(180deg, #121414 0%, #0d0e0f 100%);
+  color-scheme: light;
+  font-family: Geist, Inter, system-ui, sans-serif;
+  background-color: #fafafa;
 }
 
 html,
@@ -18,8 +16,10 @@ body,
 
 body {
   margin: 0;
-  background-color: #121414;
-  color: #e3e2e2;
+  background-color: #fafafa;
+  color: #171717;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -27,35 +27,36 @@ body {
 }
 
 ::selection {
-  background: rgba(120, 220, 119, 0.3);
+  background: #171717;
+  color: #ffffff;
 }
 
 @layer components {
   .panel {
-    @apply rounded-panel border border-outline-variant bg-surface-container shadow-panel;
+    @apply rounded-md border border-hairline bg-canvas shadow-card-soft;
   }
 
   .panel-muted {
-    @apply rounded-panel border border-outline-variant bg-surface-container-low;
+    @apply rounded-md border border-hairline bg-canvas-soft-2;
   }
 
   .label-caps {
-    @apply text-[10px] font-bold uppercase tracking-[0.12em] text-on-surface-variant;
+    @apply font-mono text-[11px] font-semibold uppercase tracking-widest text-mute;
   }
 
   .field-control {
-    @apply w-full rounded-md border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20;
+    @apply w-full rounded-sm border border-hairline bg-canvas px-3 py-2.5 text-sm text-ink outline-none transition focus:border-ink focus:ring-1 focus:ring-ink disabled:bg-canvas-soft-2 disabled:text-mute;
   }
 
   .action-button {
-    @apply inline-flex items-center justify-center rounded-md border border-outline-variant px-3 py-2 text-sm font-semibold transition;
+    @apply inline-flex items-center justify-center px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink touch-manipulation;
   }
 
   .action-button-primary {
-    @apply action-button border-primary-strong bg-primary-strong text-on-primary hover:brightness-110;
+    @apply action-button rounded-pill bg-primary text-on-primary shadow-card-soft hover:bg-ink/90 hover:shadow-card-medium;
   }
 
   .action-button-secondary {
-    @apply action-button bg-surface-container text-on-surface hover:border-primary hover:text-primary;
+    @apply action-button rounded-pill border border-hairline bg-canvas text-ink shadow-sm hover:bg-canvas-soft;
   }
 }

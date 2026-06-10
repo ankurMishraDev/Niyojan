@@ -218,7 +218,11 @@ export function MatchingPage() {
   });
 
   if (optionsQuery.isLoading) {
-    return <LoaderBlock label="Loading matching workspace..." />;
+    return (
+      <div className="max-w-7xl mx-auto py-12 px-4">
+        <LoaderBlock label="Loading matching workspace…" />
+      </div>
+    );
   }
 
   const onSearch = (event: FormEvent) => {
@@ -233,15 +237,15 @@ export function MatchingPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
         eyebrow="Manual Volunteer System"
         title="Survey Matching"
         description="Search by submitted survey ID, review the case needs, find the nearest volunteers, filter them by profession domain, and assign the case manually."
       />
 
-      <Panel className="space-y-4">
-        <form className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto]" onSubmit={onSearch}>
+      <Panel className="space-y-5">
+        <form className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]" onSubmit={onSearch}>
           <Input
             placeholder="Paste submitted survey ID"
             value={searchSurveyId}
@@ -249,7 +253,7 @@ export function MatchingPage() {
           />
           <Button type="submit">Find nearest volunteers</Button>
         </form>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Select value={selectedDomain} onChange={(event) => setSelectedDomain(event.target.value)}>
             <option value="">All profession domains</option>
             {(optionsQuery.data?.domains ?? []).map((domain) => (
@@ -258,58 +262,58 @@ export function MatchingPage() {
               </option>
             ))}
           </Select>
-          <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+          <div className="rounded-md border border-hairline bg-canvas-soft-2 px-4 py-2.5 text-sm text-body flex items-center">
             {surveyId ? `Selected survey: ${surveyId}` : "Enter a survey ID to load the case and nearby volunteers."}
           </div>
         </div>
       </Panel>
 
       {!surveyId ? null : surveyQuery.isLoading || needsQuery.isLoading || reviewQuery.isLoading ? (
-        <LoaderBlock label="Loading survey case and nearest volunteers..." />
+        <LoaderBlock label="Loading survey case and nearest volunteers…" />
       ) : surveyQuery.data ? (
-        <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
           <div className="space-y-6">
-            <Panel className="space-y-4">
-              <div className="flex items-start justify-between gap-3">
+            <Panel className="space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div>
-                  <p className="text-xl font-black text-white">Submitted survey</p>
-                  <p className="mt-1 text-sm text-on-surface-variant">
+                  <p className="text-xl font-semibold tracking-tight text-ink">Submitted survey</p>
+                  <p className="mt-1 text-sm text-body">
                     {surveyQuery.data.respondentName || "Unnamed respondent"}
                   </p>
                 </div>
                 <StatusBadge tone={toneForStatus(surveyQuery.data.status)}>{surveyQuery.data.status}</StatusBadge>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 grid-cols-2">
                 <InfoCard label="Location" value={surveyQuery.data.locationText || "No location"} />
                 <InfoCard label="Submitted" value={formatDateTime(surveyQuery.data.submittedAt)} />
               </div>
-              <Panel className="bg-surface-container-low">
-                <p className="label-caps">AI case summary</p>
-                <p className="mt-3 text-sm leading-6 text-on-surface-variant">
+              <div className="rounded-md border border-hairline bg-canvas-soft-2 p-5">
+                <p className="label-caps mb-2">AI case summary</p>
+                <p className="text-sm leading-relaxed text-body">
                   {String(reviewQuery.data?.reasoningOutput?.case_summary || "AI review summary is not available yet.")}
                 </p>
-              </Panel>
+              </div>
             </Panel>
 
-            <Panel className="space-y-4">
+            <Panel className="space-y-5">
               <div>
-                <p className="text-xl font-black text-white">Survey needs</p>
-                <p className="mt-1 text-sm text-on-surface-variant">
+                <p className="text-xl font-semibold tracking-tight text-ink">Survey needs</p>
+                <p className="mt-1 text-sm text-body">
                   Select the need that best represents the volunteer assignment. If no need exists, you can still assign the survey for manual support.
                 </p>
               </div>
               {needs.length === 0 ? (
-                <p className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+                <div className="rounded-md border border-hairline border-dashed bg-canvas-soft-2 px-4 py-4 text-sm text-body text-center">
                   No AI-generated needs were found for this survey. You can still assign the case manually based on the full survey and AI assessment.
-                </p>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {needs.map((need) => (
                     <button
-                      className={`w-full rounded-md border px-4 py-4 text-left ${
+                      className={`w-full rounded-md border px-4 py-4 text-left transition-colors ${
                         selectedNeedId === need.id
-                          ? "border-primary bg-primary/10"
-                          : "border-outline-variant bg-surface-container-low hover:border-primary/50"
+                          ? "border-ink bg-canvas-soft shadow-sm"
+                          : "border-hairline bg-canvas hover:border-hairline-strong hover:bg-canvas-soft-2"
                       }`}
                       key={need.id}
                       onClick={() => setSelectedNeedId(need.id)}
@@ -317,8 +321,8 @@ export function MatchingPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-semibold text-white">{need.summary}</p>
-                          <p className="mt-1 text-xs text-on-surface-variant">{sentence(need.category)}</p>
+                          <p className="font-medium text-ink">{need.summary}</p>
+                          <p className="mt-1 font-mono text-[10px] text-mute">{sentence(need.category)}</p>
                         </div>
                         <StatusBadge tone={toneForStatus(need.priorityLevel)}>{need.priorityLevel}</StatusBadge>
                       </div>
@@ -329,11 +333,11 @@ export function MatchingPage() {
             </Panel>
           </div>
 
-          <Panel className="space-y-4">
-            <div className="flex items-start justify-between gap-3">
+          <Panel className="space-y-5 bg-canvas-soft">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-hairline">
               <div>
-                <p className="text-xl font-black text-white">Nearest volunteers</p>
-                <p className="mt-1 text-sm text-on-surface-variant">
+                <p className="text-xl font-semibold tracking-tight text-ink">Nearest volunteers</p>
+                <p className="mt-1 text-sm text-body max-w-sm">
                   Volunteers are ordered from nearest to farthest using the submitted survey coordinates.
                 </p>
               </div>
@@ -341,67 +345,78 @@ export function MatchingPage() {
             </div>
 
             {volunteersQuery.isLoading ? (
-              <LoaderBlock label="Finding nearest volunteers..." />
+              <LoaderBlock label="Finding nearest volunteers…" />
             ) : rankedVolunteers.length === 0 ? (
-              <p className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+              <div className="rounded-md border border-hairline border-dashed bg-canvas px-4 py-8 text-center text-sm text-body">
                 No volunteers matched the current domain filter.
-              </p>
+              </div>
             ) : (
               <div className="space-y-4">
                 {rankedVolunteers.map((volunteer) => (
-                  <Panel className="space-y-4 bg-surface-container-low" key={volunteer.id}>
-                    <div className="flex items-start justify-between gap-4">
+                  <div className="rounded-md border border-hairline bg-canvas p-5 shadow-sm" key={volunteer.id}>
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
                       <div>
-                        <p className="text-xl font-black text-white">{volunteer.name || volunteer.profession || volunteer.id}</p>
-                        <p className="mt-1 text-sm text-on-surface-variant">{volunteer.email || volunteer.profession || "No profession provided"}</p>
+                        <p className="text-lg font-semibold tracking-tight text-ink">{volunteer.name || volunteer.profession || volunteer.id}</p>
+                        <p className="mt-0.5 text-sm text-body">{volunteer.email || volunteer.profession || "No profession provided"}</p>
                       </div>
                       <StatusBadge tone="success">{formatDistance(volunteer.distanceKm)}</StatusBadge>
                     </div>
 
-                    <div className="grid gap-3 md:grid-cols-2">
-                      <InfoCard label="Volunteer ID" value={volunteer.id} />
-                      <InfoCard label="Domain" value={sentence(volunteer.effectiveDomain || "other")} />
-                      <InfoCard label="Availability" value={volunteer.availabilityStatus} />
-                      <InfoCard label="Manual fit score" value={formatPercent(volunteer.manualScore, 0)} />
-                    </div>
-
-                    <div>
-                      <p className="label-caps">Matched skills</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {volunteer.matchedSkills.length > 0 ? volunteer.matchedSkills.map((skill) => (
-                          <span
-                            className="rounded-md border border-primary/50 bg-primary/10 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-primary"
-                            key={`${volunteer.id}-${skill}`}
-                          >
-                            {skill}
-                          </span>
-                        )) : <span className="text-xs text-on-surface-variant">No skill overlap detected</span>}
+                    <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 mb-4">
+                      <div className="space-y-1">
+                        <p className="label-caps">Domain</p>
+                        <p className="text-sm font-medium text-ink">{sentence(volunteer.effectiveDomain || "other")}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="label-caps">Availability</p>
+                        <p className="text-sm font-medium text-ink capitalize">{volunteer.availabilityStatus}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="label-caps">Fit Score</p>
+                        <p className="text-sm font-medium text-ink">{formatPercent(volunteer.manualScore, 0)}</p>
                       </div>
                     </div>
 
-                    {volunteer.missingSkills.length > 0 ? (
+                    <div className="space-y-3 pt-3 border-t border-hairline mb-4">
                       <div>
-                        <p className="label-caps">Missing skills</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {volunteer.missingSkills.map((skill) => (
+                        <p className="label-caps mb-1.5">Matched skills</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {volunteer.matchedSkills.length > 0 ? volunteer.matchedSkills.map((skill) => (
                             <span
-                              className="rounded-md border border-warning/50 bg-warning/10 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-warning"
-                              key={`${volunteer.id}-missing-${skill}`}
+                              className="rounded bg-canvas-soft border border-hairline px-2 py-0.5 text-[10px] font-mono text-ink"
+                              key={`${volunteer.id}-${skill}`}
                             >
                               {skill}
                             </span>
-                          ))}
+                          )) : <span className="text-xs text-mute italic">No skill overlap detected</span>}
                         </div>
                       </div>
-                    ) : null}
 
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm leading-6 text-on-surface-variant">
+                      {volunteer.missingSkills.length > 0 ? (
+                        <div>
+                          <p className="label-caps mb-1.5 text-danger">Missing skills</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {volunteer.missingSkills.map((skill) => (
+                              <span
+                                className="rounded bg-danger/5 border border-danger/20 px-2 py-0.5 text-[10px] font-mono text-danger"
+                                key={`${volunteer.id}-missing-${skill}`}
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-hairline bg-canvas-soft -mx-5 -mb-5 px-5 py-4 rounded-b-md">
+                      <p className="text-xs leading-relaxed text-body">
                         {selectedNeed
-                          ? `${volunteer.id} is ${formatDistance(volunteer.distanceKm)} away and has ${volunteer.matchedSkills.length} matched skill(s) for the selected need.`
-                          : `${volunteer.id} is ${formatDistance(volunteer.distanceKm)} away from the submitted survey location and can be assigned for manual support.`}
+                          ? `${volunteer.name || volunteer.id} is ${formatDistance(volunteer.distanceKm)} away and has ${volunteer.matchedSkills.length} matched skill(s) for the selected need.`
+                          : `${volunteer.name || volunteer.id} is ${formatDistance(volunteer.distanceKm)} away from the submitted survey location and can be assigned for manual support.`}
                       </p>
                       <Button
+                        className="w-full sm:w-auto shrink-0 text-xs py-1.5 px-4"
                         disabled={assignMutation.isPending}
                         onClick={() =>
                           void assignMutation.mutate({
@@ -416,10 +431,10 @@ export function MatchingPage() {
                           })
                         }
                       >
-                        {assignMutation.isPending ? "Assigning..." : "Assign"}
+                        {assignMutation.isPending ? "Assigning…" : "Assign to Case"}
                       </Button>
                     </div>
-                  </Panel>
+                  </div>
                 ))}
               </div>
             )}
@@ -434,9 +449,9 @@ export function MatchingPage() {
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
+    <div className="rounded-md border border-hairline bg-canvas p-4 shadow-sm">
       <p className="label-caps">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-white">{value}</p>
+      <p className="mt-1.5 text-sm font-medium text-ink">{value}</p>
     </div>
   );
 }

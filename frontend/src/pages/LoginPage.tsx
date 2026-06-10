@@ -39,97 +39,81 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-surface px-4 py-5">
-      <div className="mx-auto grid min-h-[calc(100vh-40px)] max-w-6xl gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-        <Panel className="flex flex-col justify-between overflow-hidden bg-black/25">
-          <div className="space-y-5">
-            <div>
-              <p className="text-4xl font-black text-white">NIYOJAN</p>
-              <p className="mt-3 max-w-md text-sm leading-6 text-on-surface-variant">
-                Secure access for administrators, NGO operators, and volunteers.
-              </p>
-            </div>
-            {/* <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
-              <p className="label-caps text-primary">System Status</p>
-              <h2 className="mt-2 text-2xl font-black text-white">Firebase-first access control</h2>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <div className="rounded-md border border-outline-variant bg-surface-container p-4">
-                  <p className="text-sm font-bold text-white">Backend contract preserved</p>
-                  <p className="mt-2 text-xs leading-5 text-on-surface-variant">
-                    All workflows remain aligned to the existing `/api` routes and response envelope.
-                  </p>
-                </div>
-                <div className="rounded-md border border-outline-variant bg-surface-container p-4">
-                  <p className="text-sm font-bold text-white">NGO, volunteer, and admin accounts</p>
-                  <p className="mt-2 text-xs leading-5 text-on-surface-variant">
-                    Firebase creates credentials, and the backend resolves the active application profile.
-                  </p>
-                </div>
-              </div>
-            </div> */}
-          </div>
-          <div className="flex flex-wrap gap-4 rounded-full border border-outline-variant bg-surface-container-low px-5 py-3 text-xs uppercase tracking-[0.16em] text-on-surface-variant">
-            <span>Operations Console</span>
-            <span>Global Access</span>
-            <span>Secure Sessions</span>
-          </div>
-        </Panel>
+    <div className="min-h-screen bg-canvas-soft text-ink font-sans px-4 py-6 md:py-12 flex flex-col items-center justify-center relative overflow-hidden">
+      {/* Decorative gradient blur */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[800px] h-[500px] bg-mesh-hero opacity-30 -z-10 pointer-events-none rounded-full blur-[100px]"></div>
 
-        <Panel className="space-y-5">
+      <div className="w-full max-w-md mx-auto relative z-10">
+        <Link to="/" className="inline-flex items-center gap-2 mb-8 group">
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center transition-transform group-hover:scale-105">
+            <span className="text-on-primary font-bold text-sm">N</span>
+          </div>
+          <span className="text-xl font-bold tracking-tight">NIYOJAN</span>
+        </Link>
+
+        <Panel className="space-y-6 sm:p-8">
           <div>
-            <p className="label-caps text-primary">Command Access</p>
-            <h1 className="mt-2 text-3xl font-black text-white">Authorize NIYOJAN session</h1>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              Sign in with Niyojan using your NGO or volunteer account.
+            <p className="label-caps mb-2">Command Access</p>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Authorize session</h1>
+            <p className="mt-2 text-sm text-body leading-relaxed">
+              Sign in with Niyojan using your NGO or volunteer account to access your workspace.
             </p>
           </div>
 
-          {/* <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
-            {usingFirebase
-              ? "Firebase web config is present. Use email/password sign-in for live auth."
-              : "Firebase web config is not fully configured yet. Add the VITE_FIREBASE_* values to enable sign-in and NGO registration."}
-          </div> */}
-
-          <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
-            New accounts must verify their email from the email verification link before the session can complete. If you don't receive the email within a few minutes, please check your spam folder or contact your administrator.
+          <div className="rounded-md bg-link-bg-soft/40 border border-link/20 px-4 py-3 text-sm text-body">
+            New accounts must verify their email before the session can complete. Check your spam folder if you don't receive it.
           </div>
 
           {error ? (
-            <div className="rounded-md border border-danger/60 bg-danger/10 px-4 py-3 text-sm text-danger">
+            <div className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger font-medium">
               {error}
             </div>
           ) : null}
 
           <form className="space-y-4" onSubmit={onFirebaseSubmit}>
-            <p className="label-caps">Sign-In</p>
-            <Input
-              placeholder="Email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-            <Button className="w-full" disabled={submitting} type="submit">
-              {submitting ? "Signing In..." : "Initiate Authorization"}
+            <div className="space-y-4">
+              <Input
+                type="email"
+                placeholder="Email address"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                autoComplete="email"
+              />
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </div>
+
+            <Button className="w-full py-2.5 mt-2 text-sm" disabled={submitting} type="submit">
+              {submitting ? "Signing In…" : "Initiate Authorization"}
             </Button>
-            <p className="text-sm text-on-surface-variant">
-              New NGO?{" "}
-              <Link className="text-white underline-offset-4 hover:underline" to="/signup">
-                Register organization
-              </Link>
-            </p>
-            <p className="text-sm text-on-surface-variant">
-              New Volunteer?{" "}
-              <Link className="text-white underline-offset-4 hover:underline" to="/volunteer-signup">
-                Join volunteer network
-              </Link>
-            </p>
+
+            <div className="pt-6 border-t border-hairline flex flex-col gap-3">
+              <p className="text-sm text-body">
+                New NGO?{" "}
+                <Link className="text-link font-medium hover:underline underline-offset-2" to="/signup">
+                  Register organization
+                </Link>
+              </p>
+              <p className="text-sm text-body">
+                New Volunteer?{" "}
+                <Link className="text-link font-medium hover:underline underline-offset-2" to="/volunteer-signup">
+                  Join volunteer network
+                </Link>
+              </p>
+            </div>
           </form>
         </Panel>
+
+        <div className="mt-8 text-center text-xs text-mute font-mono">
+          Global Access • Operations Console • Secure Sessions
+        </div>
       </div>
     </div>
   );

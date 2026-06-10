@@ -92,11 +92,15 @@ export function PipelinePage() {
   });
 
   if (intakeQuery.isLoading) {
-    return <LoaderBlock label="Loading submitted survey intake..." />;
+    return (
+      <div className="max-w-7xl mx-auto py-12 px-4">
+        <LoaderBlock label="Loading submitted survey intake…" />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-[1600px] mx-auto py-8 px-4 sm:px-6">
       <PageHeader
         eyebrow="Operation Pipeline"
         title="Submitted Case Pipeline"
@@ -104,70 +108,65 @@ export function PipelinePage() {
       />
 
       {actionFeedback ? (
-        <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm">
+        <div className="rounded-md border border-hairline-strong bg-canvas px-4 py-3 text-sm text-ink shadow-sm">
           {actionFeedback}
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <Panel className="space-y-5">
-          <div>
-            <p className="text-xl font-black text-white">Submitted survey intake</p>
-            {/* <p className="mt-1 text-sm text-on-surface-variant">
-              Intake is driven by submitted surveys, not raw uploads. Manual and document-backed submissions both appear here.
-            </p> */}
+      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+        <Panel className="space-y-4 max-h-[85vh] flex flex-col p-0 overflow-hidden shadow-card-medium">
+          <div className="p-5 border-b border-hairline bg-canvas-soft">
+            <p className="text-lg font-semibold tracking-tight text-ink">Submitted Survey Intake</p>
           </div>
 
-          <div className="overflow-hidden rounded-md border border-outline-variant">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-surface-container-low text-on-surface-variant">
+          <div className="flex-1 overflow-x-auto overflow-y-auto">
+            <table className="min-w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-canvas-soft-2 text-body border-b border-hairline sticky top-0 z-10">
                 <tr>
-                  <th className="px-4 py-3">Survey</th>
-                  <th className="px-4 py-3">Source document</th>
-                  <th className="px-4 py-3">Submitted</th>
-                  <th className="px-4 py-3">Survey ID</th>
-                  <th className="px-4 py-3">Actions</th>
+                  <th className="px-5 py-3 font-medium">Survey</th>
+                  <th className="px-5 py-3 font-medium">Source document</th>
+                  <th className="px-5 py-3 font-medium hidden md:table-cell">Submitted</th>
+                  <th className="px-5 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-hairline">
                 {intakeQuery.data?.map((item) => (
                   <tr
-                    className={`cursor-pointer border-t border-outline-variant/60 ${
-                      selectedSurveyId === item.surveyId ? "bg-primary/10" : "hover:bg-surface-container-low"
+                    className={`cursor-pointer transition-colors ${
+                      selectedSurveyId === item.surveyId ? "bg-canvas-soft shadow-sm" : "hover:bg-canvas-soft-2"
                     }`}
                     key={item.surveyId}
                     onClick={() => setSelectedSurveyId(item.surveyId)}
                   >
-                    <td className="px-4 py-4 align-top">
-                      <p className="font-semibold text-white">{item.respondentName || "Unnamed respondent"}</p>
-                      <p className="mt-1 text-xs text-on-surface-variant">{item.locationText || "No location"}</p>
-                      <div className="mt-2">
+                    <td className="px-5 py-4 align-top">
+                      <p className="font-semibold text-ink truncate max-w-[200px]">{item.respondentName || "Unnamed respondent"}</p>
+                      <p className="mt-1 text-xs text-body truncate max-w-[200px]">{item.locationText || "No location"}</p>
+                      <div className="mt-2.5">
                         <StatusBadge tone={toneForStatus(item.surveyStatus)}>{item.surveyStatus}</StatusBadge>
                       </div>
                     </td>
-                    <td className="px-4 py-4 align-top">
+                    <td className="px-5 py-4 align-top">
                       {item.sourceDocumentId ? (
                         <>
-                          <p className="font-semibold text-white">{item.sourceDocumentName}</p>
-                          <p className="mt-1 text-xs text-on-surface-variant">{item.sourceDocumentType}</p>
-                          <div className="mt-2">
+                          <p className="font-medium text-ink truncate max-w-[200px]">{item.sourceDocumentName}</p>
+                          <p className="mt-1 font-mono text-[10px] text-mute uppercase">{item.sourceDocumentType}</p>
+                          <div className="mt-2.5">
                             <StatusBadge tone={toneForStatus(item.sourceDocumentStatus || "uploaded")}>
                               {item.sourceDocumentStatus}
                             </StatusBadge>
                           </div>
                         </>
                       ) : (
-                        <p className="text-sm text-on-surface-variant">No source document attached</p>
+                        <p className="text-xs text-mute italic">No source document</p>
                       )}
                     </td>
-                    <td className="px-4 py-4 align-top text-on-surface-variant">
+                    <td className="px-5 py-4 align-top text-body text-xs hidden md:table-cell">
                       {formatDateTime(item.submittedAt || item.createdAt)}
                     </td>
-                    <td className="px-4 py-4 align-top">
-                      <div className="flex flex-wrap gap-2">
-                        <span className="text-xs text-on-surface-variant">{item.surveyId}</span>
+                    <td className="px-5 py-4 align-top text-right space-y-2">
+                      <div className="flex flex-col items-end gap-2">
                         <Button
-                          className="px-2 py-1 text-xs"
+                          className="px-2.5 py-1 text-[11px]"
                           onClick={async (event) => {
                             event.stopPropagation();
                             await navigator.clipboard.writeText(item.surveyId);
@@ -178,112 +177,111 @@ export function PipelinePage() {
                         >
                           Copy ID
                         </Button>
+                        <div className="flex gap-2">
+                          {item.sourceDocumentId ? (
+                            <Button
+                              className="px-2.5 py-1 text-[11px]"
+                              disabled={deleteDocumentMutation.isPending}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                const documentId = item.sourceDocumentId;
+                                if (!documentId) return;
+                                if (!window.confirm(`Delete ${item.sourceDocumentName} from this survey?`)) return;
+                                void deleteDocumentMutation.mutate(documentId);
+                              }}
+                              type="button"
+                              variant="danger"
+                            >
+                              Del Doc
+                            </Button>
+                          ) : null}
+                          <Button
+                            className="px-2.5 py-1 text-[11px]"
+                            disabled={deleteSurveyMutation.isPending}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (!window.confirm("Delete this entire survey?")) return;
+                              void deleteSurveyMutation.mutate(item.surveyId);
+                            }}
+                            type="button"
+                            variant="danger"
+                          >
+                            Del Survey
+                          </Button>
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      {item.sourceDocumentId ? (
-                        <Button
-                          disabled={deleteDocumentMutation.isPending}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            const documentId = item.sourceDocumentId;
-                            if (!documentId) {
-                              return;
-                            }
-
-                            if (!window.confirm(`Delete ${item.sourceDocumentName} from this survey?`)) {
-                              return;
-                            }
-
-                            void deleteDocumentMutation.mutate(documentId);
-                          }}
-                          type="button"
-                          variant="danger"
-                        >
-                          Delete doc
-                        </Button>
-                      ) : null}
-                      <Button
-                        className="ml-2"
-                        disabled={deleteSurveyMutation.isPending}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          if (!window.confirm("Delete this entire survey?")) {
-                            return;
-                          }
-                          void deleteSurveyMutation.mutate(item.surveyId);
-                        }}
-                        type="button"
-                        variant="danger"
-                      >
-                        Delete survey
-                      </Button>
                     </td>
                   </tr>
                 ))}
+                {intakeQuery.data?.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-sm text-body">
+                      No surveys in the pipeline intake.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </Panel>
 
-        <div className="space-y-6">
-          <Panel className="space-y-4">
-            <div className="flex items-start justify-between gap-4">
+        <div className="space-y-6 max-h-[85vh] overflow-y-auto pr-2">
+          <Panel className="space-y-5 bg-canvas-soft">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-hairline">
               <div>
-                <p className="text-xl font-black text-white">Selected survey</p>
-                <p className="mt-1 text-sm text-on-surface-variant">
+                <p className="text-xl font-semibold tracking-tight text-ink">Selected Survey</p>
+                <p className="mt-1 text-sm text-body leading-relaxed max-w-sm">
                   Start the review flow for the selected submission. Document-backed surveys use the document pipeline, while manual surveys go straight into survey analysis.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-3">
-                {selectedIntakeItem ? (
-                  <Button
-                    disabled={analyzeSurveyMutation.isPending || startPipelineMutation.isPending}
-                    onClick={() => {
-                      setActionFeedback("");
-                      if (selectedDocumentId) {
-                        void startPipelineMutation.mutate(selectedDocumentId);
-                        return;
-                      }
-
-                      void analyzeSurveyMutation.mutate(selectedIntakeItem.surveyId);
-                    }}
-                    type="button"
-                  >
-                    {analyzeSurveyMutation.isPending || startPipelineMutation.isPending
-                      ? "Starting..."
-                      : selectedDocumentId
-                        ? "Start document pipeline"
-                        : "Start survey pipeline"}
-                  </Button>
-                ) : null}
-              </div>
+              {selectedIntakeItem ? (
+                <Button
+                  className="w-full sm:w-auto shrink-0"
+                  disabled={analyzeSurveyMutation.isPending || startPipelineMutation.isPending}
+                  onClick={() => {
+                    setActionFeedback("");
+                    if (selectedDocumentId) {
+                      void startPipelineMutation.mutate(selectedDocumentId);
+                      return;
+                    }
+                    void analyzeSurveyMutation.mutate(selectedIntakeItem.surveyId);
+                  }}
+                  type="button"
+                >
+                  {analyzeSurveyMutation.isPending || startPipelineMutation.isPending
+                    ? "Starting…"
+                    : selectedDocumentId
+                      ? "Start Doc Pipeline"
+                      : "Start Survey Pipeline"}
+                </Button>
+              ) : null}
             </div>
 
             {selectedIntakeItem ? (
-              <>
-                <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
-                  <p className="font-semibold text-white">{selectedIntakeItem.respondentName || "Unnamed respondent"}</p>
-                  <p className="mt-1 text-sm text-on-surface-variant">{selectedIntakeItem.locationText || "No location"}</p>
-                  <div className="mt-3 flex flex-wrap gap-3">
+              <div className="space-y-4">
+                <div className="rounded-md border border-hairline bg-canvas p-4 shadow-sm">
+                  <p className="font-semibold text-ink">{selectedIntakeItem.respondentName || "Unnamed respondent"}</p>
+                  <p className="mt-1 text-sm text-body">{selectedIntakeItem.locationText || "No location"}</p>
+                  <div className="mt-4 flex flex-wrap items-center gap-3 pt-3 border-t border-hairline">
                     <StatusBadge tone={toneForStatus(selectedIntakeItem.surveyStatus)}>
                       {selectedIntakeItem.surveyStatus}
                     </StatusBadge>
-                    <span className="text-xs text-on-surface-variant">
+                    <span className="text-xs font-mono text-mute">
                       Submitted {formatDateTime(selectedIntakeItem.submittedAt || selectedIntakeItem.createdAt)}
                     </span>
                   </div>
                 </div>
 
                 {selectedDocumentId ? (
-                  <div className="space-y-3">
-                    <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
-                      <p className="font-semibold text-white">{selectedIntakeItem.sourceDocumentName}</p>
-                      <div className="mt-3 flex flex-wrap gap-3">
+                  <div className="rounded-md border border-hairline bg-canvas p-4 shadow-sm space-y-4">
+                    <div>
+                      <p className="label-caps mb-1.5">Source Document</p>
+                      <p className="font-medium text-ink truncate">{selectedIntakeItem.sourceDocumentName}</p>
+                      <div className="mt-2.5 flex flex-wrap items-center gap-3">
                         <StatusBadge tone={toneForStatus(selectedIntakeItem.sourceDocumentStatus || "uploaded")}>
                           {selectedIntakeItem.sourceDocumentStatus}
                         </StatusBadge>
-                        <span className="text-xs text-on-surface-variant">
+                        <span className="text-[11px] font-mono text-mute">
                           {selectedIntakeItem.sourceDocumentCreatedAt
                             ? formatDateTime(selectedIntakeItem.sourceDocumentCreatedAt)
                             : "No upload date"}
@@ -292,87 +290,93 @@ export function PipelinePage() {
                     </div>
 
                     {statusQuery.data ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-on-surface-variant">Current stage</span>
-                          <span className="font-semibold text-white">
-                            {statusQuery.data.manifest.currentStage}
-                          </span>
+                      <div className="space-y-3 pt-4 border-t border-hairline">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-body font-medium">Current stage</span>
+                          <span className="font-semibold text-ink">{statusQuery.data.manifest.currentStage}</span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-on-surface-variant">Pipeline status</span>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-body font-medium">Pipeline status</span>
                           <StatusBadge tone={toneForStatus(statusQuery.data.manifest.pipelineStatus)}>
                             {statusQuery.data.manifest.pipelineStatus}
                           </StatusBadge>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-on-surface-variant">Last job</span>
-                          <span className="text-sm text-white">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-body font-medium">Last job</span>
+                          <span className="font-mono text-xs text-ink truncate max-w-[200px] text-right">
                             {statusQuery.data.job?.type ?? "No job recorded"}
                           </span>
                         </div>
-                        <div className="flex flex-wrap gap-3 pt-3">
-                          <Link className="action-button-secondary" to={`/ai-review/${selectedDocumentId}`}>
-                            Open AI review
+                        <div className="pt-3">
+                          <Link className="action-button-secondary w-full text-center" to={`/ai-review/${selectedDocumentId}`}>
+                            Open AI Review
                           </Link>
                         </div>
                       </div>
                     ) : statusQuery.isError ? (
-                      <p className="text-sm text-on-surface-variant">
+                      <div className="pt-4 border-t border-hairline text-sm text-danger bg-danger/5 p-3 rounded mt-2">
                         {getApiErrorMessage(statusQuery.error).includes("Pipeline manifest not found")
                           ? "No pipeline manifest has been created for this survey document yet."
                           : getApiErrorMessage(statusQuery.error)}
-                      </p>
+                      </div>
                     ) : (
-                      <p className="text-sm text-on-surface-variant">Loading pipeline status...</p>
+                      <div className="pt-4 border-t border-hairline text-sm text-mute flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full border-2 border-hairline border-t-ink animate-spin" />
+                        Loading pipeline status…
+                      </div>
                     )}
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <p className="text-sm text-on-surface-variant">
+                  <div className="rounded-md border border-hairline border-dashed bg-canvas p-5 space-y-4">
+                    <p className="text-sm leading-relaxed text-body">
                       This survey has no source document attached, but the same pipeline and AI review flow still works from the submitted responses.
                     </p>
                     {selectedIntakeItem.surveyStatus === "analyzed" ? (
-                      <Link className="action-button-secondary" to={`/ai-review/surveys/${selectedIntakeItem.surveyId}`}>
-                        Open AI review
+                      <Link className="action-button-secondary w-full text-center" to={`/ai-review/surveys/${selectedIntakeItem.surveyId}`}>
+                        Open AI Review
                       </Link>
                     ) : null}
                   </div>
                 )}
-              </>
+              </div>
             ) : (
-              <p className="text-sm text-on-surface-variant">
+              <div className="flex items-center justify-center p-8 text-center text-sm text-mute border-2 border-dashed border-hairline rounded-md">
                 Select a submitted survey from the intake table to inspect status and actions.
-              </p>
+              </div>
             )}
           </Panel>
 
           <Panel className="space-y-4">
             <div>
-              <p className="text-xl font-black text-white">Pipeline queue</p>
-              <p className="mt-1 text-sm text-on-surface-variant">
+              <p className="text-lg font-semibold tracking-tight text-ink">Pipeline Queue</p>
+              <p className="mt-1 text-sm text-body">
                 Manifest-level overview across current document review pipeline runs.
               </p>
             </div>
             <div className="space-y-3">
               {queueQuery.data?.map((item) => (
                 <div
-                  className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3"
+                  className="rounded-md border border-hairline bg-canvas-soft-2 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors hover:border-hairline-strong"
                   key={item.id}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-white">{item.fileName}</p>
-                      <p className="mt-1 text-xs text-on-surface-variant">
-                        {item.currentStage} - {formatDateTime(item.startedAt)}
-                      </p>
-                    </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-ink truncate text-sm">{item.fileName}</p>
+                    <p className="mt-1 font-mono text-[10px] text-mute truncate">
+                      {item.currentStage} • {formatDateTime(item.startedAt)}
+                    </p>
+                  </div>
+                  <div className="shrink-0">
                     <StatusBadge tone={toneForStatus(item.pipelineStatus)}>
                       {item.pipelineStatus}
                     </StatusBadge>
                   </div>
                 </div>
               ))}
+              {queueQuery.data?.length === 0 && (
+                <p className="text-sm text-mute text-center py-4 border border-dashed border-hairline rounded">
+                  No active items in pipeline queue.
+                </p>
+              )}
             </div>
           </Panel>
         </div>

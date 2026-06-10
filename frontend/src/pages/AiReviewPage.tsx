@@ -71,9 +71,9 @@ function toneForUrgency(value: unknown) {
 
 function ReviewMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3">
-      <p className="label-caps">{label}</p>
-      <p className="mt-2 break-words text-lg font-bold text-white">{value}</p>
+    <div className="min-w-0 rounded-md border border-hairline bg-canvas p-4 shadow-sm">
+      <p className="label-caps mb-1.5">{label}</p>
+      <p className="break-words text-lg font-semibold text-ink">{value}</p>
     </div>
   );
 }
@@ -96,17 +96,23 @@ function EditableAssessmentField({
   disabled: boolean;
 }) {
   return (
-    <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3">
+    <div className="rounded-md border border-hairline bg-canvas-soft-2 p-4 transition-colors hover:border-hairline-strong">
       <div className="flex items-start justify-between gap-3">
         <p className="label-caps">{label}</p>
-        <Button disabled={disabled} onClick={isEditing ? onSave : onEdit} type="button" variant="ghost">
+        <Button 
+          disabled={disabled} 
+          onClick={isEditing ? onSave : onEdit} 
+          type="button" 
+          variant={isEditing ? "primary" : "ghost"}
+          className={isEditing ? "px-3 py-1 text-xs" : "px-2 py-1 text-[11px]"}
+        >
           {isEditing ? "Save" : "Edit"}
         </Button>
       </div>
       {isEditing ? (
-        <Textarea className="mt-3 min-h-[90px]" value={value} onChange={(event) => onChange(event.target.value)} />
+        <Textarea className="mt-3 min-h-[90px] text-sm" value={value} onChange={(event) => onChange(event.target.value)} />
       ) : (
-        <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-on-surface">{value || "Not provided"}</p>
+        <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-body">{value || "Not provided"}</p>
       )}
     </div>
   );
@@ -116,23 +122,23 @@ function TrustedFieldGroup({ fields }: { fields: Record<string, unknown> }) {
   const entries = Object.entries(fields);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 pt-2">
       <div>
-        <p className="text-base font-bold text-white">Trusted fields</p>
-        <p className="mt-1 text-sm text-on-surface-variant">
+        <p className="text-base font-semibold text-ink">Trusted fields</p>
+        <p className="mt-1 text-sm text-body">
           These extracted fields look reliable and can usually be approved after a quick check.
         </p>
       </div>
       {entries.length === 0 ? (
-        <p className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+        <div className="rounded-md border border-dashed border-hairline px-4 py-6 text-center text-sm text-mute">
           No trusted fields available.
-        </p>
+        </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           {entries.map(([key, value]) => (
-            <div className="min-w-0 rounded-md border border-outline-variant bg-surface-container-low px-4 py-3" key={key}>
-              <p className="label-caps">{sentenceLabel(key)}</p>
-              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-on-surface">
+            <div className="min-w-0 rounded-md border border-hairline bg-canvas p-4 shadow-sm" key={key}>
+              <p className="label-caps mb-2">{sentenceLabel(key)}</p>
+              <p className="whitespace-pre-wrap break-words text-sm font-medium text-ink">
                 {displayValue(value)}
               </p>
             </div>
@@ -145,22 +151,22 @@ function TrustedFieldGroup({ fields }: { fields: Record<string, unknown> }) {
 
 function VerificationFieldGroup({ labels }: { labels: string[] }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 pt-4 border-t border-hairline mt-2">
       <div>
-        <p className="text-base font-bold text-white">Needs verification</p>
-        <p className="mt-1 text-sm text-on-surface-variant">
+        <p className="text-base font-semibold text-ink text-danger">Needs verification</p>
+        <p className="mt-1 text-sm text-body">
           These field labels need extra attention before approval.
         </p>
       </div>
       {labels.length === 0 ? (
-        <p className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+        <div className="rounded-md border border-dashed border-hairline px-4 py-6 text-center text-sm text-mute">
           No extra verification flags were raised.
-        </p>
+        </div>
       ) : (
         <div className="flex flex-wrap gap-2">
           {labels.map((label) => (
             <span
-              className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm font-medium text-warning"
+              className="rounded border border-warning/30 bg-warning/5 px-2.5 py-1 text-xs font-mono text-warning-deep"
               key={label}
             >
               {label}
@@ -192,11 +198,15 @@ export function AiReviewIndexPage() {
   });
 
   if (reviewCandidatesQuery.isLoading) {
-    return <LoaderBlock label="Loading review candidates..." />;
+    return (
+      <div className="max-w-7xl mx-auto py-12 px-4">
+        <LoaderBlock label="Loading review candidates…" />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
         eyebrow="AI Review"
         title="Select a review package"
@@ -204,26 +214,27 @@ export function AiReviewIndexPage() {
       />
 
       {feedback ? (
-        <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+        <div className="rounded-md border border-hairline-strong bg-canvas px-4 py-3 text-sm text-ink shadow-sm">
           {feedback}
         </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {reviewCandidatesQuery.data?.map((item) => (
-          <Panel className="space-y-3" key={item.surveyId}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-2">
-                <p className="text-lg font-bold text-white">{item.respondentName || "Unnamed respondent"}</p>
-                <p className="text-sm text-on-surface-variant">{item.locationText || "No location"}</p>
-                <StatusBadge tone={toneForStatus(item.surveyStatus)}>{item.surveyStatus}</StatusBadge>
+          <Panel className="space-y-5 flex flex-col" key={item.surveyId}>
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div className="space-y-1.5 flex-1 min-w-0">
+                <p className="text-lg font-semibold tracking-tight text-ink truncate">{item.respondentName || "Unnamed respondent"}</p>
+                <p className="text-sm text-body truncate">{item.locationText || "No location"}</p>
+                <div className="pt-1">
+                  <StatusBadge tone={toneForStatus(item.surveyStatus)}>{item.surveyStatus}</StatusBadge>
+                </div>
               </div>
               <Button
+                className="shrink-0 text-xs px-2.5 py-1.5 self-start"
                 disabled={deleteMutation.isPending}
                 onClick={() => {
-                  if (!window.confirm(`Delete review package for survey ${item.surveyId}?`)) {
-                    return;
-                  }
+                  if (!window.confirm(`Delete review package for survey ${item.surveyId}?`)) return;
                   void deleteMutation.mutate(item.surveyId);
                 }}
                 type="button"
@@ -233,13 +244,18 @@ export function AiReviewIndexPage() {
               </Button>
             </div>
             <Link
-              className="action-button-secondary"
+              className="action-button-secondary w-full text-center mt-auto"
               to={item.sourceDocumentId ? `/ai-review/${item.sourceDocumentId}` : `/ai-review/surveys/${item.surveyId}`}
             >
-              Open review screen
+              Open Review Screen
             </Link>
           </Panel>
         ))}
+        {reviewCandidatesQuery.data?.length === 0 && (
+          <div className="col-span-full py-12 text-center text-sm text-body border-2 border-dashed border-hairline rounded-md">
+            No active review candidates found.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -280,7 +296,7 @@ export function AiReviewPage() {
         approved_fields: {},
       })),
     onSuccess: async () => {
-      setFeedback("Review submitted.");
+      setFeedback("Review submitted successfully.");
       await reviewQuery.refetch();
     },
     onError: (error) => {
@@ -363,11 +379,19 @@ export function AiReviewPage() {
   }, [reviewTargetId, reviewQuery.data]);
 
   if (reviewQuery.isLoading) {
-    return <LoaderBlock label="Loading review package..." />;
+    return (
+      <div className="max-w-7xl mx-auto py-12 px-4">
+        <LoaderBlock label="Loading review package…" />
+      </div>
+    );
   }
 
   if (reviewQuery.isError || !reviewQuery.data) {
-    return <LoaderBlock label="Review package is unavailable for this submission." />;
+    return (
+      <div className="max-w-7xl mx-auto py-12 px-4">
+        <LoaderBlock label="Review package is unavailable for this submission." />
+      </div>
+    );
   }
 
   const verificationLabels = Object.keys(untrustedFields).map(sentenceLabel);
@@ -377,81 +401,82 @@ export function AiReviewPage() {
   const reviewPackage = resolvedReviewPackage;
 
   return (
-    <div className="space-y-6 overflow-x-hidden">
+    <div className="space-y-6 max-w-[1600px] mx-auto py-8 px-4 sm:px-6">
       <PageHeader
         eyebrow="AI Review"
-        title={reviewPackage.document.fileName}
+        title={reviewPackage.document?.fileName || "Survey Review"}
         description="Review the AI case summary, verify extracted fields, and record the final human decision before moving this case to matching."
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 w-full sm:w-auto">
             <Button
+              className="flex-1 sm:flex-none text-xs px-4"
               disabled={deleteMutation.isPending}
               onClick={() => {
-                if (!window.confirm(`Delete review package ${reviewPackage.document.fileName}?`)) {
-                  return;
-                }
+                if (!window.confirm(`Delete review package ${reviewPackage.document?.fileName || 'survey'}?`)) return;
                 void deleteMutation.mutate();
               }}
               type="button"
               variant="danger"
             >
-              Delete package
+              Delete Package
             </Button>
-            <Link className="action-button-secondary" to="/pipeline">
-              Back to pipeline
+            <Link className="action-button-secondary flex-1 sm:flex-none text-center text-xs px-4" to="/ai-review">
+              Back to List
             </Link>
           </div>
         }
       />
 
       {feedback ? (
-        <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+        <div className="rounded-md border border-hairline-strong bg-canvas px-4 py-3 text-sm text-ink shadow-sm">
           {feedback}
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-        <Panel className="min-w-0 space-y-4 overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
+        <Panel className="min-w-0 space-y-4 overflow-hidden flex flex-col max-h-[85vh]">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-hairline">
             <div>
-              <p className="text-xl font-black text-white">
+              <p className="text-xl font-semibold tracking-tight text-ink">
                 {reviewPackage.sourceDocumentId ? "Original document" : "Submitted survey"}
               </p>
-              <p className="mt-1 text-sm text-on-surface-variant">
+              <p className="mt-1 text-[11px] font-mono text-mute">
                 {reviewPackage.sourceDocumentId
                   ? `Signed URL expires at ${formatDateTime(reviewPackage.document.readUrlExpiresAt)}`
-                  : "This review package was created from a manually filled survey submission."}
+                  : "Created from a manually filled survey submission."}
               </p>
             </div>
-            <StatusBadge tone={toneForStatus(reviewPackage.document.status)}>
-              {reviewPackage.document.status}
-            </StatusBadge>
+            {reviewPackage.sourceDocumentId && (
+              <StatusBadge tone={toneForStatus(reviewPackage.document.status)}>
+                {reviewPackage.document.status}
+              </StatusBadge>
+            )}
           </div>
 
-          <div className="h-[min(58vh,540px)] overflow-hidden rounded-md border border-outline-variant bg-surface-container-lowest">
+          <div className="flex-1 overflow-hidden rounded-md border border-hairline bg-canvas-soft relative min-h-[300px]">
             {reviewPackage.sourceDocumentId && reviewPackage.document.fileType.includes("pdf") ? (
-              <iframe className="h-full w-full" src={reviewPackage.document.readUrl} title="Document preview" />
+              <iframe className="absolute inset-0 h-full w-full border-0" src={reviewPackage.document.readUrl} title="Document preview" />
             ) : reviewPackage.sourceDocumentId ? (
               <img
                 alt={reviewPackage.document.fileName}
-                className="h-full w-full object-contain"
+                className="absolute inset-0 h-full w-full object-contain p-2"
                 src={reviewPackage.document.readUrl}
               />
             ) : (
-              <div className="flex h-full items-center justify-center p-6 text-center text-sm leading-6 text-on-surface-variant">
+              <div className="flex h-full items-center justify-center p-8 text-center text-sm text-body border-2 border-dashed border-hairline/50 m-4 rounded">
                 Manual survey submissions do not have an uploaded document preview. This AI review is based on the survey responses and generated needs.
               </div>
             )}
           </div>
         </Panel>
 
-        <div className="min-w-0 space-y-6">
-          <Panel className="min-w-0 space-y-5 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 space-y-6 max-h-[85vh] overflow-y-auto pr-2">
+          <Panel className="min-w-0 space-y-6 bg-canvas-soft">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-hairline">
               <div>
-                <p className="text-xl font-black text-white">AI assessment report</p>
-                <p className="mt-1 text-sm text-on-surface-variant">
-                  Readable case summary generated by AI from the survey and attached document.
+                <p className="text-xl font-semibold tracking-tight text-ink">AI assessment report</p>
+                <p className="mt-1 text-sm text-body">
+                  Readable case summary generated by AI from the survey.
                 </p>
               </div>
               <StatusBadge tone={toneForUrgency(reasoning.urgency_label)}>
@@ -459,11 +484,11 @@ export function AiReviewPage() {
               </StatusBadge>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <ReviewMetric label="Validated fields" value={`${trustedCount} trusted / ${untrustedCount} flagged`} />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               {assessmentFields.map((field) => (
                 <EditableAssessmentField
                   disabled={updateAssessmentMutation.isPending}
@@ -490,41 +515,41 @@ export function AiReviewPage() {
             </div>
           </Panel>
 
-          <Panel className="min-w-0 space-y-5 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <Panel className="min-w-0 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-hairline">
               <div>
-                <p className="text-xl font-black text-white">Validated candidate</p>
-                <p className="mt-1 text-sm text-on-surface-variant">
-                  AI extracted fields separated by confidence so the admin can quickly review them.
+                <p className="text-xl font-semibold tracking-tight text-ink">Validated candidate</p>
+                <p className="mt-1 text-sm text-body">
+                  AI extracted fields separated by confidence.
                 </p>
               </div>
-              <StatusBadge tone="success">Human review required</StatusBadge>
+              <StatusBadge tone="warning">Human review required</StatusBadge>
             </div>
 
             <TrustedFieldGroup fields={trustedFields} />
             <VerificationFieldGroup labels={verificationLabels} />
           </Panel>
 
-          <Panel className="min-w-0 space-y-4 overflow-hidden">
-            <div>
-              <p className="text-xl font-black text-white">AI-defined needs</p>
-              <p className="mt-1 text-sm text-on-surface-variant">
-                These needs were generated from the submitted survey and will be used for volunteer matching.
+          <Panel className="min-w-0 space-y-5">
+            <div className="pb-3 border-b border-hairline">
+              <p className="text-xl font-semibold tracking-tight text-ink">AI-defined needs</p>
+              <p className="mt-1 text-sm text-body">
+                Generated from the survey and used for volunteer matching.
               </p>
             </div>
 
             {surveyNeeds.length === 0 ? (
-              <p className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface-variant">
+              <div className="rounded-md border border-dashed border-hairline px-4 py-6 text-center text-sm text-mute">
                 No needs have been generated for this survey yet.
-              </p>
+              </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {surveyNeeds.map((need) => (
-                  <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-4" key={need.id}>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="rounded-md border border-hairline bg-canvas p-5 shadow-sm" key={need.id}>
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div>
-                        <p className="font-semibold text-white">{need.summary}</p>
-                        <p className="mt-1 text-sm text-on-surface-variant">
+                        <p className="font-semibold text-ink">{need.summary}</p>
+                        <p className="mt-1 text-sm text-body">
                           {sentenceLabel(need.category)}
                           {need.locationText ? ` • ${need.locationText}` : ""}
                         </p>
@@ -532,17 +557,17 @@ export function AiReviewPage() {
                       <StatusBadge tone={toneForStatus(need.priorityLevel)}>{need.priorityLevel}</StatusBadge>
                     </div>
 
-                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <div className="mt-4 grid gap-3 grid-cols-3">
                       <ReviewMetric label="Urgency" value={`${need.urgencyScore}`} />
                       <ReviewMetric label="Status" value={sentenceLabel(need.status)} />
                       <ReviewMetric label="Skills" value={`${need.skills.length}`} />
                     </div>
 
                     {need.skills.length > 0 ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-4 pt-3 border-t border-hairline flex flex-wrap gap-2">
                         {need.skills.map((skill) => (
                           <span
-                            className="rounded-md border border-outline-variant px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-on-surface-variant"
+                            className="rounded bg-canvas-soft-2 border border-hairline px-2 py-0.5 text-[10px] font-mono text-ink"
                             key={skill.skillId}
                           >
                             {skill.name}
@@ -556,9 +581,9 @@ export function AiReviewPage() {
             )}
           </Panel>
 
-          <Panel className="min-w-0 space-y-4 overflow-hidden">
-            <p className="text-xl font-black text-white">Submit human review</p>
-            <div className="grid gap-4">
+          <Panel className="min-w-0 space-y-5 shadow-card-float">
+            <p className="text-xl font-semibold tracking-tight text-ink pb-3 border-b border-hairline">Submit human review</p>
+            <div className="grid gap-5">
               <div className="space-y-2">
                 <p className="label-caps">Decision</p>
                 <Select value={reviewAction} onChange={(event) => setReviewAction(event.target.value)}>
@@ -568,86 +593,55 @@ export function AiReviewPage() {
                   <option value="requested_reextraction">Re-extraction</option>
                 </Select>
               </div>
-              {/* <div className="space-y-2">
-                <p className="label-caps">Field corrections JSON</p>
-                <Textarea
-                  placeholder='Optional JSON object, e.g. {"priority_level":"high"}'
-                  value={correctionsText}
-                  onChange={(event) => setCorrectionsText(event.target.value)}
-                />
-              </div>
               <div className="space-y-2">
-                <p className="label-caps">Approved fields JSON</p>
+                <p className="label-caps">Reviewer Notes</p>
                 <Textarea
-                  placeholder="Optional approved field object"
-                  value={approvedFieldsText}
-                  onChange={(event) => setApprovedFieldsText(event.target.value)}
-                />
-              </div> */}
-              <div className="space-y-2">
-                <p className="label-caps">Reviewer notes</p>
-                <Textarea
-                  placeholder="Reviewer notes"
+                  placeholder="Additional context or reasoning…"
                   value={reviewNotes}
                   onChange={(event) => setReviewNotes(event.target.value)}
                 />
               </div>
-              <Button
-                className="w-full sm:w-fit"
-                disabled={submitReviewMutation.isPending}
-                onClick={() => void submitReviewMutation.mutate()}
-              >
-                {submitReviewMutation.isPending ? "Submitting..." : "Submit human review"}
-              </Button>
-              {reviewPackage.sourceSurveyId ? (
-                <Link
-                  className="action-button-secondary w-full justify-center sm:w-fit"
-                  to={`/matching?surveyId=${reviewPackage.sourceSurveyId}`}
+              <div className="flex flex-col sm:flex-row gap-3 pt-3">
+                <Button
+                  className="w-full sm:flex-1"
+                  disabled={submitReviewMutation.isPending}
+                  onClick={() => void submitReviewMutation.mutate()}
                 >
-                  Open matching
-                </Link>
-              ) : null}
+                  {submitReviewMutation.isPending ? "Submitting…" : "Submit Review"}
+                </Button>
+                {reviewPackage.sourceSurveyId ? (
+                  <Link
+                    className="action-button-secondary w-full sm:flex-1 text-center"
+                    to={`/matching?surveyId=${reviewPackage.sourceSurveyId}`}
+                  >
+                    Open Matching
+                  </Link>
+                ) : null}
+              </div>
             </div>
           </Panel>
 
-          {/* <Panel className="min-w-0 space-y-4 overflow-hidden">
-            <p className="text-xl font-black text-white">Draft form generation</p>
-            <div className="space-y-2">
-              <p className="label-caps">Form template name</p>
-              <Input
-                placeholder="Optional form template name"
-                value={formName}
-                onChange={(event) => setFormName(event.target.value)}
-              />
-            </div>
-            <Button
-              disabled={createFormMutation.isPending}
-              onClick={() => void createFormMutation.mutate()}
-              variant="secondary"
-            >
-              {createFormMutation.isPending ? "Creating..." : "Create draft form"}
-            </Button>
-          </Panel> */}
-
-          <Panel className="min-w-0 space-y-4 overflow-hidden">
-            <p className="text-xl font-black text-white">Review history</p>
+          <Panel className="min-w-0 space-y-4">
+            <p className="text-lg font-semibold tracking-tight text-ink pb-2 border-b border-hairline">Review history</p>
             {reviewPackage.humanReviews.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">No human reviews have been submitted yet.</p>
+              <p className="text-sm text-mute italic">No human reviews have been submitted yet.</p>
             ) : (
-              reviewPackage.humanReviews.map((review, index) => (
-                <div
-                  className="rounded-md border border-outline-variant bg-surface-container-low p-4"
-                  key={`${review.reviewed_at as string}-${index}`}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="font-semibold text-white">{String(review.review_action)}</p>
-                    <p className="text-xs text-on-surface-variant">{formatDateTime(String(review.reviewed_at ?? ""))}</p>
+              <div className="space-y-3">
+                {reviewPackage.humanReviews.map((review, index) => (
+                  <div
+                    className="rounded-md border border-hairline bg-canvas-soft-2 p-4"
+                    key={`${review.reviewed_at as string}-${index}`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="font-semibold text-ink text-sm capitalize">{String(review.review_action)}</p>
+                      <p className="text-[11px] font-mono text-mute">{formatDateTime(String(review.reviewed_at ?? ""))}</p>
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-body break-words">
+                      {String(review.review_notes ?? "No reviewer note")}
+                    </p>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-6 text-on-surface-variant">
-                    {String(review.review_notes ?? "No reviewer note")}
-                  </p>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </Panel>
         </div>

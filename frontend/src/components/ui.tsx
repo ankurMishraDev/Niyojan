@@ -14,7 +14,7 @@ export function Panel({
 }: PropsWithChildren<{
   className?: string;
 }>) {
-  return <section className={cn("panel p-4", className)}>{children}</section>;
+  return <section className={cn("panel p-6", className)}>{children}</section>;
 }
 
 export function PageHeader({
@@ -29,12 +29,12 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-      <div className="space-y-1.5">
-        {eyebrow ? <p className="label-caps text-primary">{eyebrow}</p> : null}
-        <h1 className="text-2xl font-black text-white">{title}</h1>
+    <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-8">
+      <div className="space-y-2">
+        {eyebrow ? <p className="label-caps text-mute">{eyebrow}</p> : null}
+        <h1 className="text-3xl font-semibold tracking-tight text-ink">{title}</h1>
         {description ? (
-          <p className="max-w-3xl text-[13px] leading-5 text-on-surface-variant">{description}</p>
+          <p className="max-w-2xl text-[15px] leading-relaxed text-body">{description}</p>
         ) : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-3">{actions}</div> : null}
@@ -55,8 +55,8 @@ export function Button({
         "action-button disabled:cursor-not-allowed disabled:opacity-50",
         variant === "primary" && "action-button-primary",
         variant === "secondary" && "action-button-secondary",
-        variant === "ghost" && "border-transparent bg-transparent text-on-surface-variant hover:text-white",
-        variant === "danger" && "border-danger/70 bg-danger/15 text-danger hover:bg-danger/20",
+        variant === "ghost" && "border-transparent bg-transparent text-body hover:text-ink hover:bg-canvas-soft-2 rounded-sm",
+        variant === "danger" && "action-button rounded-pill border border-danger/20 bg-danger/10 text-danger hover:bg-danger/20",
         className,
       )}
       {...props}
@@ -69,27 +69,29 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
 }
 
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn("field-control", className)} {...props} />;
+  return <select className={cn("field-control bg-canvas", className)} {...props} />;
 }
 
 export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn("field-control min-h-[120px]", className)} {...props} />;
+  return <textarea className={cn("field-control min-h-[120px] resize-y", className)} {...props} />;
 }
 
 export function StatusBadge({
   tone = "default",
   children,
 }: PropsWithChildren<{
-  tone?: "default" | "success" | "warning" | "danger";
+  tone?: "default" | "success" | "warning" | "danger" | "cyan" | "violet";
 }>) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-sm px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em]",
-        tone === "default" && "bg-surface-container-high text-on-surface-variant",
-        tone === "success" && "bg-success/20 text-primary",
-        tone === "warning" && "bg-warning/20 text-warning",
-        tone === "danger" && "bg-danger/20 text-danger",
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium tracking-wide",
+        tone === "default" && "bg-canvas-soft-2 text-body border border-hairline",
+        tone === "success" && "bg-link-bg-soft/50 text-link border border-link/20",
+        tone === "warning" && "bg-warning/10 text-warning-deep border border-warning/20",
+        tone === "danger" && "bg-danger/10 text-danger border border-danger/20",
+        tone === "cyan" && "bg-cyan/10 text-cyan-deep border border-cyan/20",
+        tone === "violet" && "bg-violet/10 text-violet-deep border border-violet/20"
       )}
     >
       {children}
@@ -107,11 +109,11 @@ export function MetricCard({
   accent?: ReactNode;
 }) {
   return (
-    <Panel className="space-y-2">
+    <Panel className="space-y-4">
       <p className="label-caps">{label}</p>
       <div className="flex items-end justify-between gap-3">
-        <div className="text-3xl font-black text-white">{value}</div>
-        {accent ? <div className="text-sm font-semibold text-primary">{accent}</div> : null}
+        <div className="text-4xl font-semibold tracking-tight text-ink">{value}</div>
+        {accent ? <div className="text-sm font-medium text-body">{accent}</div> : null}
       </div>
     </Panel>
   );
@@ -127,20 +129,20 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <Panel className="flex min-h-[150px] flex-col items-center justify-center gap-3 text-center">
-      <p className="text-xl font-bold text-white">{title}</p>
-      <p className="max-w-lg text-sm text-on-surface-variant">{description}</p>
+    <Panel className="flex min-h-[200px] flex-col items-center justify-center gap-4 text-center bg-canvas-soft">
+      <p className="text-lg font-semibold text-ink">{title}</p>
+      <p className="max-w-md text-sm text-body leading-relaxed">{description}</p>
       {action}
     </Panel>
   );
 }
 
-export function LoaderBlock({ label = "Loading..." }: { label?: string }) {
+export function LoaderBlock({ label = "Loading…" }: { label?: string }) {
   return (
-    <Panel className="flex min-h-[120px] items-center justify-center">
-      <div className="space-y-3 text-center">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-outline-variant border-t-primary" />
-        <p className="text-sm text-on-surface-variant">{label}</p>
+    <Panel className="flex min-h-[160px] items-center justify-center">
+      <div className="space-y-4 text-center flex flex-col items-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-hairline border-t-ink" />
+        <p className="text-sm font-medium text-mute animate-pulse">{label}</p>
       </div>
     </Panel>
   );
@@ -154,10 +156,10 @@ export function InlineError({
   onRetry?: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-danger/50 bg-danger/10 px-3 py-2 text-xs text-danger">
+    <div className="flex items-center justify-between gap-3 rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
       <span>{message}</span>
       {onRetry ? (
-        <button className="font-bold uppercase tracking-[0.14em] text-danger" onClick={onRetry} type="button">
+        <button className="font-semibold text-danger hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-danger rounded" onClick={onRetry} type="button">
           Retry
         </button>
       ) : null}

@@ -274,60 +274,67 @@ export function HelpPage() {
   const guide = guides[user.role];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
         eyebrow={guide.eyebrow}
         title={guide.title}
         description={guide.description}
       />
 
-      <Panel className="space-y-4">
+      <Panel className="space-y-5 bg-canvas-soft border-hairline-strong">
         <div>
-          <p className="label-caps text-primary">Quick Start</p>
-          <h2 className="mt-2 text-xl font-black text-white">How to use this panel</h2>
+          <p className="label-caps mb-2 text-primary">Quick Start</p>
+          <h2 className="text-2xl font-semibold tracking-tight text-ink">How to use this panel</h2>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 pt-2">
           {guide.quickStart.map((step, index) => (
-            <div className="rounded-md border border-outline-variant bg-surface-container-low p-4" key={step}>
-              <p className="label-caps">Step {index + 1}</p>
-              <p className="mt-2 text-sm leading-6 text-on-surface-variant">{step}</p>
+            <div className="rounded-md border border-hairline bg-canvas p-5 shadow-sm" key={step}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-6 h-6 rounded-full bg-canvas-soft-2 flex items-center justify-center text-xs font-mono font-medium text-mute">
+                  {index + 1}
+                </div>
+                <p className="label-caps">Step</p>
+              </div>
+              <p className="text-sm leading-relaxed text-body">{step}</p>
             </div>
           ))}
         </div>
       </Panel>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2 pt-6">
         {guide.sections.map((section) => (
-          <Panel className="space-y-4" key={section.title}>
-            <div>
-              <p className="label-caps text-primary">{section.label}</p>
-              <h2 className="mt-2 text-xl font-black text-white">{section.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-on-surface-variant">{section.description}</p>
+          <Panel className="flex flex-col h-full shadow-card-soft" key={section.title}>
+            <div className="mb-5">
+              <p className="label-caps mb-1.5">{section.label}</p>
+              <h2 className="text-xl font-semibold tracking-tight text-ink">{section.title}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-body">{section.description}</p>
             </div>
-            <div className="space-y-2">
+            
+            <div className="space-y-3 mb-6 flex-1">
               {section.steps.map((step, index) => (
-                <div className="rounded-md border border-outline-variant bg-surface-container-low px-3 py-3" key={step}>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-on-surface-variant">Action {index + 1}</p>
-                  <p className="mt-2 text-sm leading-6 text-white">{step}</p>
+                <div className="rounded-md border border-hairline bg-canvas-soft px-4 py-3" key={step}>
+                  <p className="text-[10px] font-mono font-medium text-mute mb-1.5 uppercase">Action {index + 1}</p>
+                  <p className="text-sm leading-relaxed text-ink">{step}</p>
                 </div>
               ))}
             </div>
-            <Link className="action-button-secondary inline-flex" to={section.to}>
+            
+            <Link className="action-button-secondary w-full text-center mt-auto text-sm" to={section.to}>
               Open {section.label}
             </Link>
           </Panel>
         ))}
       </div>
 
-      <Panel className="space-y-4">
+      <Panel className="space-y-5 mt-6 border-warning/30 bg-warning/5">
         <div>
-          <p className="label-caps text-primary">Operational Tips</p>
-          <h2 className="mt-2 text-xl font-black text-white">Keep the workflow smooth</h2>
+          <p className="label-caps mb-2 text-warning-deep">Operational Tips</p>
+          <h2 className="text-xl font-semibold tracking-tight text-ink">Keep the workflow smooth</h2>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {guide.tips.map((tip) => (
-            <div className="rounded-md border border-outline-variant bg-surface-container-low p-4" key={tip}>
-              <p className="text-sm leading-6 text-on-surface-variant">{tip}</p>
+            <div className="rounded-md border border-hairline bg-canvas p-4 shadow-sm" key={tip}>
+              <p className="text-sm leading-relaxed text-body">{tip}</p>
             </div>
           ))}
         </div>

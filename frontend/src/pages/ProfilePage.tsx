@@ -6,145 +6,62 @@ export function ProfilePage() {
   const { user } = useAuth();
 
   if (!user) {
-    return <LoaderBlock label="Loading profile..." />;
+    return (
+      <div className="max-w-3xl mx-auto py-12 px-4">
+        <LoaderBlock label="Loading profile…" />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-3xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
         eyebrow="Identity"
         title="Profile"
       />
 
-      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <Panel className="space-y-4">
-          <p className="label-caps">Current User</p>
-          <div className="space-y-3 text-sm">
-            <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-on-surface-variant">Name</p>
-              <p className="mt-1 text-lg font-bold text-white">{user.name}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-on-surface-variant">Email</p>
-              <p className="mt-1">{user.email}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-on-surface-variant">Role</p>
-              <p className="mt-1">{user.role}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-on-surface-variant">Organization</p>
-              <p className="mt-1">{user.orgId ?? "Platform scope"}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-on-surface-variant">Created</p>
-              <p className="mt-1">{formatDateTime(user.createdAt)}</p>
-            </div>
-          </div>
-        </Panel>
+      <Panel className="space-y-6">
+        <div>
+          <p className="text-xl font-semibold tracking-tight text-ink">Current User Details</p>
+          <p className="mt-1 text-sm text-body">
+            Verify the active account identity and role configuration.
+          </p>
+        </div>
 
-        {/* <Panel className="space-y-4">
-          <p className="label-caps">Volunteer Operations Profile</p>
-          {!volunteerQuery.data ? (
-            <p className="text-sm text-on-surface-variant">
-              No linked volunteer record was found for the current user. Identity editing remains deferred until the backend exposes a general profile update route.
+        <div className="grid gap-6 sm:grid-cols-2 pt-4 border-t border-hairline">
+          <div className="space-y-1">
+            <p className="label-caps">Name</p>
+            <p className="text-lg font-medium text-ink">{user.name}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="label-caps">Email</p>
+            <p className="text-sm font-medium text-body">{user.email}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="label-caps">Role</p>
+            <p className="text-sm font-medium text-body capitalize">{user.role.replace('_', ' ')}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="label-caps">Organization Scope</p>
+            <p className="text-sm font-medium text-body">
+              {user.organizationName ? user.organizationName : (user.orgId ?? "Platform scope")}
             </p>
-          ) : (
-            <form
-              className="grid gap-4 md:grid-cols-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const formData = new FormData(event.currentTarget);
-                updateMutation.mutate({
-                  availability_status: formData.get("availability_status"),
-                  location_text: formData.get("location_text"),
-                  latitude: formData.get("latitude")
-                    ? Number(formData.get("latitude"))
-                    : null,
-                  longitude: formData.get("longitude")
-                    ? Number(formData.get("longitude"))
-                    : null,
-                  gender: formData.get("gender"),
-                  age: formData.get("age") ? Number(formData.get("age")) : null,
-                  phone_number: formData.get("phone_number"),
-                  profession: formData.get("profession"),
-                  primary_domain: formData.get("primary_domain"),
-                  profile_summary: formData.get("profile_summary"),
-                  is_active: formData.get("is_active") === "true",
-                });
-              }}
-            >
-              <Select
-                defaultValue={volunteerQuery.data.availabilityStatus}
-                name="availability_status"
-              >
-                <option value="available">available</option>
-                <option value="part_time">part_time</option>
-                <option value="busy">busy</option>
-              </Select>
-              <Select defaultValue={String(volunteerQuery.data.isActive)} name="is_active">
-                <option value="true">active</option>
-                <option value="false">inactive</option>
-              </Select>
-              <Select defaultValue={volunteerQuery.data.gender ?? "prefer_not_to_say"} name="gender">
-                <option value="male">male</option>
-                <option value="female">female</option>
-                <option value="other">other</option>
-                <option value="prefer_not_to_say">prefer_not_to_say</option>
-              </Select>
-              <Input
-                defaultValue={volunteerQuery.data.age ?? ""}
-                name="age"
-                placeholder="Age"
-                type="number"
-              />
-              <Input
-                defaultValue={volunteerQuery.data.phoneNumber ?? ""}
-                name="phone_number"
-                placeholder="Phone number"
-              />
-              <Input
-                defaultValue={volunteerQuery.data.profession ?? ""}
-                name="profession"
-                placeholder="Profession"
-              />
-              <Input
-                defaultValue={volunteerQuery.data.primaryDomain ?? ""}
-                name="primary_domain"
-                placeholder="Primary domain"
-              />
-              <Input
-                defaultValue={volunteerQuery.data.locationText ?? ""}
-                name="location_text"
-                placeholder="Location text"
-              />
-              <Input
-                defaultValue={volunteerQuery.data.latitude ?? ""}
-                name="latitude"
-                placeholder="Latitude"
-                type="number"
-              />
-              <Input
-                defaultValue={volunteerQuery.data.longitude ?? ""}
-                name="longitude"
-                placeholder="Longitude"
-                type="number"
-              />
-              <Textarea
-                className="md:col-span-2"
-                defaultValue={volunteerQuery.data.profileSummary ?? ""}
-                name="profile_summary"
-                placeholder="Professional summary"
-              />
-              <div className="md:col-span-2">
-                <Button disabled={updateMutation.isPending} type="submit">
-                  {updateMutation.isPending ? "Saving..." : "Save Volunteer Profile"}
-                </Button>
-              </div>
-            </form>
-          )}
-        </Panel> */}
-      </div>
+          </div>
+          <div className="space-y-1 sm:col-span-2 pt-4 border-t border-hairline">
+            <p className="label-caps">Account Created</p>
+            <p className="text-sm font-medium text-body">{formatDateTime(user.createdAt)}</p>
+          </div>
+        </div>
+
+        {user.role === 'volunteer' && (
+          <div className="mt-8 pt-6 border-t border-hairline border-dashed">
+            <p className="label-caps text-primary mb-3">Volunteer Operations Profile</p>
+            <p className="text-sm text-body leading-relaxed bg-canvas-soft-2 p-4 rounded-md border border-hairline">
+              Your detailed volunteer profile and availability settings are managed through your initial onboarding. Identity editing is currently deferred to platform administrators. If you need to change your availability, please contact your coordinator.
+            </p>
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

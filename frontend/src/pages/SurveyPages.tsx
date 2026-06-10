@@ -557,11 +557,15 @@ export function SurveyNewPage() {
   });
 
   if (templatesQuery.isLoading) {
-    return <LoaderBlock label="Loading survey templates..." />;
+    return (
+      <div className="max-w-4xl mx-auto py-12 px-4">
+        <LoaderBlock label="Loading survey templates…" />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
         eyebrow="Field Workflow"
         title="Create survey draft"
@@ -569,27 +573,28 @@ export function SurveyNewPage() {
       />
 
       {creationFeedback ? (
-        <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm">
+        <div className="rounded-md border border-hairline-strong bg-canvas px-4 py-3 text-sm shadow-sm text-ink">
           {creationFeedback}
         </div>
       ) : null}
 
-      <Panel className="max-w-3xl space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <Panel className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-hairline">
           <div>
-            <p className="text-lg font-black text-white">Blank draft</p>
-            <p className="text-sm text-on-surface-variant">
+            <p className="text-xl font-semibold tracking-tight text-ink">Blank Draft</p>
+            <p className="mt-1 text-sm text-body">
               Start with an empty survey draft and fill it manually.
             </p>
           </div>
           <Button
+            className="w-full sm:w-auto shrink-0"
             disabled={!versionId || createFromFilledFormMutation.isPending}
             onClick={() => filledFormInputRef.current?.click()}
             type="button"
             variant="secondary"
           >
             {createFromFilledFormMutation.isPending
-              ? "Extracting..."
+              ? "Extracting…"
               : "Create From Filled Form"}
           </Button>
           <input
@@ -608,30 +613,38 @@ export function SurveyNewPage() {
           />
         </div>
 
-        <Select
-          value={templateId}
-          onChange={(event) => setTemplateId(event.target.value)}
-        >
-          {templatesQuery.data?.items.map((template) => (
-            <option key={template.id} value={template.id}>
-              {template.name}
-            </option>
-          ))}
-        </Select>
-        <Select
-          value={versionId}
-          onChange={(event) => setVersionId(event.target.value)}
-        >
-          {versionsQuery.data?.map((version) => (
-            <option key={version.id} value={version.id}>
-              Version {version.versionNo}{" "}
-              {version.isPublished ? "(published)" : ""}
-            </option>
-          ))}
-        </Select>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-body px-1">Template</label>
+            <Select
+              value={templateId}
+              onChange={(event) => setTemplateId(event.target.value)}
+            >
+              {templatesQuery.data?.items.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-body px-1">Version</label>
+            <Select
+              value={versionId}
+              onChange={(event) => setVersionId(event.target.value)}
+            >
+              {versionsQuery.data?.map((version) => (
+                <option key={version.id} value={version.id}>
+                  Version {version.versionNo}{" "}
+                  {version.isPublished ? "(published)" : ""}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
 
         <form
-          className="grid gap-4 md:grid-cols-2"
+          className="grid gap-4 sm:grid-cols-2 pt-2"
           onSubmit={(event) => {
             event.preventDefault();
             const formData = new FormData(event.currentTarget);
@@ -648,18 +661,31 @@ export function SurveyNewPage() {
             });
           }}
         >
-          <Input name="respondent_name" placeholder="Respondent / site name" />
-          <Input name="location_text" placeholder="Location text" />
-          <Input name="latitude" placeholder="Latitude" type="number" />
-          <Input name="longitude" placeholder="Longitude" type="number" />
-          <div className="md:col-span-2">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-body px-1">Respondent / Site Name</label>
+            <Input name="respondent_name" placeholder="John Doe / Camp A" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-body px-1">Location Text</label>
+            <Input name="location_text" placeholder="Village, District" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-body px-1">Latitude (Optional)</label>
+            <Input name="latitude" placeholder="e.g. 12.3456" type="number" step="any" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-body px-1">Longitude (Optional)</label>
+            <Input name="longitude" placeholder="e.g. 78.9101" type="number" step="any" />
+          </div>
+          <div className="sm:col-span-2 pt-4 border-t border-hairline mt-2">
             <Button
+              className="w-full sm:w-auto"
               disabled={!versionId || createSurveyMutation.isPending}
               type="submit"
             >
               {createSurveyMutation.isPending
-                ? "Creating..."
-                : "Create survey draft"}
+                ? "Creating…"
+                : "Create Survey Draft"}
             </Button>
           </div>
         </form>
@@ -743,7 +769,7 @@ export function SurveyDetailPage() {
     mutationFn: async (file: File) => uploadAndExtractDocument(file, setAnalysisFeedback, surveyId),
     onSuccess: (documentItem) => {
       setAnalysisFeedback(
-        "Data extracted successfully! Mapping to survey fields...",
+        "Data extracted successfully! Mapping to survey fields…",
       );
       const extractionResult =
         (documentItem as any).extractionResult ||
@@ -825,7 +851,7 @@ export function SurveyDetailPage() {
           .filter((response): response is NonNullable<typeof response> => Boolean(response)),
       }),
     onSuccess: async () => {
-      setAnalysisFeedback("Survey submitted.");
+      setAnalysisFeedback("Survey submitted successfully.");
       await surveyQuery.refetch();
     },
     onError: (error) => {
@@ -834,14 +860,22 @@ export function SurveyDetailPage() {
   });
 
   if (surveyQuery.isLoading || versionQuery.isLoading) {
-    return <LoaderBlock label="Loading survey payload..." />;
+    return (
+      <div className="max-w-7xl mx-auto py-12 px-4">
+        <LoaderBlock label="Loading survey payload…" />
+      </div>
+    );
   }
 
   const survey = surveyQuery.data;
   const version = versionQuery.data;
 
   if (!survey || !version) {
-    return <LoaderBlock label="Survey detail could not be loaded." />;
+    return (
+      <div className="max-w-7xl mx-auto py-12 px-4">
+        <LoaderBlock label="Survey detail could not be loaded." />
+      </div>
+    );
   }
 
   const attentionByFieldId = new Map(
@@ -849,41 +883,41 @@ export function SurveyDetailPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto py-8 px-4 sm:px-6 relative">
       {showExtractionAttentionCard && extractionAttentionItems.length > 0 ? (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/70 p-4 sm:items-center">
-          <Panel className="w-full max-w-2xl space-y-4 border border-warning/30 bg-surface-container">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 backdrop-blur-sm p-4">
+          <Panel className="w-full max-w-2xl space-y-4 border border-warning/30 bg-canvas shadow-modal animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-hairline">
               <div>
-                <p className="text-xl font-black text-white">Fields to verify before submission</p>
-                <p className="mt-1 text-sm text-on-surface-variant">
-                  These fields were either extracted with lower confidence or still need a manual value.
+                <p className="text-xl font-semibold tracking-tight text-ink">Fields to verify</p>
+                <p className="mt-1 text-sm text-body">
+                  These fields were either extracted with lower confidence or need a manual value.
                 </p>
               </div>
-              <StatusBadge tone="warning">{extractionAttentionItems.length} field(s) need attention</StatusBadge>
+              <StatusBadge tone="warning">{extractionAttentionItems.length} field(s)</StatusBadge>
             </div>
 
-            <div className="max-h-[50vh] space-y-3 overflow-auto pr-1">
+            <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-2">
               {extractionAttentionItems.map((item) => (
-                <div className="rounded-md border border-warning/30 bg-warning/10 px-4 py-3" key={item.fieldId}>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="font-semibold text-white">{item.label}</p>
+                <div className="rounded-md border border-warning/30 bg-warning/5 px-4 py-3" key={item.fieldId}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <p className="font-semibold text-ink text-sm">{item.label}</p>
                     <StatusBadge tone={toneForConfidence(item.confidence)}>
                       {item.confidence === null ? "Confidence unavailable" : `AI confidence ${formatPercent(item.confidence)}`}
                     </StatusBadge>
                   </div>
-                  <p className="mt-2 text-sm text-warning">{item.reason}</p>
-                  <p className="mt-2 text-xs text-on-surface-variant">Current value: {item.value}</p>
+                  <p className="mt-2 text-sm text-warning-deep">{item.reason}</p>
+                  <p className="mt-2 text-xs font-mono text-mute">Current value: {item.value}</p>
                   {item.sourceLabel ? (
-                    <p className="mt-1 text-xs text-on-surface-variant">Matched from: {item.sourceLabel}</p>
+                    <p className="mt-1 text-xs font-mono text-mute">Matched from: {item.sourceLabel}</p>
                   ) : null}
                 </div>
               ))}
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-3 border-t border-hairline">
               <Button onClick={() => setShowExtractionAttentionCard(false)} type="button" variant="secondary">
-                Review fields
+                Review Fields
               </Button>
             </div>
           </Panel>
@@ -895,13 +929,14 @@ export function SurveyDetailPage() {
         title={version.templateName ?? "Survey Detail"}
         description="Dynamic survey rendering powered by the current form template version."
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 w-full sm:w-auto">
             <Button
+              className="flex-1 sm:flex-none"
               disabled={scanDocumentMutation.isPending}
               onClick={() => fileInputRef.current?.click()}
               variant="secondary"
             >
-              Scan Data from Image
+              Scan Image Data
             </Button>
             <input
               title="image"
@@ -912,81 +947,66 @@ export function SurveyDetailPage() {
               onChange={onFileChange}
             />
             <Button
-              disabled={submitMutation.isPending}
+              className="flex-1 sm:flex-none"
+              disabled={submitMutation.isPending || survey.status !== "draft"}
               onClick={() => void submitMutation.mutate()}
             >
-              {submitMutation.isPending ? "Submitting..." : "Submit survey"}
+              {submitMutation.isPending ? "Submitting…" : survey.status === "draft" ? "Submit Survey" : "Already Submitted"}
             </Button>
-            {/* <Button
-              disabled={survey.status === "draft" || analyzeMutation.isPending}
-              onClick={() => void analyzeMutation.mutate()}
-              variant="secondary"
-            >
-              {analyzeMutation.isPending ? "Analyzing..." : "Analyze needs"}
-            </Button> */}
           </div>
         }
       />
 
       {analysisFeedback ? (
-        <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm">
+        <div className="rounded-md border border-hairline-strong bg-canvas px-4 py-3 text-sm text-ink shadow-sm">
           {analysisFeedback}
         </div>
       ) : null}
 
-      <div className="grid gap-6 ">
-        <Panel className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <InfoCard
-              label="Respondent"
-              value={survey.respondentName ?? "Not set"}
-            />
-            <InfoCard
-              label="Location"
-              value={survey.locationText ?? "Not set"}
-            />
-            <InfoCard label="Status" value={survey.status} />
-            <InfoCard
-              label="Coordinates"
-              value={`${survey.latitude ?? "-"}, ${survey.longitude ?? "-"}`}
-            />
-          </div>
+      <Panel className="space-y-6">
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+          <InfoCard
+            label="Respondent"
+            value={survey.respondentName ?? "Not set"}
+          />
+          <InfoCard
+            label="Location"
+            value={survey.locationText ?? "Not set"}
+          />
+          <InfoCard label="Status" value={survey.status} />
+          <InfoCard
+            label="Coordinates"
+            value={`${survey.latitude ?? "—"}, ${survey.longitude ?? "—"}`}
+          />
+        </div>
 
-          <div className="space-y-4">
-            {version.fields?.map((field) => {
-              const extractionMeta = fieldExtractionMeta[field.id];
-              const attentionItem = attentionByFieldId.get(field.id);
+        <div className="space-y-5 pt-4 border-t border-hairline">
+          {version.fields?.map((field) => {
+            const extractionMeta = fieldExtractionMeta[field.id];
+            const attentionItem = attentionByFieldId.get(field.id);
 
-              return (
-                <div
-                  className={`rounded-md border px-4 py-4 ${
-                    attentionItem
-                      ? "border-warning/40 bg-warning/5"
-                      : "border-outline-variant/60 bg-surface-container-low/30"
-                  }`}
-                  key={field.id}
-                >
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-white">
-                      {field.label} {field.isRequired ? "*" : ""}
-                    </p>
-                    {extractionMeta ? (
-                      <StatusBadge tone={toneForConfidence(extractionMeta.confidence)}>
-                        {extractionMeta.confidence === null
-                          ? "Confidence unavailable"
-                          : `AI confidence ${formatPercent(extractionMeta.confidence)}`}
-                      </StatusBadge>
-                    ) : null}
-                  </div>
+            return (
+              <div
+                className={`rounded-md border px-5 py-4 transition-colors ${
+                  attentionItem
+                    ? "border-warning/40 bg-warning/5 shadow-sm"
+                    : "border-hairline bg-canvas hover:border-hairline-strong"
+                }`}
+                key={field.id}
+              >
+                <div className="mb-3 flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                  <label className="text-sm font-semibold text-ink">
+                    {field.label} {field.isRequired ? <span className="text-danger">*</span> : ""}
+                  </label>
                   {extractionMeta ? (
-                    <p className="mb-3 text-xs text-on-surface-variant">
-                      Extracted value: {extractionMeta.extractedValue}
-                      {extractionMeta.sourceLabel ? ` | Source label: ${extractionMeta.sourceLabel}` : ""}
-                    </p>
+                    <StatusBadge tone={toneForConfidence(extractionMeta.confidence)}>
+                      {extractionMeta.confidence === null
+                        ? "Confidence unavailable"
+                        : `AI confidence ${formatPercent(extractionMeta.confidence)}`}
+                    </StatusBadge>
                   ) : null}
-                  {attentionItem ? (
-                    <p className="mb-3 text-xs font-medium text-warning">{attentionItem.reason}</p>
-                  ) : null}
+                </div>
+
                 <DynamicFieldInput
                   field={field}
                   value={draft[field.id]}
@@ -1002,30 +1022,36 @@ export function SurveyDetailPage() {
                     }))
                   }
                 />
-                </div>
-              );
-            })}
-          </div>
-        </Panel>
 
-        {/* <Panel className="space-y-4">
-          <p className="text-xl font-black text-white">
-            Response payload preview
-          </p>
-          <pre className="max-h-[780px] overflow-auto rounded-md border border-outline-variant bg-surface-container-lowest p-4 text-xs leading-6 text-on-surface-variant">
-            {JSON.stringify(draft, null, 2)}
-          </pre>
-        </Panel> */}
-      </div>
+                {extractionMeta ? (
+                  <p className="mt-3 text-[11px] font-mono text-mute">
+                    Extracted: {extractionMeta.extractedValue}
+                    {extractionMeta.sourceLabel ? ` • Source: ${extractionMeta.sourceLabel}` : ""}
+                  </p>
+                ) : null}
+                
+                {attentionItem ? (
+                  <p className="mt-2 text-xs font-medium text-warning-deep">{attentionItem.reason}</p>
+                ) : null}
+              </div>
+            );
+          })}
+          {version.fields?.length === 0 && (
+             <div className="py-12 text-center text-sm text-body border-2 border-dashed border-hairline rounded-md">
+             No fields defined for this template version.
+           </div>
+          )}
+        </div>
+      </Panel>
     </div>
   );
 }
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
-      <p className="label-caps">{label}</p>
-      <p className="mt-2 text-lg font-bold text-white">{value}</p>
+    <div className="rounded-md border border-hairline bg-canvas-soft p-4">
+      <p className="label-caps mb-1">{label}</p>
+      <p className="text-sm font-medium text-ink truncate" title={value}>{value}</p>
     </div>
   );
 }

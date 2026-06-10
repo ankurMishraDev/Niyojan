@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/features/auth/useAuth";
 import { cn } from "@/lib/cn";
@@ -10,6 +11,7 @@ const navItems: Array<{
   roles: AppRole[];
 }> = [
   { label: "Dashboard", href: "/dashboard", roles: ["superadmin", "ngo_admin", "field_worker"] },
+  { label: "Volunteer Dashboard", href: "/dashboard", roles: ["volunteer"] },
   { label: "Pipeline", href: "/pipeline", roles: ["superadmin"] },
   { label: "AI Review", href: "/ai-review", roles: ["superadmin"] },
   { label: "Form Builder", href: "/form-builder", roles: ["ngo_admin", "field_worker"] },
@@ -30,71 +32,123 @@ const helpPrompts: Record<AppRole, string> = {
 
 export function AppShell() {
   const { user, signOut } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
+
+  // Close mobile menu on navigation
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   return (
-    <div className="h-screen overflow-hidden bg-surface text-on-surface">
-      <div className="grid h-screen lg:grid-cols-[232px_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col border-b border-outline-variant bg-black/25 px-4 py-4 lg:border-b-0 lg:border-r">
-          <div className="panel-muted px-3 py-3">
-            <p className="text-2xl font-black text-white">NIYOJAN</p>
-            <p className="mt-1 text-xs text-on-surface-variant">
-              Smart Resource allocation 
-            </p>
+    <div className="h-[100dvh] overflow-hidden bg-canvas-soft text-ink font-sans flex flex-col md:flex-row">
+      {/* Mobile Top Bar */}
+      <div className="md:hidden flex items-center justify-between border-b border-hairline bg-canvas px-4 py-3 z-20 relative">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+            <span className="text-on-primary font-bold text-xs">N</span>
           </div>
-          <nav className="mt-4 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
-            {navItems
-              .filter((item) => (user ? item.roles.includes(user.role) : false))
-              .map((item) => (
-                <NavLink
-                  key={item.href}
-                  to={item.href}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center rounded-md border px-3 py-2 text-sm font-semibold transition",
-                      isActive
-                        ? "border-primary/70 bg-primary/10 text-primary"
-                        : "border-transparent text-on-surface-variant hover:border-outline-variant hover:bg-surface-container-low hover:text-white",
-                    )
-                  }
-                >
-                  {item.label}
-                </NavLink>
-              ))}
-          </nav>
-
-          <div className="space-y-3 pt-4">
-            <Button
-              className="w-full justify-center"
-              variant="primary"
-              onClick={() => void signOut()}
-            >
-              Sign Out
-            </Button>
-            {/* <div className="rounded-md border border-outline-variant bg-surface-container-low px-3 py-3">
-              <p className="text-sm font-semibold text-white">{user?.name}</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.16em] text-on-surface-variant">
-                {user?.role}
-              </p>
-              <p className="mt-3 text-xs text-on-surface-variant">{user?.email}</p>
-            </div> */}
-            {user ? (
-              <div className="rounded-md border border-outline-variant bg-surface-container-low px-3 py-3">
-                <p className="label-caps text-primary">Help</p>
-                <p className="mt-2 text-xs leading-5 text-on-surface-variant">{helpPrompts[user.role]}</p>
-                <NavLink className="action-button-secondary mt-3 flex w-full justify-center" to="/help">
-                  Open Guide
-                </NavLink>
-              </div>
-            ) : null}
-          </div>
-        </aside>
-
-        <div className="min-w-0 overflow-y-auto">
-          
-          <main className="px-4 py-4">
-            <Outlet />
-          </main>
+          <p className="text-lg font-bold tracking-tight">NIYOJAN</p>
         </div>
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 -mr-2 text-ink hover:bg-canvas-soft rounded-md transition-colors"
+          aria-label="Toggle menu"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            {isMobileMenuOpen ? (
+              <>
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </>
+            ) : (
+              <>
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+              </>
+            )}
+          </svg>
+        </button>
+      </div>
+
+      {/* Sidebar Overlay (Mobile) */}
+      {isMobileMenuOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-ink/20 backdrop-blur-sm z-10"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={cn(
+        "fixed md:static inset-y-0 left-0 w-[260px] md:w-[240px] lg:w-[260px] flex flex-col border-r border-hairline bg-canvas transition-transform duration-300 ease-in-out z-20",
+        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+      )}>
+        <div className="hidden md:flex flex-col px-5 py-6 border-b border-hairline bg-canvas">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center">
+              <span className="text-on-primary font-bold text-sm">N</span>
+            </div>
+            <p className="text-xl font-bold tracking-tight text-ink">NIYOJAN</p>
+          </div>
+          <p className="text-[11px] font-mono text-mute uppercase tracking-widest">
+            {user?.role.replace('_', ' ')}
+          </p>
+        </div>
+        
+        <div className="md:hidden flex flex-col px-5 py-6 border-b border-hairline bg-canvas mt-14">
+           <p className="text-[11px] font-mono text-mute uppercase tracking-widest">
+            {user?.role.replace('_', ' ')} Workspace
+          </p>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+          {navItems
+            .filter((item) => (user ? item.roles.includes(user.role) : false))
+            .map((item) => (
+              <NavLink
+                key={item.href}
+                to={item.href}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-all",
+                    isActive
+                      ? "bg-canvas-soft-2 text-ink font-semibold border border-hairline shadow-sm"
+                      : "text-body border border-transparent hover:bg-canvas-soft hover:text-ink",
+                  )
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+        </nav>
+
+        <div className="p-4 border-t border-hairline bg-canvas space-y-4">
+          {user ? (
+            <div className="rounded-md border border-hairline bg-canvas-soft p-3">
+              <p className="label-caps text-ink">Help Center</p>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-body">{helpPrompts[user.role]}</p>
+              <NavLink className="action-button-secondary w-full text-xs mt-3 py-1.5" to="/help">
+                Open Guide
+              </NavLink>
+            </div>
+          ) : null}
+          <Button
+            className="w-full text-sm py-2"
+            variant="ghost"
+            onClick={() => void signOut()}
+          >
+            Sign Out
+          </Button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <div className="flex-1 min-w-0 overflow-y-auto flex flex-col relative z-0">
+        <main className="flex-1 relative">
+          <Outlet />
+        </main>
       </div>
     </div>
   );

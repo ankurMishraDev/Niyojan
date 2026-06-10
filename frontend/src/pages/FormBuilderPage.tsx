@@ -191,7 +191,11 @@ export function FormBuilderPage() {
   };
 
   if (templatesQuery.isLoading) {
-    return <LoaderBlock label="Loading form builder..." />;
+    return (
+      <div className="max-w-7xl mx-auto py-12 px-4">
+        <LoaderBlock label="Loading form builder…" />
+      </div>
+    );
   }
 
   const renameTemplate = async () => {
@@ -248,7 +252,7 @@ export function FormBuilderPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-screen-2xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
         eyebrow="Form Builder"
         title="Template and field orchestration"
@@ -256,17 +260,18 @@ export function FormBuilderPage() {
       />
 
       {feedback ? (
-        <div className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3 text-sm">
+        <div className="rounded-md border border-hairline-strong bg-canvas px-4 py-3 text-sm text-ink shadow-sm">
           {feedback}
         </div>
       ) : null}
 
-      <div className="grid gap-2 2xl:grid-cols-[.8fr_1.2fr_0.6fr]">
-        <Panel className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xl font-black text-white">Templates</p>
-            <div className="flex flex-wrap gap-2 justify-end">
+      <div className="grid gap-6 lg:grid-cols-[1fr_2fr] xl:grid-cols-[300px_1fr_300px]">
+        <Panel className="space-y-5 flex flex-col max-h-[85vh] overflow-y-auto">
+          <div className="flex flex-col gap-3">
+            <p className="text-xl font-semibold tracking-tight text-ink">Templates</p>
+            <div className="flex flex-wrap gap-2">
               <Button
+                className="w-full text-xs py-1.5"
                 disabled={scanDocumentMutation.isPending}
                 onClick={() => fileInputRef.current?.click()}
                 variant="primary"
@@ -282,6 +287,7 @@ export function FormBuilderPage() {
                 onChange={onFileChange}
               />
               <Button
+                className="flex-1 text-xs py-1.5"
                 onClick={() => {
                   const name = prompt("Enter new template name:");
                   if (name) {
@@ -294,6 +300,7 @@ export function FormBuilderPage() {
                 New Template
               </Button>
               <Button
+                className="flex-1 text-xs py-1.5"
                 disabled={
                   !selectedTemplateId || createVersionMutation.isPending
                 }
@@ -302,30 +309,34 @@ export function FormBuilderPage() {
               >
                 New version
               </Button>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-1">
               <Button
+                className="flex-1 text-xs py-1.5"
                 disabled={!selectedTemplateId}
                 onClick={() => void renameTemplate()}
                 variant="secondary"
               >
-                Rename template
+                Rename
               </Button>
               <Button
+                className="flex-1 text-xs py-1.5"
                 disabled={!selectedTemplateId}
                 onClick={() => void deleteSelectedTemplate()}
                 variant="danger"
               >
-                Delete template
+                Delete
               </Button>
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {templatesQuery.data?.items.map((template) => (
               <button
-                className={`w-full rounded-md border px-4 py-3 text-left ${
+                className={`w-full rounded-md border px-4 py-3 text-left transition-all ${
                   selectedTemplateId === template.id
-                    ? "border-primary bg-primary/10"
-                    : "border-outline-variant bg-surface-container-low hover:border-primary/50"
+                    ? "border-ink bg-canvas-soft shadow-sm"
+                    : "border-hairline bg-canvas hover:bg-canvas-soft-2 hover:border-hairline-strong"
                 }`}
                 key={template.id}
                 onClick={() => {
@@ -336,12 +347,12 @@ export function FormBuilderPage() {
                 }}
                 type="button"
               >
-                <p className="font-semibold text-white">{template.name}</p>
+                <p className="font-semibold text-ink">{template.name}</p>
                 <div className="mt-2 flex items-center justify-between">
                   <StatusBadge tone={toneForStatus(template.status)}>
                     {template.status}
                   </StatusBadge>
-                  <span className="text-xs text-on-surface-variant">
+                  <span className="font-mono text-[10px] text-mute">
                     {template.id.slice(0, 8)}
                   </span>
                 </div>
@@ -349,10 +360,11 @@ export function FormBuilderPage() {
             ))}
           </div>
 
-          <div className="space-y-3 border-t border-outline-variant pt-4">
+          <div className="space-y-3 border-t border-hairline pt-5 mt-auto">
             <div className="flex items-center justify-between gap-3">
               <p className="label-caps">Versions</p>
               <Button
+                className="text-[10px] py-1 px-2"
                 disabled={!selectedVersionId}
                 onClick={() => void deleteSelectedVersion()}
                 variant="danger"
@@ -362,24 +374,24 @@ export function FormBuilderPage() {
             </div>
             {versionsQuery.data?.map((version) => (
               <button
-                className={`w-full rounded-md border px-4 py-3 text-left ${
+                className={`w-full rounded-md border px-4 py-3 text-left transition-all ${
                   selectedVersionId === version.id
-                    ? "border-primary bg-primary/10"
-                    : "border-outline-variant bg-surface-container-low hover:border-primary/50"
+                    ? "border-ink bg-canvas-soft shadow-sm"
+                    : "border-hairline bg-canvas hover:bg-canvas-soft-2 hover:border-hairline-strong"
                 }`}
                 key={version.id}
                 onClick={() => setSelectedVersionId(version.id)}
                 type="button"
               >
                 <div className="flex items-center justify-between">
-                  <p className="font-semibold text-white">
+                  <p className="font-semibold text-ink">
                     Version {version.versionNo}
                   </p>
                   {version.isPublished ? (
                     <StatusBadge tone="success">published</StatusBadge>
                   ) : null}
                 </div>
-                <p className="mt-2 text-xs text-on-surface-variant">
+                <p className="mt-2 text-[11px] font-mono text-mute">
                   {version.status}
                 </p>
               </button>
@@ -387,33 +399,30 @@ export function FormBuilderPage() {
           </div>
         </Panel>
 
-        <Panel className="space-y-4">
-          <div className="flex items-center justify-between">
+        <Panel className="space-y-6 flex flex-col lg:order-last xl:order-none max-h-[85vh] overflow-y-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <p className="text-xl font-black text-white">
+              <p className="text-2xl font-semibold tracking-tight text-ink">
                 {selectedVersion?.templateName ?? "Template version"}
               </p>
-              <p className="mt-1 text-sm text-on-surface-variant">
+              <p className="mt-1.5 text-sm text-body leading-relaxed max-w-lg">
                 Edit labels, required flags, and display ordering against the
                 live backend version.
               </p>
-              <p className="mt-2 text-xs text-on-surface-variant">
-                If extraction creates fields in the wrong sequence, adjust the
-                display order numbers below and save the affected rows.
-              </p>
             </div>
             <Button
+              className="w-full sm:w-auto shrink-0"
               disabled={!selectedVersionId || publishMutation.isPending}
               onClick={() => void publishMutation.mutate()}
             >
-              {publishMutation.isPending ? "Publishing..." : "Publish version"}
+              {publishMutation.isPending ? "Publishing…" : "Publish version"}
             </Button>
           </div>
 
           {!selectedVersion ? (
-            <p className="text-sm text-on-surface-variant">
+            <div className="flex-1 flex items-center justify-center border-2 border-dashed border-hairline rounded-lg p-10 text-center text-sm text-mute">
               Select a template version to begin editing.
-            </p>
+            </div>
           ) : (
             <div className="space-y-4">
               {orderedFields.map((field) => (
@@ -432,74 +441,89 @@ export function FormBuilderPage() {
                   }}
                 />
               ))}
+              {orderedFields.length === 0 && (
+                <div className="py-8 text-center text-body text-sm border-2 border-dashed border-hairline rounded-lg">
+                  No fields in this version yet. Add some from the catalog.
+                </div>
+              )}
             </div>
           )}
         </Panel>
 
-        <Panel className="space-y-4">
-          <p className="text-xl font-black text-white">Field catalog</p>
-          <Input
-            onChange={(event) => setCatalogSearch(event.target.value)}
-            placeholder="Search fields by name, key, or category"
-            value={catalogSearch}
-          />
+        <Panel className="space-y-5 max-h-[85vh] overflow-y-auto">
+          <p className="text-xl font-semibold tracking-tight text-ink">Field catalog</p>
+          <div className="space-y-3">
+            <Input
+              onChange={(event) => setCatalogSearch(event.target.value)}
+              placeholder="Search fields by name, key, or category"
+              value={catalogSearch}
+            />
 
-          <Select
-            value={selectedCatalogId}
-            onChange={(event) => setSelectedCatalogId(event.target.value)}
-          >
-            <option value="">Custom field</option>
-            {catalogQuery.data?.items.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name} ({item.inputType})
-              </option>
-            ))}
-          </Select>
-          {!selectedCatalogId ? (
-            <>
-              <Input
-                placeholder="Custom field label"
-                value={newFieldLabel}
-                onChange={(event) => setNewFieldLabel(event.target.value)}
-              />
-              <Select
-                value={newFieldType}
-                onChange={(event) => setNewFieldType(event.target.value)}
-              >
-                <option value="text">text</option>
-                <option value="number">number</option>
-                <option value="boolean">boolean</option>
-                <option value="textarea">textarea</option>
-                <option value="select">select</option>
-                <option value="multiselect">multiselect</option>
-                <option value="date">date</option>
-              </Select>
-            </>
-          ) : null}
-          <Button
-            disabled={
-              !selectedVersionId ||
-              addFieldMutation.isPending ||
-              (!selectedCatalogId && !newFieldLabel)
-            }
-            onClick={() => void addFieldMutation.mutate()}
-            variant="secondary"
-          >
-            {addFieldMutation.isPending ? "Adding..." : "Add to version"}
-          </Button>
+            <Select
+              value={selectedCatalogId}
+              onChange={(event) => setSelectedCatalogId(event.target.value)}
+            >
+              <option value="">Custom field (New)</option>
+              {catalogQuery.data?.items.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} ({item.inputType})
+                </option>
+              ))}
+            </Select>
+            {!selectedCatalogId ? (
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  className="col-span-2"
+                  placeholder="Custom field label"
+                  value={newFieldLabel}
+                  onChange={(event) => setNewFieldLabel(event.target.value)}
+                />
+                <Select
+                  className="col-span-2"
+                  value={newFieldType}
+                  onChange={(event) => setNewFieldType(event.target.value)}
+                >
+                  <option value="text">text</option>
+                  <option value="number">number</option>
+                  <option value="boolean">boolean</option>
+                  <option value="textarea">textarea</option>
+                  <option value="select">select</option>
+                  <option value="multiselect">multiselect</option>
+                  <option value="date">date</option>
+                </Select>
+              </div>
+            ) : null}
+            <Button
+              className="w-full"
+              disabled={
+                !selectedVersionId ||
+                addFieldMutation.isPending ||
+                (!selectedCatalogId && !newFieldLabel)
+              }
+              onClick={() => void addFieldMutation.mutate()}
+              variant="secondary"
+            >
+              {addFieldMutation.isPending ? "Adding…" : "Add to version"}
+            </Button>
+          </div>
 
-          <div className="space-y-3 border-t border-outline-variant pt-4">
+          <div className="space-y-3 border-t border-hairline pt-5">
+            <p className="label-caps mb-2">Available Catalog Fields</p>
             {catalogQuery.data?.items.map((item) => (
               <div
-                className="rounded-md border border-outline-variant bg-surface-container-low px-4 py-3"
+                className="rounded-md border border-hairline bg-canvas-soft-2 px-4 py-3 hover:border-hairline-strong transition-colors cursor-pointer"
                 key={item.id}
+                onClick={() => setSelectedCatalogId(item.id)}
               >
-                <p className="font-semibold text-white">{item.name}</p>
-                <p className="mt-1 text-xs text-on-surface-variant">
-                  {item.key} - {item.category} - {item.inputType}
+                <p className="font-medium text-ink text-sm">{item.name}</p>
+                <p className="mt-1 font-mono text-[10px] text-mute break-words">
+                  {item.key} • {item.category} • {item.inputType}
                 </p>
               </div>
             ))}
+            {catalogQuery.data?.items.length === 0 && (
+              <p className="text-xs text-mute text-center">No fields matched the search.</p>
+            )}
           </div>
         </Panel>
       </div>
@@ -537,20 +561,23 @@ function FieldEditorCard({
   }, [field.displayOrder, field.id, field.inputType, field.isRequired, field.label]);
 
   return (
-    <div className="rounded-md border border-outline-variant bg-surface-container-low p-4">
-      <div className="mb-3 grid gap-3 text-[11px] font-bold uppercase tracking-[0.12em] text-on-surface-variant md:grid-cols-[1.2fr_0.8fr_0.6fr_0.6fr_auto]">
-        <span>Label</span>
-        <span>Type</span>
-        <span>Order</span>
-        <span>Required</span>
-        <span>Actions</span>
+    <div className="rounded-md border border-hairline bg-canvas-soft px-4 py-5 shadow-sm group hover:border-hairline-strong transition-colors">
+      <div className="hidden sm:grid mb-2 gap-3 grid-cols-[2fr_1fr_1fr_1fr_auto]">
+        <span className="label-caps">Label</span>
+        <span className="label-caps">Type</span>
+        <span className="label-caps">Order</span>
+        <span className="label-caps">Required</span>
+        <span className="label-caps text-right">Actions</span>
       </div>
-      <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.6fr_0.6fr_auto]">
+      <div className="grid gap-3 sm:grid-cols-[2fr_1fr_1fr_1fr_auto]">
         <Input
+          className="text-sm py-2"
           value={label}
           onChange={(event) => setLabel(event.target.value)}
+          placeholder="Field Label"
         />
         <Select
+          className="text-sm py-2"
           value={inputType}
           onChange={(event) => setInputType(event.target.value)}
         >
@@ -563,19 +590,23 @@ function FieldEditorCard({
           <option value="date">date</option>
         </Select>
         <Input
+          className="text-sm py-2"
           type="number"
           value={displayOrder}
           onChange={(event) => setDisplayOrder(Number(event.target.value))}
+          placeholder="Order"
         />
         <Select
+          className="text-sm py-2"
           value={String(isRequired)}
           onChange={(event) => setIsRequired(event.target.value === "true")}
         >
-          <option value="true">required</option>
-          <option value="false">optional</option>
+          <option value="true">Yes</option>
+          <option value="false">No</option>
         </Select>
-        <div className="flex gap-2">
+        <div className="flex gap-2 sm:justify-end">
           <Button
+            className="px-3 py-1.5 text-xs"
             disabled={working}
             onClick={async () => {
               setWorking(true);
@@ -596,6 +627,7 @@ function FieldEditorCard({
             Save
           </Button>
           <Button
+            className="px-3 py-1.5 text-xs"
             disabled={working}
             onClick={async () => {
               setWorking(true);
@@ -608,12 +640,13 @@ function FieldEditorCard({
             type="button"
             variant="danger"
           >
-            Delete
+            Remove
           </Button>
         </div>
       </div>
-      <p className="mt-3 text-xs text-on-surface-variant">
-        {field.isCustom ? "Custom field" : "Catalog field"} - id {field.id}
+      <p className="mt-3 font-mono text-[11px] text-mute flex items-center justify-between">
+        <span>{field.isCustom ? "Custom field" : "Catalog field"}</span>
+        <span>id: {field.id.slice(0,8)}…</span>
       </p>
     </div>
   );

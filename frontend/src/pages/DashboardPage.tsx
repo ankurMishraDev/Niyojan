@@ -28,28 +28,28 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
 
   if (isVolunteer) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6 max-w-5xl mx-auto py-8 px-4 sm:px-6">
         <PageHeader
           eyebrow="Workspace"
           title="Volunteer Dashboard"
           description="Review assigned work, submit feedback, and keep your profile current."
         />
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <Link className="block" to="/feedback">
-            <Panel className="h-full transition hover:border-primary/60">
-              <p className="label-caps text-primary">Feedback</p>
-              <h2 className="mt-3 text-2xl font-black text-white">Submit field feedback</h2>
-              <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+        <div className="grid gap-6 md:grid-cols-2">
+          <Link className="block group" to="/feedback">
+            <Panel className="h-full transition-transform hover:-translate-y-1">
+              <p className="label-caps">Feedback</p>
+              <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">Submit field feedback</h2>
+              <p className="mt-2 text-sm leading-relaxed text-body">
                 Record visit outcomes and evidence for assigned cases.
               </p>
             </Panel>
           </Link>
-          <Link className="block" to="/profile">
-            <Panel className="h-full transition hover:border-primary/60">
-              <p className="label-caps text-primary">Profile</p>
-              <h2 className="mt-3 text-2xl font-black text-white">View volunteer identity</h2>
-              <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+          <Link className="block group" to="/profile">
+            <Panel className="h-full transition-transform hover:-translate-y-1">
+              <p className="label-caps">Profile</p>
+              <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">View volunteer identity</h2>
+              <p className="mt-2 text-sm leading-relaxed text-body">
                 Confirm the active account, organization scope, and contact identity.
               </p>
             </Panel>
@@ -60,106 +60,126 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8 max-w-7xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
         eyebrow="NGO Workspace"
         title={user?.organizationName ? `${user.organizationName} dashboard` : "NGO Dashboard"}
         description="Create templates, collect survey data, and submit feedback without admin-only operations tooling."
       />
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        <Link className="block" to="/form-builder">
-          <Panel className="h-full transition hover:border-primary/60">
-            <p className="label-caps text-primary">Form Templates</p>
-            <h2 className="mt-3 text-2xl font-black text-white">Create or update templates</h2>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <Link className="block group" to="/form-builder">
+          <Panel className="h-full transition-transform hover:-translate-y-1">
+            <p className="label-caps">Form Templates</p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">Create or update templates</h2>
+            <p className="mt-2 text-sm leading-relaxed text-body">
               Build reusable intake forms for your field teams and survey collection.
             </p>
           </Panel>
         </Link>
 
-        <Link className="block" to="/surveys/new">
-          <Panel className="h-full transition hover:border-primary/60">
-            <p className="label-caps text-primary">Data Collection</p>
-            <h2 className="mt-3 text-2xl font-black text-white">Submit collected data</h2>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+        <Link className="block group" to="/surveys/new">
+          <Panel className="h-full transition-transform hover:-translate-y-1 bg-canvas-soft border-hairline-strong">
+            <p className="label-caps">Data Collection</p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">Submit collected data</h2>
+            <p className="mt-2 text-sm leading-relaxed text-body">
               Select a published template, enter beneficiary responses, and submit for analysis.
             </p>
           </Panel>
         </Link>
 
-        <Link className="block" to="/feedback">
-          <Panel className="h-full transition hover:border-primary/60">
-            <p className="label-caps text-primary">Feedback</p>
-            <h2 className="mt-3 text-2xl font-black text-white">Review field feedback</h2>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+        <Link className="block group" to="/feedback">
+          <Panel className="h-full transition-transform hover:-translate-y-1">
+            <p className="label-caps">Feedback</p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">Review field feedback</h2>
+            <p className="mt-2 text-sm leading-relaxed text-body">
               Track case outcomes and submit follow-up feedback when assigned.
             </p>
           </Panel>
         </Link>
       </div>
 
-      <Panel className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="label-caps text-on-surface-variant">Account Scope</p>
-          <p className="mt-2 text-lg font-black text-white">{user?.name}</p>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            {user?.email}
-          </p>
-        </div>
-        <Link className="action-button-secondary" to="/profile">
-          Profile
-        </Link>
-      </Panel>
-
-      <Panel className="space-y-4">
-        <div>
-          <p className="text-xl font-black text-white">Submitted surveys</p>
-          <p className="mt-1 text-sm text-on-surface-variant">
-            Review your past submissions and open the volunteer feedback response linked to each case.
-          </p>
-        </div>
-
-        {submittedSurveysQuery.isLoading ? (
-          <LoaderBlock label="Loading submitted surveys..." />
-        ) : submittedSurveysQuery.isError ? (
-          <InlineError
-            message={getApiErrorMessage(submittedSurveysQuery.error)}
-            onRetry={() => void submittedSurveysQuery.refetch()}
-          />
-        ) : (
-          <div className="space-y-3">
-            {(submittedSurveysQuery.data ?? []).map((survey) => (
-              <div className="rounded-md border border-outline-variant bg-surface-container-low p-4" key={survey.id}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-white">{survey.respondentName || "Unnamed respondent"}</p>
-                    <p className="mt-1 text-xs text-on-surface-variant">{survey.id}</p>
-                    <p className="mt-1 text-sm text-on-surface-variant">{survey.locationText || "No location"}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <StatusBadge tone={toneForStatus(survey.priorityLevel)}>{survey.priorityLevel}</StatusBadge>
-                    <StatusBadge tone={toneForStatus(survey.caseStatus)}>{survey.caseStatus}</StatusBadge>
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
-                  <span>Submitted {formatDateTime(survey.submittedAt || survey.createdAt)}</span>
-                  <span>{survey.needCount} need(s)</span>
-                  <span>{survey.feedbackSubmitted ? "Volunteer feedback submitted" : "Waiting for volunteer feedback"}</span>
-                  {survey.volunteerName ? <span>Volunteer: {survey.volunteerName}</span> : null}
-                </div>
-                {survey.assignmentId ? (
-                  <div className="mt-3">
-                    <Link className="action-button-secondary" to={`/feedback/assignments/${survey.assignmentId}`}>
-                      Open feedback response
-                    </Link>
-                  </div>
-                ) : null}
-              </div>
-            ))}
+      <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
+        <Panel className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <p className="label-caps">Account Scope</p>
+            <Link className="action-button-secondary text-xs py-1.5 px-3" to="/profile">
+              Profile
+            </Link>
           </div>
-        )}
-      </Panel>
+          <div>
+            <p className="text-xl font-semibold tracking-tight text-ink">{user?.name}</p>
+            <p className="mt-1 text-sm text-body">{user?.email}</p>
+          </div>
+          {user?.organizationName ? (
+            <div className="mt-auto pt-4 border-t border-hairline">
+              <p className="text-sm font-medium text-ink">{user.organizationName}</p>
+              <p className="text-xs text-mute">Active Organization</p>
+            </div>
+          ) : null}
+        </Panel>
+
+        <Panel className="space-y-6">
+          <div>
+            <p className="text-xl font-semibold tracking-tight text-ink">Submitted surveys</p>
+            <p className="mt-1 text-sm text-body">
+              Review your past submissions and open the volunteer feedback response linked to each case.
+            </p>
+          </div>
+
+          {submittedSurveysQuery.isLoading ? (
+            <LoaderBlock label="Loading submitted surveys…" />
+          ) : submittedSurveysQuery.isError ? (
+            <InlineError
+              message={getApiErrorMessage(submittedSurveysQuery.error)}
+              onRetry={() => void submittedSurveysQuery.refetch()}
+            />
+          ) : (
+            <div className="space-y-4">
+              {(submittedSurveysQuery.data ?? []).map((survey) => (
+                <div className="rounded-md border border-hairline bg-canvas-soft-2 p-5" key={survey.id}>
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-ink">{survey.respondentName || "Unnamed respondent"}</p>
+                      <p className="mt-1 text-xs font-mono text-mute">{survey.id}</p>
+                      <p className="mt-1.5 text-sm text-body">{survey.locationText || "No location"}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <StatusBadge tone={toneForStatus(survey.priorityLevel)}>{survey.priorityLevel}</StatusBadge>
+                      <StatusBadge tone={toneForStatus(survey.caseStatus)}>{survey.caseStatus}</StatusBadge>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-body border-t border-hairline pt-4">
+                    <span>Submitted {formatDateTime(survey.submittedAt || survey.createdAt)}</span>
+                    <span className="w-1 h-1 rounded-full bg-mute/50"></span>
+                    <span>{survey.needCount} need(s)</span>
+                    <span className="w-1 h-1 rounded-full bg-mute/50"></span>
+                    <span>{survey.feedbackSubmitted ? "Volunteer feedback submitted" : "Waiting for volunteer feedback"}</span>
+                    {survey.volunteerName ? (
+                      <>
+                        <span className="w-1 h-1 rounded-full bg-mute/50"></span>
+                        <span>Volunteer: {survey.volunteerName}</span>
+                      </>
+                    ) : null}
+                  </div>
+                  {survey.assignmentId ? (
+                    <div className="mt-4">
+                      <Link className="action-button-secondary text-xs" to={`/feedback/assignments/${survey.assignmentId}`}>
+                        Open feedback response
+                      </Link>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+              {submittedSurveysQuery.data?.length === 0 ? (
+                <div className="py-8 text-center text-sm text-mute">
+                  No surveys submitted yet.
+                </div>
+              ) : null}
+            </div>
+          )}
+        </Panel>
+      </div>
     </div>
   );
 }
@@ -213,7 +233,11 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
     pipelineHealthQuery.isLoading;
 
   if (isInitialLoading) {
-    return <LoaderBlock label="Loading dashboard..." />;
+    return (
+      <div className="max-w-7xl mx-auto py-12 px-4">
+        <LoaderBlock label="Loading dashboard…" />
+      </div>
+    );
   }
 
   const summary = summaryQuery.data ?? {
@@ -235,7 +259,7 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8 max-w-7xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
         eyebrow="Overview"
         title="Command Dashboard"
@@ -249,31 +273,31 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
         />
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="Active needs" value={formatNumber(summary.activeNeeds)} />
         <MetricCard label="Available volunteers" value={formatNumber(summary.availableVolunteers)} />
         <MetricCard label="Pending reviews" value={formatNumber(summary.pendingReviews)} />
         <MetricCard label="Submitted surveys" value={formatNumber(summary.submittedSurveys)} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.55fr_0.85fr]">
-        <Panel className="overflow-hidden p-0">
-          <div className="flex items-center justify-between border-b border-outline-variant px-4 py-3">
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_380px]">
+        <Panel className="overflow-hidden p-0 flex flex-col shadow-card-medium">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-hairline px-6 py-5 gap-4">
             <div>
-              <p className="text-lg font-black text-white">Submitted surveys</p>
-              <p className="mt-1 text-xs text-on-surface-variant">
+              <p className="text-xl font-semibold tracking-tight text-ink">Submitted surveys</p>
+              <p className="mt-1.5 text-sm text-body">
                 All submitted survey cases with derived priority and operational state.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+              <Select className="py-1.5 text-xs w-full sm:w-auto" value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
                 <option value="">All priorities</option>
                 <option value="critical">critical</option>
                 <option value="high">high</option>
                 <option value="medium">medium</option>
                 <option value="low">low</option>
               </Select>
-              <Select value={caseStatusFilter} onChange={(event) => setCaseStatusFilter(event.target.value)}>
+              <Select className="py-1.5 text-xs w-full sm:w-auto" value={caseStatusFilter} onChange={(event) => setCaseStatusFilter(event.target.value)}>
                 <option value="">All cases</option>
                 <option value="open">open</option>
                 <option value="resolved">resolved</option>
@@ -282,7 +306,7 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
           </div>
 
           {submittedSurveysQuery.isError ? (
-            <div className="p-3">
+            <div className="p-4">
               <InlineError
                 message={getApiErrorMessage(submittedSurveysQuery.error)}
                 onRetry={() => void submittedSurveysQuery.refetch()}
@@ -291,59 +315,66 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
           ) : null}
 
           <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead className="bg-surface-container-low text-on-surface-variant">
+            <table className="min-w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-canvas-soft text-body border-b border-hairline">
                 <tr>
-                  <th className="px-4 py-2">Survey</th>
-                  <th className="px-4 py-2">Location</th>
-                  <th className="px-4 py-2">Priority</th>
-                  <th className="px-4 py-2">Case status</th>
-                  <th className="px-4 py-2">Needs</th>
-                  <th className="px-4 py-2">Submitted</th>
+                  <th className="px-6 py-3 font-medium">Survey</th>
+                  <th className="px-6 py-3 font-medium hidden md:table-cell">Location</th>
+                  <th className="px-6 py-3 font-medium">Priority</th>
+                  <th className="px-6 py-3 font-medium">Status</th>
+                  <th className="px-6 py-3 font-medium text-right">Needs</th>
+                  <th className="px-6 py-3 font-medium hidden lg:table-cell">Submitted</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-hairline">
                 {submittedSurveys.map((survey) => (
                   <tr
-                    className="border-t border-outline-variant/70 hover:bg-surface-container-low"
+                    className="hover:bg-canvas-soft-2 transition-colors"
                     key={survey.id}
                   >
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-white">{survey.respondentName || "Unnamed respondent"}</p>
-                      <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-on-surface-variant">
+                    <td className="px-6 py-4">
+                      <p className="font-semibold text-ink">{survey.respondentName || "Unnamed respondent"}</p>
+                      <p className="mt-1 font-mono text-[10px] text-mute">
                         {survey.id}
                       </p>
                     </td>
-                    <td className="px-4 py-3 text-on-surface-variant">
-                      {survey.locationText ?? "Unspecified"}
+                    <td className="px-6 py-4 text-body hidden md:table-cell">
+                      <div className="truncate max-w-[180px]" title={survey.locationText || "Unspecified"}>
+                        {survey.locationText ?? "Unspecified"}
+                      </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-6 py-4">
                       <StatusBadge tone={toneForStatus(survey.priorityLevel)}>
                         {survey.priorityLevel}
                       </StatusBadge>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-6 py-4">
                       <StatusBadge tone={toneForStatus(survey.caseStatus)}>{survey.caseStatus}</StatusBadge>
                     </td>
-                    <td className="px-4 py-3 text-on-surface-variant">
+                    <td className="px-6 py-4 text-body text-right">
                       {formatNumber(survey.needCount)}
                     </td>
-                    <td className="px-4 py-3 text-on-surface-variant">
+                    <td className="px-6 py-4 text-body text-xs hidden lg:table-cell">
                       {formatDateTime(survey.submittedAt || survey.createdAt)}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            {submittedSurveys.length === 0 && (
+              <div className="p-8 text-center text-body text-sm">
+                No surveys found matching filters.
+              </div>
+            )}
           </div>
         </Panel>
 
-        <div className="space-y-4">
-        <Panel className="space-y-3">
+        <div className="space-y-6">
+          <Panel className="space-y-5">
             <div>
-              <p className="text-lg font-black text-white">Pipeline health</p>
-              <p className="mt-1 text-xs text-on-surface-variant">
-                Queue depth and recent failures from background job orchestration.
+              <p className="text-lg font-semibold tracking-tight text-ink">Pipeline health</p>
+              <p className="mt-1 text-xs text-body">
+                Queue depth and recent failures from background orchestration.
               </p>
             </div>
 
@@ -354,40 +385,42 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
               />
             ) : null}
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-md border border-outline-variant bg-surface-container-low p-3">
-                <p className="label-caps">Queue depth</p>
-                <p className="mt-1 text-2xl font-black text-white">
+            <div className="grid gap-3 grid-cols-2">
+              <div className="rounded-md border border-hairline bg-canvas-soft-2 p-4 text-center">
+                <p className="label-caps mb-2">Queue depth</p>
+                <p className="text-3xl font-semibold tracking-tight text-ink">
                   {formatNumber(pipelineHealth.queueDepth)}
                 </p>
               </div>
-              <div className="rounded-md border border-outline-variant bg-surface-container-low p-3">
-                <p className="label-caps">Processing documents</p>
-                <p className="mt-1 text-2xl font-black text-white">
+              <div className="rounded-md border border-hairline bg-canvas-soft-2 p-4 text-center">
+                <p className="label-caps mb-2">Processing</p>
+                <p className="text-3xl font-semibold tracking-tight text-ink">
                   {formatNumber(pipelineHealth.processingDocuments)}
                 </p>
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3 pt-2 border-t border-hairline">
               {pipelineHealth.jobStatusBreakdown.map((item) => (
-                <div className="flex items-center justify-between gap-3" key={item.status}>
-                  <span className="text-sm text-on-surface-variant">{item.status}</span>
-                  <span className="font-bold text-white">{formatNumber(item.count)}</span>
+                <div className="flex items-center justify-between gap-3 text-sm" key={item.status}>
+                  <span className="text-body">{item.status}</span>
+                  <span className="font-semibold text-ink">{formatNumber(item.count)}</span>
                 </div>
               ))}
             </div>
 
             {pipelineHealth.recentFailures.length > 0 ? (
-              <div className="space-y-2 rounded-md border border-danger/40 bg-danger/10 p-3">
+              <div className="space-y-3 rounded-md border border-danger/20 bg-danger/5 p-4 mt-2">
                 <p className="label-caps text-danger">Recent failures</p>
                 {pipelineHealth.recentFailures.map((failure) => (
-                  <div key={failure.id}>
-                    <p className="text-sm font-semibold text-white">{failure.type}</p>
-                    <p className="text-xs text-on-surface-variant">
-                      {failure.entityType}:{failure.entityId} - {formatDateTime(failure.updatedAt)}
+                  <div key={failure.id} className="text-sm">
+                    <p className="font-semibold text-ink">{failure.type}</p>
+                    <p className="text-xs text-body mt-0.5">
+                      <span className="font-mono">{failure.entityType}:{failure.entityId}</span>
+                      <span className="mx-1">•</span>
+                      {formatDateTime(failure.updatedAt)}
                     </p>
-                    <p className="mt-1 text-xs text-danger">
+                    <p className="mt-1.5 text-xs text-danger break-words">
                       {failure.errorMessage ?? "Unknown job failure"}
                     </p>
                   </div>
@@ -396,10 +429,10 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
             ) : null}
           </Panel>
 
-          <Panel className="space-y-3">
+          <Panel className="space-y-5">
             <div>
-              <p className="text-lg font-black text-white">Volunteer availability</p>
-              <p className="mt-1 text-xs text-on-surface-variant">
+              <p className="text-lg font-semibold tracking-tight text-ink">Volunteer availability</p>
+              <p className="mt-1 text-xs text-body">
                 Live active volunteer breakdown across availability states.
               </p>
             </div>
@@ -411,28 +444,29 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
               />
             ) : null}
 
-            <div className="rounded-md border border-outline-variant bg-surface-container-low p-3">
-              <p className="label-caps">Total active volunteers</p>
-              <p className="mt-1 text-2xl font-black text-white">
+            <div className="rounded-md border border-hairline bg-canvas-soft-2 p-4 flex items-center justify-between">
+              <p className="font-medium text-sm text-body">Total active</p>
+              <p className="text-xl font-semibold tracking-tight text-ink">
                 {formatNumber(volunteerAvailability.totalActiveVolunteers)}
               </p>
             </div>
-            <div className="space-y-2">
+            
+            <div className="space-y-3 pt-2">
               {volunteerAvailability.breakdown.map((item) => (
-                <div className="flex items-center justify-between" key={item.availabilityStatus}>
-                  <span className="text-sm text-on-surface-variant">{item.availabilityStatus}</span>
-                  <span className="font-bold text-white">{item.count}</span>
+                <div className="flex items-center justify-between text-sm" key={item.availabilityStatus}>
+                  <span className="text-body capitalize">{item.availabilityStatus}</span>
+                  <span className="font-semibold text-ink">{item.count}</span>
                 </div>
               ))}
             </div>
           </Panel>
 
           {user?.role === "superadmin" ? (
-            <Panel className="space-y-3">
+            <Panel className="space-y-5 border-warning/30">
               <div>
-                <p className="text-lg font-black text-white">Pending NGO onboarding</p>
-                <p className="mt-1 text-xs text-on-surface-variant">
-                  Resolve any organizations that were explicitly marked pending.
+                <p className="text-lg font-semibold tracking-tight text-ink">Pending NGO onboarding</p>
+                <p className="mt-1 text-xs text-body">
+                  Review organizations awaiting approval.
                 </p>
               </div>
 
@@ -443,30 +477,33 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
                 />
               ) : null}
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {(pendingNgosQuery.data ?? []).map((organization) => (
                   <div
-                    className="rounded-md border border-outline-variant bg-surface-container-low p-3"
+                    className="rounded-md border border-hairline bg-canvas-soft-2 p-4"
                     key={organization.id}
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
-                        <p className="font-semibold text-white">{organization.name}</p>
-                        <p className="mt-1 text-xs text-on-surface-variant">
-                          {organization.region ?? "Region pending"} ·{" "}
+                        <p className="font-semibold text-ink">{organization.name}</p>
+                        <p className="mt-1 text-xs text-body">
+                          {organization.region ?? "Region pending"}
+                          <span className="mx-1.5">•</span>
                           {organization.primaryAdmin?.email ?? "No primary admin"}
                         </p>
                       </div>
                       <StatusBadge tone="warning">{organization.status}</StatusBadge>
                     </div>
-                    <div className="mt-3 flex gap-2">
+                    <div className="flex gap-2 w-full pt-3 border-t border-hairline">
                       <Button
+                        className="flex-1 text-xs py-1.5"
                         disabled={approveMutation.isPending}
                         onClick={() => void approveMutation.mutate(organization.id)}
                       >
                         Approve
                       </Button>
                       <Button
+                        className="flex-1 text-xs py-1.5"
                         disabled={rejectMutation.isPending}
                         onClick={() => void rejectMutation.mutate(organization.id)}
                         variant="secondary"
@@ -477,9 +514,9 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
                   </div>
                 ))}
                 {pendingNgosQuery.data?.length === 0 ? (
-                  <p className="text-sm text-on-surface-variant">
+                  <div className="text-sm text-mute text-center py-4 bg-canvas-soft-2 rounded border border-hairline border-dashed">
                     No pending NGO registrations.
-                  </p>
+                  </div>
                 ) : null}
               </div>
             </Panel>
