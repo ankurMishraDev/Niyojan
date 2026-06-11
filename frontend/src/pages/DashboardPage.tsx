@@ -162,13 +162,16 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
                       </>
                     ) : null}
                   </div>
-                  {survey.assignmentId ? (
-                    <div className="mt-4">
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link className="action-button-secondary text-xs" to={`/surveys/${survey.id}`}>
+                      View survey
+                    </Link>
+                    {survey.assignmentId ? (
                       <Link className="action-button-secondary text-xs" to={`/feedback/assignments/${survey.assignmentId}`}>
                         Open feedback response
                       </Link>
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
               ))}
               {submittedSurveysQuery.data?.length === 0 ? (
@@ -324,6 +327,7 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
                   <th className="px-6 py-3 font-medium">Status</th>
                   <th className="px-6 py-3 font-medium text-right">Needs</th>
                   <th className="px-6 py-3 font-medium hidden lg:table-cell">Submitted</th>
+                  <th className="px-6 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-hairline">
@@ -356,6 +360,11 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
                     </td>
                     <td className="px-6 py-4 text-body text-xs hidden lg:table-cell">
                       {formatDateTime(survey.submittedAt || survey.createdAt)}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <Link className="action-button-secondary text-xs" to={`/surveys/${survey.id}`}>
+                        View survey
+                      </Link>
                     </td>
                   </tr>
                 ))}

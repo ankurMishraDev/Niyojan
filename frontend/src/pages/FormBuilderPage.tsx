@@ -14,10 +14,12 @@ import {
   Panel,
   Select,
   StatusBadge,
-} from "@/components/ui";
-import { fieldCatalogApi, formsApi, documentsApi } from "@/lib/services";
-import { api } from "@/lib/api";
+  } from "@/components/ui";
+  import { fieldCatalogApi, formsApi, documentsApi, pipelineApi } from "@/lib/services";
+  import { api } from "@/lib/api";
 import { toneForStatus } from "@/lib/format";
+
+import { DynamicLoader } from "@/components/DynamicLoader";
 
 export function FormBuilderPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
@@ -28,6 +30,7 @@ export function FormBuilderPage() {
   const [newFieldType, setNewFieldType] = useState("text");
   const [selectedCatalogId, setSelectedCatalogId] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [extractionStage, setExtractionStage] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -119,56 +122,69 @@ export function FormBuilderPage() {
     },
   });
 
-  const scanDocumentMutation = useMutation({
-    mutationFn: async (file: File) => {
-      setFeedback("Requesting upload URL...");
-      const signed = await documentsApi.uploadUrl({
-        file_name: file.name,
-        file_type: file.type,
-      });
-
-      setFeedback("Uploading document...");
-      await api.uploadToSignedUrl(
-        signed.uploadUrl,
-        file,
-        signed.requiredHeaders,
-      );
-
-      setFeedback("Creating document record...");
-      const doc = await documentsApi.create({
-        file_name: file.name,
-        file_type: file.type,
-        gcs_path: signed.gcsPath,
-      });
-
-      setFeedback("Triggering AI extraction...");
-      await documentsApi.extract(doc.id);
-
-      setFeedback(
-        "Waiting for extraction to complete (this may take a minute)...",
-      );
-      let currentDoc = doc;
-      while (
-        currentDoc.status === "processing" ||
-        currentDoc.status === "uploaded"
-      ) {
-        await new Promise((res) => setTimeout(res, 3000));
-        currentDoc = await documentsApi.get(doc.id);
-      }
-
-      if (currentDoc.status === "failed") {
-        throw new Error("Document extraction failed");
-      }
-
-      setFeedback("Generating form template...");
-      const newTemplate = await formsApi.createFromDocument(doc.id, {
-        name: file.name.replace(/\.[^/.]+$/, "") + " Template",
-      });
-
-      return newTemplate;
-    },
-    onSuccess: async (result) => {
-      setFeedback("Form template successfully created from AI extraction!");
+    const scanDocumentMutation = useMutation({
+      mutationFn: async (file: File) => {
+        setExtractionStage("Processing");
+        setFeedback("Requesting upload URL...");
+        const signed = await documentsApi.uploadUrl({
+          file_name: file.name,
+          file_type: file.type,
+        });
+  
+        setFeedback("Uploading document...");
+        await api.uploadToSignedUrl(
+          signed.uploadUrl,
+          file,
+          signed.requiredHeaders,
+        );
+  
+        setFeedback("Creating document record...");
+        const doc = await documentsApi.create({
+          file_name: file.name,
+          file_type: file.type,
+          gcs_path: signed.gcsPath,
+        });
+  
+        setExtractionStage("Extracting");
+        setFeedback("Triggering AI extraction...");
+        await documentsApi.extract(doc.id);
+  
+        setFeedback(
+          "Waiting for extraction to complete (this may take a minute)...",
+        );
+        let currentDoc = doc;
+        while (
+          currentDoc.status === "processing" ||
+          currentDoc.status === "uploaded"
+        ) {
+          await new Promise((res) => setTimeout(res, 3000));
+          currentDoc = await documentsApi.get(doc.id);
+          
+          // Optionally get pipeline status here for more detailed stage info
+          try {
+            const pipeStatus = await pipelineApi.status(doc.id);
+            if (pipeStatus && pipeStatus.manifest && pipeStatus.manifest.currentStage) {
+               setExtractionStage(pipeStatus.manifest.currentStage);
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+  
+        if (currentDoc.status === "failed") {
+          throw new Error("Document extraction failed");
+        }
+  
+        setExtractionStage("Finalizing");
+        setFeedback("Generating form template...");
+        const newTemplate = await formsApi.createFromDocument(doc.id, {
+          name: file.name.replace(/\.[^/.]+$/, "") + " Template",
+        });
+        return newTemplate;
+      },
+      onSuccess: async (result) => {
+        setExtractionStage("");
+        setFeedback("Form template successfully created from AI extraction!");
       setSelectedTemplateId(result.template.id);
       setSelectedVersionId(result.version.id);
       await refreshAll();
@@ -250,6 +266,18 @@ export function FormBuilderPage() {
   const orderedFields = [...(selectedVersion?.fields ?? [])].sort(
     (left, right) => left.displayOrder - right.displayOrder,
   );
+
+  if (scanDocumentMutation.isPending) {
+    return (
+      <div className="max-w-3xl mx-auto py-12 px-4">
+        <DynamicLoader
+          currentStage={extractionStage}
+          stages={["Processing", "Extracting", "Finalizing"]}
+          label="Creating Form Template"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-screen-2xl mx-auto py-8 px-4 sm:px-6">

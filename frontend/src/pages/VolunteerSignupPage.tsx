@@ -5,6 +5,7 @@ import { Button, Input, LoaderBlock, Panel, Select, Textarea } from "@/component
 import { useAuth } from "@/features/auth/useAuth";
 import { authApi } from "@/lib/services";
 import { scoreSkillForDomain } from "@/lib/volunteerDomains";
+import { TermsAndConditions } from "@/components/TermsAndConditions";
 
 type SelectedSkill = {
   skillId: string;
@@ -32,6 +33,7 @@ export function VolunteerSignupPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const optionsQuery = useQuery({
     queryKey: ["volunteer-onboarding-options"],
@@ -71,6 +73,10 @@ export function VolunteerSignupPage() {
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!termsAccepted) {
+      setError("Please accept the terms and conditions to register.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     setSuccess("");
@@ -375,6 +381,8 @@ export function VolunteerSignupPage() {
                 </div>
               </div>
             </div>
+
+            <TermsAndConditions checked={termsAccepted} onChange={setTermsAccepted} />
 
             <div className="md:col-span-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-4 pt-4 border-t border-hairline">
               <div className="flex flex-col gap-1 order-last sm:order-first">

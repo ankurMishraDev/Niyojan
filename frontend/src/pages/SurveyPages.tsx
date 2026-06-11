@@ -338,6 +338,9 @@ const collectExtractionEntries = (extractionResult: any): ExtractionEntry[] => {
   return entries;
 };
 
+import { pipelineApi } from "@/lib/services";
+import { DynamicLoader } from "@/components/DynamicLoader";
+
 const applyExtractionToDraft = (
   currentDraft: SurveyDraftState,
   fields: FormField[],
@@ -444,7 +447,9 @@ const uploadAndExtractDocument = async (
   file: File,
   onProgress: (message: string) => void,
   sourceSurveyId?: string,
+  onStage?: (stage: string) => void,
 ) => {
+  if (onStage) onStage("Processing");
   onProgress("Requesting upload URL...");
   const signed = await documentsApi.uploadUrl({
     file_name: file.name,
@@ -462,6 +467,7 @@ const uploadAndExtractDocument = async (
     source_survey_id: sourceSurveyId,
   });
 
+  if (onStage) onStage("Extracting");
   onProgress("Triggering AI extraction...");
   await documentsApi.extract(document.id);
 
@@ -473,12 +479,23 @@ const uploadAndExtractDocument = async (
   ) {
     await new Promise((resolve) => setTimeout(resolve, 3000));
     currentDocument = await documentsApi.get(document.id);
+    if (onStage) {
+      try {
+        const pipeStatus = await pipelineApi.status(document.id);
+        if (pipeStatus && pipeStatus.manifest && pipeStatus.manifest.currentStage) {
+          onStage(pipeStatus.manifest.currentStage);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
   }
 
   if (currentDocument.status === "failed") {
     throw new Error("Document extraction failed");
   }
 
+  if (onStage) onStage("Finalizing");
   return currentDocument;
 };
 
@@ -487,6 +504,7 @@ export function SurveyNewPage() {
   const [templateId, setTemplateId] = useState("");
   const [versionId, setVersionId] = useState("");
   const [creationFeedback, setCreationFeedback] = useState("");
+  const [extractionStage, setExtractionStage] = useState("");
   const filledFormInputRef = useRef<HTMLInputElement>(null);
 
   const templatesQuery = useQuery({
@@ -530,12 +548,18 @@ export function SurveyNewPage() {
 
   const createFromFilledFormMutation = useMutation({
     mutationFn: async (file: File) => {
+      setExtractionStage("Processing");
       setCreationFeedback("Creating survey draft...");
       const survey = await surveysApi.create({
         template_version_id: versionId,
       });
 
-      const document = await uploadAndExtractDocument(file, setCreationFeedback, survey.id);
+      const document = await uploadAndExtractDocument(
+        file, 
+        setCreationFeedback, 
+        survey.id,
+        setExtractionStage
+      );
 
       return {
         survey,
@@ -544,6 +568,7 @@ export function SurveyNewPage() {
       };
     },
     onSuccess: ({ survey, extractionResult, fileName }) => {
+      setExtractionStage("");
       navigate(`/surveys/${survey.id}`, {
         state: {
           prefillExtraction: extractionResult,
@@ -560,6 +585,18 @@ export function SurveyNewPage() {
     return (
       <div className="max-w-4xl mx-auto py-12 px-4">
         <LoaderBlock label="Loading survey templates…" />
+      </div>
+    );
+  }
+
+  if (createFromFilledFormMutation.isPending) {
+    return (
+      <div className="max-w-4xl mx-auto py-12 px-4">
+        <DynamicLoader
+          currentStage={extractionStage}
+          stages={["Processing", "Extracting", "Finalizing"]}
+          label="Creating Survey Draft..."
+        />
       </div>
     );
   }
@@ -699,6 +736,7 @@ export function SurveyDetailPage() {
   const location = useLocation();
   const [draft, setDraft] = useState<SurveyDraftState>({});
   const [analysisFeedback, setAnalysisFeedback] = useState("");
+  const [extractionStage, setExtractionStage] = useState("");
   const [fieldExtractionMeta, setFieldExtractionMeta] = useState<Record<string, FieldExtractionMeta>>({});
   const [extractionAttentionItems, setExtractionAttentionItems] = useState<ExtractionAttentionItem[]>([]);
   const [hasExtractionInsights, setHasExtractionInsights] = useState(false);
@@ -766,8 +804,17 @@ export function SurveyDetailPage() {
   }, [draft, fieldExtractionMeta, hasExtractionInsights, versionQuery.data?.fields]);
 
   const scanDocumentMutation = useMutation({
-    mutationFn: async (file: File) => uploadAndExtractDocument(file, setAnalysisFeedback, surveyId),
+    mutationFn: async (file: File) => {
+      setExtractionStage("Processing");
+      return uploadAndExtractDocument(
+        file, 
+        setAnalysisFeedback, 
+        surveyId,
+        setExtractionStage
+      );
+    },
     onSuccess: (documentItem) => {
+      setExtractionStage("");
       setAnalysisFeedback(
         "Data extracted successfully! Mapping to survey fields…",
       );
@@ -863,6 +910,18 @@ export function SurveyDetailPage() {
     return (
       <div className="max-w-7xl mx-auto py-12 px-4">
         <LoaderBlock label="Loading survey payload…" />
+      </div>
+    );
+  }
+
+  if (scanDocumentMutation.isPending) {
+    return (
+      <div className="max-w-7xl mx-auto py-12 px-4">
+        <DynamicLoader
+          currentStage={extractionStage}
+          stages={["Processing", "Extracting", "Finalizing"]}
+          label="Analyzing Survey Document..."
+        />
       </div>
     );
   }

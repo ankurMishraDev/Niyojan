@@ -3,6 +3,8 @@ import { Link, Navigate } from "react-router-dom";
 import { Button, Input, Panel, Textarea } from "@/components/ui";
 import { useAuth } from "@/features/auth/useAuth";
 
+import { TermsAndConditions } from "@/components/TermsAndConditions";
+
 export function SignupPage() {
   const { status, user, signUpNgo, usingFirebase } = useAuth();
   const [organizationName, setOrganizationName] = useState("");
@@ -22,6 +24,7 @@ export function SignupPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   if (status === "authenticated" && user) {
     return <Navigate to={user.status === "active" ? "/dashboard" : "/account-status"} replace />;
@@ -29,6 +32,10 @@ export function SignupPage() {
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!termsAccepted) {
+      setError("Please accept the terms and conditions to register.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     setSuccess("");
@@ -242,6 +249,8 @@ export function SignupPage() {
                 onChange={(event) => setPassword(event.target.value)}
               />
             </div>
+
+            <TermsAndConditions checked={termsAccepted} onChange={setTermsAccepted} />
 
             <div className="md:col-span-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-4 pt-4 border-t border-hairline">
               <div className="flex flex-col gap-1 order-last sm:order-first">
