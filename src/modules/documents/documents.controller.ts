@@ -97,7 +97,9 @@ class DocumentsController {
 				throw new AppError(401, "Authentication is required");
 			}
 
-			const result = await documentsService.triggerExtraction(req.params.id as string, req.user);
+			const targetLanguage = req.body.targetLanguage as string | undefined;
+
+			const result = await documentsService.triggerExtraction(req.params.id as string, req.user, targetLanguage);
 			return sendSuccess(res, result, "Document extraction completed");
 		} catch (error) {
 			next(error);

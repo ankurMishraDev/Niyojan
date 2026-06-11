@@ -34,6 +34,7 @@ const feedbackBodySchema = z.object({
 		.enum(["pending", "resolved", "partially_resolved", "escalated", "unresolved"])
 		.optional(),
 	escalation_reason: z.string().optional(),
+	original_language: z.string().max(10).optional(),
 });
 
 const evidenceUploadBodySchema = z.object({

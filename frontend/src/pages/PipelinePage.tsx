@@ -5,10 +5,12 @@ import { documentsApi, pipelineApi, surveysApi } from "@/lib/services";
 import { getApiErrorMessage } from "@/lib/api";
 import { formatDateTime, toneForStatus } from "@/lib/format";
 import { Button, LoaderBlock, PageHeader, Panel, StatusBadge } from "@/components/ui";
+import { DynamicLoader } from "@/components/DynamicLoader";
 
 export function PipelinePage() {
   const [selectedSurveyId, setSelectedSurveyId] = useState<string>("");
   const [actionFeedback, setActionFeedback] = useState("");
+  const [pipelineStage, setPipelineStage] = useState("");
 
   const intakeQuery = useQuery({
     queryKey: ["pipeline-intake"],
@@ -39,7 +41,10 @@ export function PipelinePage() {
   });
 
   const startPipelineMutation = useMutation({
-    mutationFn: (documentId: string) => pipelineApi.start(documentId),
+    mutationFn: (documentId: string) => {
+      setPipelineStage("Processing");
+      return pipelineApi.start(documentId);
+    },
     onSuccess: async () => {
       setActionFeedback("Pipeline run completed. Check the backend terminal for stage-by-stage logs.");
       await statusQuery.refetch();
@@ -77,7 +82,12 @@ export function PipelinePage() {
   });
 
   const analyzeSurveyMutation = useMutation({
-    mutationFn: (surveyId: string) => surveysApi.analyzeNeeds(surveyId),
+    mutationFn: async (surveyId: string) => {
+      setPipelineStage("Processing");
+      setTimeout(() => setPipelineStage("Analyzing"), 2000);
+      setTimeout(() => setPipelineStage("Finalizing"), 5000);
+      return surveysApi.analyzeNeeds(surveyId);
+    },
     onSuccess: async (result) => {
       setActionFeedback(
         result.createdCount > 0
@@ -91,6 +101,25 @@ export function PipelinePage() {
     },
   });
 
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (startPipelineMutation.isPending && selectedDocumentId) {
+      interval = setInterval(async () => {
+        try {
+          const pipeStatus = await pipelineApi.status(selectedDocumentId);
+          if (pipeStatus && pipeStatus.manifest && pipeStatus.manifest.currentStage) {
+            setPipelineStage(pipeStatus.manifest.currentStage);
+          }
+        } catch (e) {
+          // ignore
+        }
+      }, 2000);
+    } else if (!startPipelineMutation.isPending && !analyzeSurveyMutation.isPending) {
+      setPipelineStage("");
+    }
+    return () => clearInterval(interval);
+  }, [startPipelineMutation.isPending, analyzeSurveyMutation.isPending, selectedDocumentId]);
+
   if (intakeQuery.isLoading) {
     return (
       <div className="max-w-7xl mx-auto py-12 px-4">
@@ -98,6 +127,8 @@ export function PipelinePage() {
       </div>
     );
   }
+
+  const isPipelineStarting = startPipelineMutation.isPending || analyzeSurveyMutation.isPending;
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto py-8 px-4 sm:px-6">
@@ -163,54 +194,61 @@ export function PipelinePage() {
                     <td className="px-5 py-4 align-top text-body text-xs hidden md:table-cell">
                       {formatDateTime(item.submittedAt || item.createdAt)}
                     </td>
-                    <td className="px-5 py-4 align-top text-right space-y-2">
-                      <div className="flex flex-col items-end gap-2">
-                        <Button
-                          className="px-2.5 py-1 text-[11px]"
-                          onClick={async (event) => {
-                            event.stopPropagation();
-                            await navigator.clipboard.writeText(item.surveyId);
-                            setActionFeedback(`Survey ID copied: ${item.surveyId}`);
-                          }}
-                          type="button"
-                          variant="secondary"
-                        >
-                          Copy ID
-                        </Button>
-                        <div className="flex gap-2">
-                          {item.sourceDocumentId ? (
+                      <td className="px-5 py-4 align-top text-right space-y-2">
+                        <div className="flex flex-col items-end gap-2">
+                          <Button
+                            className="px-2.5 py-1 text-[11px]"
+                            onClick={async (event) => {
+                              event.stopPropagation();
+                              await navigator.clipboard.writeText(item.surveyId);
+                              setActionFeedback(`Survey ID copied: ${item.surveyId}`);
+                            }}
+                            type="button"
+                            variant="secondary"
+                          >
+                            Copy ID
+                          </Button>
+                          <div className="flex gap-2">
+                            {item.sourceDocumentId ? (
+                              <Button
+                                className="px-2.5 py-1 text-[11px]"
+                                disabled={deleteDocumentMutation.isPending}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  const documentId = item.sourceDocumentId;
+                                  if (!documentId) return;
+                                  if (!window.confirm(`Delete ${item.sourceDocumentName} from this survey?`)) return;
+                                  void deleteDocumentMutation.mutate(documentId);
+                                }}
+                                type="button"
+                                variant="danger"
+                              >
+                                Del Doc
+                              </Button>
+                            ) : null}
+                            <Link 
+                              to={`/surveys/${item.surveyId}`} 
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center justify-center rounded-md border border-hairline bg-canvas px-2.5 py-1 text-[11px] font-medium text-ink shadow-sm transition-colors hover:bg-canvas-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+                            >
+                              View Survey
+                            </Link>
                             <Button
                               className="px-2.5 py-1 text-[11px]"
-                              disabled={deleteDocumentMutation.isPending}
+                              disabled={deleteSurveyMutation.isPending}
                               onClick={(event) => {
                                 event.stopPropagation();
-                                const documentId = item.sourceDocumentId;
-                                if (!documentId) return;
-                                if (!window.confirm(`Delete ${item.sourceDocumentName} from this survey?`)) return;
-                                void deleteDocumentMutation.mutate(documentId);
+                                if (!window.confirm("Delete this entire survey?")) return;
+                                void deleteSurveyMutation.mutate(item.surveyId);
                               }}
                               type="button"
                               variant="danger"
                             >
-                              Del Doc
+                              Del Survey
                             </Button>
-                          ) : null}
-                          <Button
-                            className="px-2.5 py-1 text-[11px]"
-                            disabled={deleteSurveyMutation.isPending}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              if (!window.confirm("Delete this entire survey?")) return;
-                              void deleteSurveyMutation.mutate(item.surveyId);
-                            }}
-                            type="button"
-                            variant="danger"
-                          >
-                            Del Survey
-                          </Button>
+                          </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
                   </tr>
                 ))}
                 {intakeQuery.data?.length === 0 && (
@@ -225,7 +263,16 @@ export function PipelinePage() {
           </div>
         </Panel>
 
-        <div className="space-y-6 max-h-[85vh] overflow-y-auto pr-2">
+        <div className="space-y-6 max-h-[85vh] overflow-y-auto pr-2 relative">
+          {isPipelineStarting && (
+            <div className="absolute inset-0 z-50 bg-canvas/50 backdrop-blur-sm rounded-md flex items-center justify-center pointer-events-none">
+              <DynamicLoader
+                currentStage={pipelineStage}
+                stages={["Processing", "Analyzing", "Finalizing"]}
+                label="Running Survey Pipeline..."
+              />
+            </div>
+          )}
           <Panel className="space-y-5 bg-canvas-soft">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-hairline">
               <div>

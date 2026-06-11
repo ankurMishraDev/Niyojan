@@ -107,8 +107,8 @@ export const documentsApi = {
     ).data,
   updateStatus: async (id: string, status: string) =>
     (await api.patch<DocumentItem>(`/documents/${id}/status`, { status })).data,
-  extract: async (id: string) =>
-    (await api.post<Record<string, unknown>>(`/documents/${id}/extract-fields`))
+  extract: async (id: string, targetLanguage?: string) =>
+    (await api.post<Record<string, unknown>>(`/documents/${id}/extract-fields`, { targetLanguage }))
       .data,
 };
 
@@ -150,6 +150,19 @@ export const pipelineApi = {
     (await api.get<PipelineManifest[]>("/pipeline/queue", query)).data,
   manifest: async (id: string) =>
     (await api.get<PipelineManifest>(`/pipeline/manifests/${id}`)).data,
+};
+
+export const clusteringApi = {
+  list: async (query?: Record<string, unknown>) =>
+    (await api.get<any>("/clustering", query)).data,
+  get: async (id: string) =>
+    (await api.get<any>(`/clustering/${id}`)).data,
+  run: async (body: Record<string, unknown>) =>
+    (await api.post<any>("/clustering/run", body)).data,
+  manual: async (body: { needIds: string[]; clusterName: string; category: string }) =>
+    (await api.post<any>("/clustering/manual", body)).data,
+  confirm: async (id: string) =>
+    (await api.post<any>(`/clustering/${id}/confirm`)).data,
 };
 
 export const formsApi = {

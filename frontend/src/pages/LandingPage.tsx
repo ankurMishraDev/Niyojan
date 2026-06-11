@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "@/features/auth/useAuth";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { useTranslation } from "react-i18next";
 
 const featureCards = [
   {
@@ -17,6 +19,7 @@ const featureCards = [
 ];
 
 export function LandingPage() {
+  const { t } = useTranslation();
   const { user, status } = useAuth();
   const destination = user ? (user.status === "active" ? "/dashboard" : "/account-status") : "/login";
 
@@ -33,25 +36,28 @@ export function LandingPage() {
             </div>
             <p className="text-xl font-bold tracking-tight">NIYOJAN</p>
           </div>
-
           <nav className="hidden md:flex items-center gap-8 text-sm text-body">
-            <a className="transition-colors hover:text-ink" href="#home">Home</a>
-            <a className="transition-colors hover:text-ink" href="#mission">Mission</a>
-            <a className="transition-colors hover:text-ink" href="#features">Features</a>
+            <a className="transition-colors hover:text-ink" href="#home">{t("LandingPage_Nav_Home")}</a>
+            <a className="transition-colors hover:text-ink" href="#mission">{t("LandingPage_Nav_Mission")}</a>
+            <a className="transition-colors hover:text-ink" href="#features">{t("LandingPage_Nav_Features")}</a>
+            {/* <a className="transition-colors hover:text-ink" href="https://github.com/niyojan">{t("LandingPage_Nav_OpenSource")}</a> */}
           </nav>
 
           <div className="flex items-center gap-3">
+            <div className="hidden sm:block">
+              <LanguageSelector />
+            </div>
             <Link
               className="hidden sm:inline-flex items-center justify-center text-sm font-medium text-body hover:text-ink transition-colors px-4 py-2"
               to="/login"
             >
-              Log In
+              {t("LandingPage_Button_Login")}
             </Link>
             <Link
               className="inline-flex items-center justify-center rounded-pill bg-primary px-5 py-2.5 text-sm font-medium text-on-primary transition-all hover:bg-ink/90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none touch-manipulation"
               to={destination}
             >
-              Get Started
+              {t("LandingPage_Button_GetStarted")}
             </Link>
           </div>
         </header>
@@ -60,16 +66,15 @@ export function LandingPage() {
         <section id="home" className="flex-1 flex flex-col justify-center items-center text-center py-20 lg:py-32 space-y-8 relative z-10">
           <div className="inline-flex items-center rounded-pill border border-hairline bg-canvas/80 backdrop-blur px-3 py-1 text-xs font-mono text-body shadow-sm">
             <span className="flex h-2 w-2 rounded-full bg-cyan mr-2"></span>
-            Operational coordination for field teams
+            {t("LandingPage_Pill_Operational")}
           </div>
 
           <h1 className="max-w-4xl text-5xl sm:text-6xl lg:text-7xl font-semibold tracking-[-0.03em] leading-tight text-ink text-balance">
-            Intelligence for<br className="hidden sm:block" /> Smart Resource Coordination.
+            {t("LandingPage_Header_Title")}
           </h1>
           
           <p className="max-w-2xl text-lg sm:text-xl text-body leading-relaxed text-balance">
-            NIYOJAN turns NGO intake, volunteer matching, field feedback, and document
-            workflows into one operational control surface.
+            {t("LandingPage_Header_Description")}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 pt-4 w-full sm:w-auto">
@@ -77,14 +82,14 @@ export function LandingPage() {
               className="w-full sm:w-auto inline-flex items-center justify-center rounded-pill bg-primary px-8 py-3.5 text-base font-medium text-on-primary shadow-card-soft transition-all hover:scale-[1.02] hover:bg-ink/90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none touch-manipulation"
               to={destination}
             >
-              {user ? "Open Dashboard" : "Start Session"}
+              {user ? t("LandingPage_Button_OpenDashboard") : t("LandingPage_Button_StartSession")}
             </Link>
             {!user ? (
               <Link
                 className="w-full sm:w-auto inline-flex items-center justify-center rounded-pill border border-hairline bg-canvas px-8 py-3.5 text-base font-medium text-ink shadow-sm transition-all hover:bg-canvas-soft focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none touch-manipulation"
                 to="/signup"
               >
-                Register NGO
+                {t("LandingPage_Button_RegisterNGO")}
               </Link>
             ) : null}
           </div>
@@ -120,10 +125,9 @@ export function LandingPage() {
             <div className="flex flex-col md:flex-row gap-12 items-center">
               <div className="flex-1 space-y-6">
                 <p className="text-xs font-mono uppercase tracking-widest text-mute">Operational Scope</p>
-                <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">Everything you need to operate effectively.</h2>
+                <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">{t("LandingPage_Section_Scope_Title")}</h2>
                 <p className="text-base text-body leading-relaxed max-w-md text-pretty">
-                  Welcome to NIYOJAN, where coordination meets clarity. NGO teams can register,
-                  review, and operate with a single authenticated session.
+                  {t("LandingPage_Section_Scope_Description")}
                 </p>
               </div>
               <div className="flex-1 w-full grid grid-cols-2 gap-3 sm:gap-4">

@@ -408,6 +408,12 @@ export function AiReviewPage() {
         description="Review the AI case summary, verify extracted fields, and record the final human decision before moving this case to matching."
         actions={
           <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+            <Link 
+              to={`/surveys/${surveyId}`} 
+              className="inline-flex flex-1 sm:flex-none items-center justify-center rounded-md border border-hairline bg-canvas px-4 py-2 text-xs font-medium text-ink shadow-sm transition-colors hover:bg-canvas-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
+            >
+              View Full Survey
+            </Link>
             <Button
               className="flex-1 sm:flex-none text-xs px-4"
               disabled={deleteMutation.isPending}

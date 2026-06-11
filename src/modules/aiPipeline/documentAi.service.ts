@@ -28,6 +28,7 @@ export type DocumentExtractionInput = {
 	gcsPath: string;
 	fileName: string;
 	fileType: string;
+	targetLanguage?: string; // e.g. "hi" or "Hindi"
 };
 
 type TextBlock = {
@@ -501,12 +502,47 @@ const normalizeGeminiOutputFields = (rawOutput: unknown) => {
 		.filter((field): field is ExtractedCandidateField => Boolean(field));
 };
 
+const LANGUAGE_MAP: Record<string, string> = {
+	en: "English",
+	hi: "Hindi",
+	bn: "Bengali",
+	te: "Telugu",
+	mr: "Marathi",
+	ta: "Tamil",
+	ur: "Urdu",
+	gu: "Gujarati",
+	kn: "Kannada",
+	ml: "Malayalam",
+	or: "Odia",
+	pa: "Punjabi",
+	as: "Assamese",
+	mai: "Maithili",
+	sat: "Santali",
+	ks: "Kashmiri",
+};
+
 const extractWithGemini = async (input: DocumentExtractionInput, fileBytes: Buffer, startedAt: number) => {
+	let finalPrompt = GEMINI_DOCUMENT_EXTRACTION_PROMPT;
+	if (input.targetLanguage && input.targetLanguage !== "en") {
+		const langName = LANGUAGE_MAP[input.targetLanguage] || input.targetLanguage;
+		finalPrompt += `\n\nCRITICAL TRANSLATION INSTRUCTIONS:
+- The source document might be in English or another language, but YOU MUST TRANSLATE EVERYTHING into ${langName}.
+- You must translate ALL extracted form field labels, text prompt instructions, choices, and filled values into ${langName}.
+- The output MUST be in ${langName}.
+- The JSON keys in the output schema must remain strictly in English, but their string values must be translated to ${langName}.`;
+	} else if (input.targetLanguage === "en") {
+		finalPrompt += `\n\nCRITICAL TRANSLATION INSTRUCTIONS:
+- The source document might be in a regional language (like Hindi, Tamil, etc).
+- YOU MUST TRANSLATE ALL extracted form field labels, text prompt instructions, choices, and filled values into English.
+- The output MUST be in English.
+- The JSON keys in the output schema must remain strictly in English.`;
+	}
+
 	const geminiExtract = await vertexService.generateStructuredJson({
 		model: env.VERTEX_DOCUMENT_MODEL,
 		promptVersion: "doc_extract_v2",
 		schema: geminiFallbackSchema,
-		prompt: GEMINI_DOCUMENT_EXTRACTION_PROMPT,
+		prompt: finalPrompt,
 		fileData: {
 			mimeType: input.fileType,
 			data: fileBytes.toString("base64"),

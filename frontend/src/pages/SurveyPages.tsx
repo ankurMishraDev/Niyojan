@@ -1,19 +1,20 @@
 import { useEffect, useState, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import {
-  Button,
-  Input,
-  LoaderBlock,
-  PageHeader,
-  Panel,
-  Select,
-  StatusBadge,
-} from "@/components/ui";
-import {
-  DynamicFieldInput,
-  type DynamicFieldValue,
-} from "@/features/forms/DynamicFieldInput";
+  import {
+    Button,
+    Input,
+    LoaderBlock,
+    PageHeader,
+    Panel,
+    Select,
+    StatusBadge,
+  } from "@/components/ui";
+  import { LANGUAGES } from "@/components/LanguageSelector";
+  import {
+    DynamicFieldInput,
+    type DynamicFieldValue,
+  } from "@/features/forms/DynamicFieldInput";
 import { formsApi, surveysApi, documentsApi } from "@/lib/services";
 import { api, getApiErrorMessage } from "@/lib/api";
 import { formatPercent } from "@/lib/format";
@@ -448,6 +449,7 @@ const uploadAndExtractDocument = async (
   onProgress: (message: string) => void,
   sourceSurveyId?: string,
   onStage?: (stage: string) => void,
+  targetLanguage?: string,
 ) => {
   if (onStage) onStage("Processing");
   onProgress("Requesting upload URL...");
@@ -467,11 +469,11 @@ const uploadAndExtractDocument = async (
     source_survey_id: sourceSurveyId,
   });
 
-  if (onStage) onStage("Extracting");
-  onProgress("Triggering AI extraction...");
-  await documentsApi.extract(document.id);
-
-  onProgress("Waiting for extraction (this may take a minute)...");
+    if (onStage) onStage("Extracting");
+    onProgress("Triggering AI extraction...");
+    await documentsApi.extract(document.id, targetLanguage || "en");
+  
+    onProgress("Waiting for extraction (this may take a minute)...");
   let currentDocument = document;
   while (
     currentDocument.status === "processing" ||
@@ -505,6 +507,7 @@ export function SurveyNewPage() {
   const [versionId, setVersionId] = useState("");
   const [creationFeedback, setCreationFeedback] = useState("");
   const [extractionStage, setExtractionStage] = useState("");
+  const [targetLanguage, setTargetLanguage] = useState("");
   const filledFormInputRef = useRef<HTMLInputElement>(null);
 
   const templatesQuery = useQuery({
@@ -552,13 +555,15 @@ export function SurveyNewPage() {
       setCreationFeedback("Creating survey draft...");
       const survey = await surveysApi.create({
         template_version_id: versionId,
+        submitted_language: targetLanguage || 'en',
       });
 
       const document = await uploadAndExtractDocument(
         file, 
         setCreationFeedback, 
         survey.id,
-        setExtractionStage
+        setExtractionStage,
+        targetLanguage || undefined
       );
 
       return {
@@ -650,53 +655,69 @@ export function SurveyNewPage() {
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-body px-1">Template</label>
-            <Select
-              value={templateId}
-              onChange={(event) => setTemplateId(event.target.value)}
-            >
-              {templatesQuery.data?.items.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.name}
-                </option>
-              ))}
-            </Select>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-body px-1">Template</label>
+              <Select
+                value={templateId}
+                onChange={(event) => setTemplateId(event.target.value)}
+              >
+                {templatesQuery.data?.items.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-body px-1">Version</label>
+              <Select
+                value={versionId}
+                onChange={(event) => setVersionId(event.target.value)}
+              >
+                {versionsQuery.data?.map((version) => (
+                  <option key={version.id} value={version.id}>
+                    Version {version.versionNo}{" "}
+                    {version.isPublished ? "(published)" : ""}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="text-xs font-medium text-body px-1">Form Filling Language</label>
+              <Select
+                value={targetLanguage}
+                onChange={(e) => setTargetLanguage(e.target.value)}
+              >
+                <option value="">English (Default)</option>
+                {LANGUAGES.filter((l) => l.code !== 'en').map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.label}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-mute px-1 mt-1">Select the language for document extraction or manual entry to translate responses to English on submission.</p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-body px-1">Version</label>
-            <Select
-              value={versionId}
-              onChange={(event) => setVersionId(event.target.value)}
-            >
-              {versionsQuery.data?.map((version) => (
-                <option key={version.id} value={version.id}>
-                  Version {version.versionNo}{" "}
-                  {version.isPublished ? "(published)" : ""}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </div>
 
-        <form
-          className="grid gap-4 sm:grid-cols-2 pt-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const formData = new FormData(event.currentTarget);
-            createSurveyMutation.mutate({
-              template_version_id: versionId,
-              respondent_name: formData.get("respondent_name"),
-              location_text: formData.get("location_text"),
-              latitude: formData.get("latitude")
-                ? Number(formData.get("latitude"))
-                : null,
-              longitude: formData.get("longitude")
-                ? Number(formData.get("longitude"))
-                : null,
-            });
-          }}
+          <form
+            className="grid gap-4 sm:grid-cols-2 pt-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const formData = new FormData(event.currentTarget);
+              createSurveyMutation.mutate({
+                template_version_id: versionId,
+                respondent_name: formData.get("respondent_name"),
+                location_text: formData.get("location_text"),
+                latitude: formData.get("latitude")
+                  ? Number(formData.get("latitude"))
+                  : null,
+                longitude: formData.get("longitude")
+                  ? Number(formData.get("longitude"))
+                  : null,
+                submitted_language: targetLanguage || "en",
+              });
+            }}
         >
           <div className="space-y-1">
             <label className="text-xs font-medium text-body px-1">Respondent / Site Name</label>

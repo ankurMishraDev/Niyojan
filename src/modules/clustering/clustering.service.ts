@@ -102,6 +102,41 @@ export const runClusterAlgorithm = async (orgId: string, userId: string, timeWin
   return { createdCount: createdClusters.length, clusters: createdClusters };
 };
 
+export const createManualCluster = async (orgId: string, userId: string, needIds: string[], clusterName: string, category: string) => {
+  if (needIds.length < 1) {
+    throw new Error("At least one need must be provided to create a cluster");
+  }
+
+  return await db.transaction(async (trx) => {
+    // 1. Create the aggregate need
+    const [aggregate] = await trx("aggregate_needs").insert({
+      org_id: orgId,
+      status: "active",
+      category: category,
+      representative_summary: clusterName,
+      created_by: userId,
+      langgraph_thread_id: `manual_cluster_${Date.now()}`
+    }).returning("*");
+
+    // 2. Link the needs to this aggregate
+    const membersToInsert = needIds.map(needId => ({
+      aggregate_need_id: aggregate.id,
+      needs_analysis_id: needId,
+      confidence_score: 1.0, // Manual cluster has 100% confidence
+      reasoning: "Manually clustered by admin"
+    }));
+
+    await trx("aggregate_need_members").insert(membersToInsert);
+
+    // 3. Update the cluster_status of individual needs
+    await trx("needs_analysis").whereIn("id", needIds).update({
+      cluster_status: "clustered"
+    });
+
+    return aggregate;
+  });
+};
+
 export const fetchClusters = async (orgId: string, status?: string) => {
   const query = db("aggregate_needs").where({ org_id: orgId });
   if (status) query.andWhere({ status });

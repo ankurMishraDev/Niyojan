@@ -1,26 +1,29 @@
 import { useState, useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/features/auth/useAuth";
 import { cn } from "@/lib/cn";
 import type { AppRole } from "@/types/api";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 const navItems: Array<{
-  label: string;
+  i18nKey: string;
   href: string;
   roles: AppRole[];
 }> = [
-  { label: "Dashboard", href: "/dashboard", roles: ["superadmin", "ngo_admin", "field_worker"] },
-  { label: "Volunteer Dashboard", href: "/dashboard", roles: ["volunteer"] },
-  { label: "Pipeline", href: "/pipeline", roles: ["superadmin"] },
-  { label: "AI Review", href: "/ai-review", roles: ["superadmin"] },
-  { label: "Form Builder", href: "/form-builder", roles: ["ngo_admin", "field_worker"] },
-  { label: "Data Collection", href: "/surveys/new", roles: ["ngo_admin", "field_worker"] },
-  { label: "Matching", href: "/matching", roles: ["superadmin"] },
-  { label: "Assignments", href: "/assignments", roles: ["superadmin", "volunteer"] },
-  { label: "Feedback", href: "/feedback", roles: ["superadmin", "ngo_admin", "field_worker", "volunteer"] },
-  { label: "Help", href: "/help", roles: ["superadmin", "ngo_admin", "field_worker", "volunteer"] },
-  { label: "Profile", href: "/profile", roles: ["superadmin", "ngo_admin", "field_worker", "volunteer"] },
+  { i18nKey: "Common_Navigation_Link_Dashboard", href: "/dashboard", roles: ["superadmin", "ngo_admin", "field_worker"] },
+  { i18nKey: "Common_Navigation_Link_VolunteerDashboard", href: "/dashboard", roles: ["volunteer"] },
+  { i18nKey: "Common_Navigation_Link_Pipeline", href: "/pipeline", roles: ["superadmin"] },
+  { i18nKey: "Common_Navigation_Link_AIReview", href: "/ai-review", roles: ["superadmin"] },
+  { i18nKey: "Common_Navigation_Link_FormBuilder", href: "/form-builder", roles: ["ngo_admin", "field_worker"] },
+  { i18nKey: "Common_Navigation_Link_DataCollection", href: "/surveys/new", roles: ["ngo_admin", "field_worker"] },
+  { i18nKey: "Common_Navigation_Link_Clustering", href: "/clustering", roles: ["superadmin"] },
+  { i18nKey: "Common_Navigation_Link_Matching", href: "/matching", roles: ["superadmin"] },
+  { i18nKey: "Common_Navigation_Link_Assignments", href: "/assignments", roles: ["superadmin", "volunteer"] },
+  { i18nKey: "Common_Navigation_Link_Feedback", href: "/feedback", roles: ["superadmin", "ngo_admin", "field_worker", "volunteer"] },
+  { i18nKey: "Common_Navigation_Link_Help", href: "/help", roles: ["superadmin", "ngo_admin", "field_worker", "volunteer"] },
+  { i18nKey: "Common_Navigation_Link_Profile", href: "/profile", roles: ["superadmin", "ngo_admin", "field_worker", "volunteer"] },
 ];
 
 const helpPrompts: Record<AppRole, string> = {
@@ -31,6 +34,7 @@ const helpPrompts: Record<AppRole, string> = {
 };
 
 export function AppShell() {
+  const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
@@ -50,26 +54,34 @@ export function AppShell() {
           </div>
           <p className="text-lg font-bold tracking-tight">NIYOJAN</p>
         </div>
-        <button 
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-2 -mr-2 text-ink hover:bg-canvas-soft rounded-md transition-colors"
-          aria-label="Toggle menu"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            {isMobileMenuOpen ? (
-              <>
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </>
-            ) : (
-              <>
-                <line x1="3" y1="12" x2="21" y2="12"></line>
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-                <line x1="3" y1="18" x2="21" y2="18"></line>
-              </>
-            )}
-          </svg>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Mobile Language Selector */}
+          {user?.role !== 'superadmin' && (
+            <div className="w-24">
+              <LanguageSelector />
+            </div>
+          )}
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 -mr-2 text-ink hover:bg-canvas-soft rounded-md transition-colors"
+            aria-label="Toggle menu"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {isMobileMenuOpen ? (
+                <>
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </>
+              ) : (
+                <>
+                  <line x1="3" y1="12" x2="21" y2="12"></line>
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <line x1="3" y1="18" x2="21" y2="18"></line>
+                </>
+              )}
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Sidebar Overlay (Mobile) */}
@@ -92,9 +104,11 @@ export function AppShell() {
             </div>
             <p className="text-xl font-bold tracking-tight text-ink">NIYOJAN</p>
           </div>
-          <p className="text-[11px] font-mono text-mute uppercase tracking-widest">
+          <p className="text-[11px] font-mono text-mute uppercase tracking-widest mb-3">
             {user?.role.replace('_', ' ')}
           </p>
+          {/* Desktop Language Selector */}
+          {user?.role !== 'superadmin' && <LanguageSelector />}
         </div>
         
         <div className="md:hidden flex flex-col px-5 py-6 border-b border-hairline bg-canvas mt-14">
@@ -119,7 +133,7 @@ export function AppShell() {
                   )
                 }
               >
-                {item.label}
+                {t(item.i18nKey)}
               </NavLink>
             ))}
         </nav>
@@ -127,10 +141,10 @@ export function AppShell() {
         <div className="p-4 border-t border-hairline bg-canvas space-y-4">
           {user ? (
             <div className="rounded-md border border-hairline bg-canvas-soft p-3">
-              <p className="label-caps text-ink">Help Center</p>
+              <p className="label-caps text-ink">{t('Common_Navigation_Text_HelpCenter')}</p>
               <p className="mt-1.5 text-[13px] leading-relaxed text-body">{helpPrompts[user.role]}</p>
               <NavLink className="action-button-secondary w-full text-xs mt-3 py-1.5" to="/help">
-                Open Guide
+                {t('Common_Navigation_Button_OpenGuide')}
               </NavLink>
             </div>
           ) : null}
@@ -139,7 +153,7 @@ export function AppShell() {
             variant="ghost"
             onClick={() => void signOut()}
           >
-            Sign Out
+            {t('Common_Navigation_Button_SignOut')}
           </Button>
         </div>
       </aside>

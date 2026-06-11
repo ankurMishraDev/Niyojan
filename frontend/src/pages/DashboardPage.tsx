@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -19,6 +20,7 @@ export function DashboardPage() {
 }
 
 function NgoDashboard({ user }: { user: UserProfile | null }) {
+  const { t } = useTranslation();
   const isVolunteer = user?.role === "volunteer";
   const submittedSurveysQuery = useQuery({
     enabled: !isVolunteer,
@@ -31,15 +33,15 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
       <div className="space-y-6 max-w-5xl mx-auto py-8 px-4 sm:px-6">
         <PageHeader
           eyebrow="Workspace"
-          title="Volunteer Dashboard"
-          description="Review assigned work, submit feedback, and keep your profile current."
+          title={t("Volunteer_Dashboard_Header_Welcome")}
+          description={t("Volunteer_Dashboard_Text_Overview")}
         />
 
         <div className="grid gap-6 md:grid-cols-2">
           <Link className="block group" to="/feedback">
             <Panel className="h-full transition-transform hover:-translate-y-1">
-              <p className="label-caps">Feedback</p>
-              <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">Submit field feedback</h2>
+              <p className="label-caps">{t("Common_Navigation_Link_Feedback")}</p>
+              <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">{t("Volunteer_Feedback_Header_SubmitFeedback")}</h2>
               <p className="mt-2 text-sm leading-relaxed text-body">
                 Record visit outcomes and evidence for assigned cases.
               </p>
@@ -47,8 +49,8 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
           </Link>
           <Link className="block group" to="/profile">
             <Panel className="h-full transition-transform hover:-translate-y-1">
-              <p className="label-caps">Profile</p>
-              <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">View volunteer identity</h2>
+              <p className="label-caps">{t("Common_Navigation_Link_Profile")}</p>
+              <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">{t("Volunteer_Profile_Header_ProfileSettings")}</h2>
               <p className="mt-2 text-sm leading-relaxed text-body">
                 Confirm the active account, organization scope, and contact identity.
               </p>
@@ -63,15 +65,15 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
     <div className="space-y-8 max-w-7xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
         eyebrow="NGO Workspace"
-        title={user?.organizationName ? `${user.organizationName} dashboard` : "NGO Dashboard"}
-        description="Create templates, collect survey data, and submit feedback without admin-only operations tooling."
+        title={user?.organizationName ? `${user.organizationName} dashboard` : t("NGO_Dashboard_Header_Welcome")}
+        description={t("NGO_Dashboard_Text_Overview")}
       />
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Link className="block group" to="/form-builder">
           <Panel className="h-full transition-transform hover:-translate-y-1">
-            <p className="label-caps">Form Templates</p>
-            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">Create or update templates</h2>
+            <p className="label-caps">{t("Common_Navigation_Link_FormBuilder")}</p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">{t("NGO_FormBuilder_Header_CreateForm")}</h2>
             <p className="mt-2 text-sm leading-relaxed text-body">
               Build reusable intake forms for your field teams and survey collection.
             </p>
@@ -80,8 +82,8 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
 
         <Link className="block group" to="/surveys/new">
           <Panel className="h-full transition-transform hover:-translate-y-1 bg-canvas-soft border-hairline-strong">
-            <p className="label-caps">Data Collection</p>
-            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">Submit collected data</h2>
+            <p className="label-caps">{t("Common_Navigation_Link_DataCollection")}</p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">{t("NGO_Survey_Header_DataCollection")}</h2>
             <p className="mt-2 text-sm leading-relaxed text-body">
               Select a published template, enter beneficiary responses, and submit for analysis.
             </p>
@@ -90,10 +92,10 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
 
         <Link className="block group" to="/feedback">
           <Panel className="h-full transition-transform hover:-translate-y-1">
-            <p className="label-caps">Feedback</p>
-            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">Review field feedback</h2>
+            <p className="label-caps">{t("Common_Navigation_Link_Feedback")}</p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">{t("NGO_Feedback_Header_CaseFeedback")}</h2>
             <p className="mt-2 text-sm leading-relaxed text-body">
-              Track case outcomes and submit follow-up feedback when assigned.
+              {t("NGO_Feedback_Text_ReviewFeedback")}
             </p>
           </Panel>
         </Link>
@@ -104,7 +106,7 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
           <div className="flex items-center justify-between">
             <p className="label-caps">Account Scope</p>
             <Link className="action-button-secondary text-xs py-1.5 px-3" to="/profile">
-              Profile
+              {t("Common_Navigation_Link_Profile")}
             </Link>
           </div>
           <div>
@@ -121,7 +123,7 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
 
         <Panel className="space-y-6">
           <div>
-            <p className="text-xl font-semibold tracking-tight text-ink">Submitted surveys</p>
+            <p className="text-xl font-semibold tracking-tight text-ink">{t("NGO_Dashboard_Metric_TotalSurveys")}</p>
             <p className="mt-1 text-sm text-body">
               Review your past submissions and open the volunteer feedback response linked to each case.
             </p>

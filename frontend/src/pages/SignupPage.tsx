@@ -2,10 +2,12 @@ import { FormEvent, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Button, Input, Panel, Textarea } from "@/components/ui";
 import { useAuth } from "@/features/auth/useAuth";
+import { useTranslation } from "react-i18next";
 
 import { TermsAndConditions } from "@/components/TermsAndConditions";
 
 export function SignupPage() {
+  const { t } = useTranslation();
   const { status, user, signUpNgo, usingFirebase } = useAuth();
   const [organizationName, setOrganizationName] = useState("");
   const [organizationType, setOrganizationType] = useState("NGO");
@@ -85,10 +87,10 @@ export function SignupPage() {
 
         <Panel className="space-y-8 sm:p-10">
           <div>
-            <p className="label-caps mb-2">NGO Onboarding</p>
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Register Organization</h1>
+            <p className="label-caps mb-2">{t("SignupPage_Header_NGOOnboarding")}</p>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{t("SignupPage_Header_Title")}</h1>
             <p className="mt-2 text-sm text-body leading-relaxed max-w-lg">
-              Create an NGO workspace for form templates, survey collection, and feedback workflows.
+              {t("SignupPage_Header_Description")}
             </p>
           </div>
 
@@ -106,9 +108,9 @@ export function SignupPage() {
 
           <form className="grid gap-5 md:grid-cols-2" onSubmit={onSubmit}>
             <div className="md:col-span-2 space-y-1">
-              <label className="text-xs font-medium text-body px-1">Organization Name *</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_OrgName")}</label>
               <Input
-                placeholder="e.g. Red Cross"
+                placeholder={t("SignupPage_Input_OrgName_Placeholder")}
                 required
                 value={organizationName}
                 onChange={(event) => setOrganizationName(event.target.value)}
@@ -116,18 +118,18 @@ export function SignupPage() {
             </div>
             
             <div className="space-y-1">
-              <label className="text-xs font-medium text-body px-1">Organization Type</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_OrgType")}</label>
               <Input
-                placeholder="e.g. NGO, Non-Profit"
+                placeholder={t("SignupPage_Input_OrgType_Placeholder")}
                 value={organizationType}
                 onChange={(event) => setOrganizationType(event.target.value)}
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-body px-1">Primary Region *</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_Region")}</label>
               <Input
-                placeholder="e.g. South Asia"
+                placeholder={t("SignupPage_Input_Region_Placeholder")}
                 required
                 value={region}
                 onChange={(event) => setRegion(event.target.value)}
@@ -135,28 +137,28 @@ export function SignupPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-body px-1">Registration ID</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_RegId")}</label>
               <Input
-                placeholder="Government ID or Tax ID"
+                placeholder={t("SignupPage_Input_RegId_Placeholder")}
                 value={registrationId}
                 onChange={(event) => setRegistrationId(event.target.value)}
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-body px-1">Contact Phone</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_Phone")}</label>
               <Input
                 type="tel"
-                placeholder="+1 234 567 8900"
+                placeholder={t("SignupPage_Input_Phone_Placeholder")}
                 value={contactPhone}
                 onChange={(event) => setContactPhone(event.target.value)}
               />
             </div>
 
             <div className="md:col-span-2 space-y-1">
-              <label className="text-xs font-medium text-body px-1">Website URL</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_Website")}</label>
               <Input
-                placeholder="https://example.org"
+                placeholder={t("SignupPage_Input_Website_Placeholder")}
                 type="url"
                 value={website}
                 onChange={(event) => setWebsite(event.target.value)}
@@ -164,37 +166,37 @@ export function SignupPage() {
             </div>
 
             <div className="md:col-span-2 space-y-1">
-              <label className="text-xs font-medium text-body px-1">Headquarters Address</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_Address")}</label>
               <Textarea
                 className="min-h-[80px]"
-                placeholder="Full address details"
+                placeholder={t("SignupPage_Input_Address_Placeholder")}
                 value={addressText}
                 onChange={(event) => setAddressText(event.target.value)}
               />
             </div>
 
             <div className="md:col-span-2 space-y-1">
-              <label className="text-xs font-medium text-body px-1">Focus Areas</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_FocusAreas")}</label>
               <Input
-                placeholder="e.g. health, shelter, education (comma-separated)"
+                placeholder={t("SignupPage_Input_FocusAreas_Placeholder")}
                 value={focusAreas}
                 onChange={(event) => setFocusAreas(event.target.value)}
               />
             </div>
 
             <div className="md:col-span-2 space-y-1">
-              <label className="text-xs font-medium text-body px-1">Operating Regions</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_OperatingRegions")}</label>
               <Input
-                placeholder="e.g. Kenya, Uganda, Tanzania (comma-separated)"
+                placeholder={t("SignupPage_Input_OperatingRegions_Placeholder")}
                 value={operatingRegions}
                 onChange={(event) => setOperatingRegions(event.target.value)}
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-body px-1">Team Size</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_TeamSize")}</label>
               <Input
-                placeholder="Number of members"
+                placeholder={t("SignupPage_Input_TeamSize_Placeholder")}
                 type="number"
                 min={1}
                 value={teamSize}
@@ -203,9 +205,9 @@ export function SignupPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-body px-1">Founded Year</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_FoundedYear")}</label>
               <Input
-                placeholder="YYYY"
+                placeholder={t("SignupPage_Input_FoundedYear_Placeholder")}
                 type="number"
                 min={1800}
                 max={new Date().getFullYear()}
@@ -215,10 +217,10 @@ export function SignupPage() {
             </div>
 
             <div className="md:col-span-2 pt-4 border-t border-hairline mt-2 space-y-1">
-              <p className="font-medium text-sm text-ink mb-3">Admin Account Details</p>
-              <label className="text-xs font-medium text-body px-1">Primary Admin Name *</label>
+              <p className="font-medium text-sm text-ink mb-3">{t("SignupPage_Section_AdminDetails")}</p>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_AdminName")}</label>
               <Input
-                placeholder="Full name"
+                placeholder={t("SignupPage_Input_AdminName_Placeholder")}
                 required
                 value={adminName}
                 onChange={(event) => setAdminName(event.target.value)}
@@ -226,9 +228,9 @@ export function SignupPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-body px-1">Admin Email *</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_AdminEmail")}</label>
               <Input
-                placeholder="admin@example.org"
+                placeholder={t("SignupPage_Input_AdminEmail_Placeholder")}
                 required
                 type="email"
                 autoComplete="email"
@@ -238,9 +240,9 @@ export function SignupPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-body px-1">Secure Password *</label>
+              <label className="text-xs font-medium text-body px-1">{t("SignupPage_Input_Password")}</label>
               <Input
-                placeholder="Min. 8 characters"
+                placeholder={t("SignupPage_Input_Password_Placeholder")}
                 required
                 minLength={8}
                 type="password"
@@ -255,14 +257,14 @@ export function SignupPage() {
             <div className="md:col-span-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-4 pt-4 border-t border-hairline">
               <div className="flex flex-col gap-1 order-last sm:order-first">
                 <p className="text-xs text-mute">
-                  Verification required before first sign-in.
+                  {t("SignupPage_Text_VerificationRequired")}
                 </p>
                 <Link className="text-sm text-link font-medium hover:underline underline-offset-2" to="/login">
-                  Back to sign in
+                  {t("SignupPage_Link_BackToLogin")}
                 </Link>
               </div>
               <Button className="w-full sm:w-auto px-8 py-2.5" disabled={submitting || !usingFirebase} type="submit">
-                {submitting ? "Registering…" : "Create NGO Account"}
+                {submitting ? t("SignupPage_Button_Registering") : t("SignupPage_Button_CreateAccount")}
               </Button>
             </div>
           </form>

@@ -17,6 +17,7 @@ import { AssignmentsPage } from "@/pages/AssignmentsPage";
 import { FeedbackIndexPage, FeedbackPage } from "@/pages/FeedbackPage";
 import { HelpPage } from "@/pages/HelpPage";
 import { ProfilePage } from "@/pages/ProfilePage";
+import { ClusteringPage } from "@/pages/ClusteringPage";
 
 function AppRedirect() {
   const { user } = useAuth();
@@ -67,6 +68,13 @@ export const router = createBrowserRouter([
               { path: "ai-review/:documentId", element: <AiReviewPage /> },
               { path: "ai-review/surveys/:surveyId", element: <AiReviewPage /> },
               { path: "matching", element: <MatchingPage /> },
+              { path: "clustering", element: <ClusteringPage /> },
+            ],
+          },
+          {
+            element: <RouteGuard roles={["superadmin", "ngo_admin", "field_worker"]} />,
+            children: [
+              { path: "surveys/:surveyId", element: <SurveyDetailPage /> },
             ],
           },
           {
@@ -74,7 +82,6 @@ export const router = createBrowserRouter([
             children: [
               { path: "form-builder", element: <FormBuilderPage /> },
               { path: "surveys/new", element: <SurveyNewPage /> },
-              { path: "surveys/:surveyId", element: <SurveyDetailPage /> },
             ],
           },
           {

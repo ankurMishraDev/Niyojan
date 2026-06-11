@@ -2,8 +2,10 @@ import { FormEvent, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { Button, Input, Panel } from "@/components/ui";
 import { useAuth } from "@/features/auth/useAuth";
+import { useTranslation } from "react-i18next";
 
 export function LoginPage() {
+  const { t } = useTranslation();
   const location = useLocation();
   const { status, user, signInWithEmail } = useAuth();
   const [email, setEmail] = useState("");
@@ -53,15 +55,15 @@ export function LoginPage() {
 
         <Panel className="space-y-6 sm:p-8">
           <div>
-            <p className="label-caps mb-2">Command Access</p>
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Authorize session</h1>
+            <p className="label-caps mb-2">{t("LoginPage_Header_CommandAccess")}</p>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">{t("LoginPage_Header_Title")}</h1>
             <p className="mt-2 text-sm text-body leading-relaxed">
-              Sign in with Niyojan using your NGO or volunteer account to access your workspace.
+              {t("LoginPage_Header_Description")}
             </p>
           </div>
 
           <div className="rounded-md bg-link-bg-soft/40 border border-link/20 px-4 py-3 text-sm text-body">
-            New accounts must verify their email before the session can complete. Check your spam folder if you don't receive it.
+            {t("LoginPage_Alert_NewAccounts")}
           </div>
 
           {error ? (
@@ -74,7 +76,7 @@ export function LoginPage() {
             <div className="space-y-4">
               <Input
                 type="email"
-                placeholder="Email address"
+                placeholder={t("LoginPage_Input_Email")}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
@@ -82,7 +84,7 @@ export function LoginPage() {
               />
               <Input
                 type="password"
-                placeholder="Password"
+                placeholder={t("LoginPage_Input_Password")}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
@@ -91,20 +93,20 @@ export function LoginPage() {
             </div>
 
             <Button className="w-full py-2.5 mt-2 text-sm" disabled={submitting} type="submit">
-              {submitting ? "Signing In…" : "Initiate Authorization"}
+              {submitting ? t("LoginPage_Button_SigningIn") : t("LoginPage_Button_SignIn")}
             </Button>
 
             <div className="pt-6 border-t border-hairline flex flex-col gap-3">
               <p className="text-sm text-body">
-                New NGO?{" "}
+                {t("LoginPage_Text_NewNGO")}{" "}
                 <Link className="text-link font-medium hover:underline underline-offset-2" to="/signup">
-                  Register organization
+                  {t("LoginPage_Link_NewNGO")}
                 </Link>
               </p>
               <p className="text-sm text-body">
-                New Volunteer?{" "}
+                {t("LoginPage_Text_NewVolunteer")}{" "}
                 <Link className="text-link font-medium hover:underline underline-offset-2" to="/volunteer-signup">
-                  Join volunteer network
+                  {t("LoginPage_Link_NewVolunteer")}
                 </Link>
               </p>
             </div>
@@ -112,7 +114,7 @@ export function LoginPage() {
         </Panel>
 
         <div className="mt-8 text-center text-xs text-mute font-mono">
-          Global Access • Operations Console • Secure Sessions
+          {t("LoginPage_Footer_Text")}
         </div>
       </div>
     </div>

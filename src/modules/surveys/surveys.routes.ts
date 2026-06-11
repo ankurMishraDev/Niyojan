@@ -32,6 +32,7 @@ const createSurveyBodySchema = z.object({
 	location_text: z.string().min(1).max(255).optional(),
 	latitude: z.number().min(-90).max(90).nullable().optional(),
 	longitude: z.number().min(-180).max(180).nullable().optional(),
+	submitted_language: z.string().max(10).optional(),
 });
 
 const listSurveysQuerySchema = z.object({

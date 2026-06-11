@@ -4,6 +4,7 @@ import { auditService } from "../../services/auditService";
 import { AuthenticatedUser } from "../../types/auth";
 import { getPaginationParams } from "../../utils/pagination";
 import { vertexService } from "../aiPipeline/vertex.service";
+import { bhashiniService } from "../translation/bhashini.service";
 
 type SurveyStatus = "draft" | "submitted" | "analyzed";
 type SupportedInputType =
@@ -28,6 +29,7 @@ type SurveyRow = {
   latitude: string | number | null;
   longitude: string | number | null;
   status: SurveyStatus;
+  submitted_language: string;
   submitted_at: Date | null;
   created_at: Date;
   updated_at: Date;
@@ -39,6 +41,7 @@ type SurveyResponseRow = {
   form_field_id: string;
   input_type: SupportedInputType;
   value_text: string | null;
+  english_value_text: string | null;
   value_number: string | number | null;
   value_bool: boolean | null;
   value_json: unknown;
@@ -103,6 +106,7 @@ type CreateSurveyInput = {
   location_text?: string;
   latitude?: number | null;
   longitude?: number | null;
+  submitted_language?: string;
 };
 
 type ListSurveysQuery = {
@@ -375,18 +379,19 @@ const normalizeResponseInsert = (
   surveyId: string,
   response: SubmitSurveyResponseInput,
 ) => {
-  return {
-    survey_id: surveyId,
-    form_field_id: response.form_field_id,
-    input_type: response.input_type,
-    value_text:
-      response.input_type === "number" ||
-      response.input_type === "boolean" ||
-      response.input_type === "multiselect"
-        ? null
-        : response.value_text?.trim() || null,
-    value_number:
-      response.input_type === "number" ? (response.value_number ?? null) : null,
+    return {
+      survey_id: surveyId,
+      form_field_id: response.form_field_id,
+      input_type: response.input_type,
+      value_text:
+        response.input_type === "number" ||
+        response.input_type === "boolean" ||
+        response.input_type === "multiselect"
+          ? null
+          : response.value_text?.trim() || null,
+      english_value_text: null as string | null,
+      value_number:
+        response.input_type === "number" ? (response.value_number ?? null) : null,
     value_bool:
       response.input_type === "boolean" ? (response.value_bool ?? null) : null,
     value_json:
@@ -564,6 +569,7 @@ export class SurveysService {
         location_text: input.location_text?.trim() || null,
         latitude: input.latitude ?? null,
         longitude: input.longitude ?? null,
+        submitted_language: input.submitted_language || 'en',
         status: "draft",
       })
       .returning("*")) as SurveyRow[];
@@ -717,11 +723,34 @@ export class SurveysService {
 
     await db.transaction(async (trx) => {
       await trx("survey_responses").where({ survey_id: surveyId }).del();
-      await trx("survey_responses").insert(
-        input.responses.map((response) =>
-          normalizeResponseInsert(surveyId, response),
-        ),
+      
+      const normalizedResponses = input.responses.map((response) =>
+        normalizeResponseInsert(surveyId, response),
       );
+
+      // Translate text fields if survey was submitted in a different language
+      if (survey.submitted_language && survey.submitted_language !== "en") {
+        await Promise.all(
+          normalizedResponses.map(async (res) => {
+            if (res.value_text) {
+              res.english_value_text = await bhashiniService.translate(
+                res.value_text,
+                survey.submitted_language,
+                "en"
+              );
+            }
+          })
+        );
+      } else {
+        // If it's already English, the english_value_text is just value_text
+        normalizedResponses.forEach(res => {
+          if (res.value_text) {
+            res.english_value_text = res.value_text;
+          }
+        });
+      }
+
+      await trx("survey_responses").insert(normalizedResponses);
 
       await trx("surveys").where({ id: surveyId }).update({
         status: "submitted",

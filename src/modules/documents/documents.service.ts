@@ -336,7 +336,7 @@ export class DocumentsService {
     return mapDocument(updatedDocument);
   }
 
-  async triggerExtraction(documentId: string, user: AuthenticatedUser) {
+  async triggerExtraction(documentId: string, user: AuthenticatedUser, targetLanguage?: string) {
     const document = await getDocumentRowById(documentId);
 
     if (!document) {
@@ -371,6 +371,7 @@ export class DocumentsService {
       payload: {
         documentId: document.id,
         gcsPath: document.gcs_path,
+        targetLanguage,
       },
     });
 
@@ -383,6 +384,7 @@ export class DocumentsService {
           gcsPath: document.gcs_path,
           fileName: document.file_name,
           fileType: document.file_type,
+          targetLanguage,
         });
 
       console.info(`\n[Document AI] Extract + Map complete. Details:`);

@@ -18,10 +18,14 @@ import {
   import { fieldCatalogApi, formsApi, documentsApi, pipelineApi } from "@/lib/services";
   import { api } from "@/lib/api";
 import { toneForStatus } from "@/lib/format";
+import { LANGUAGES } from "@/components/LanguageSelector";
 
 import { DynamicLoader } from "@/components/DynamicLoader";
 
+import { useTranslation } from "react-i18next";
+
 export function FormBuilderPage() {
+  const { t } = useTranslation();
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [selectedVersionId, setSelectedVersionId] = useState("");
   const [catalogSearch, setCatalogSearch] = useState("");
@@ -31,6 +35,7 @@ export function FormBuilderPage() {
   const [selectedCatalogId, setSelectedCatalogId] = useState("");
   const [feedback, setFeedback] = useState("");
   const [extractionStage, setExtractionStage] = useState("");
+  const [targetLanguage, setTargetLanguage] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -145,11 +150,11 @@ export function FormBuilderPage() {
           gcs_path: signed.gcsPath,
         });
   
-        setExtractionStage("Extracting");
-        setFeedback("Triggering AI extraction...");
-        await documentsApi.extract(doc.id);
-  
-        setFeedback(
+      setExtractionStage("Extracting");
+      setFeedback("Triggering AI extraction...");
+      await documentsApi.extract(doc.id, targetLanguage || "en");
+
+      setFeedback(
           "Waiting for extraction to complete (this may take a minute)...",
         );
         let currentDoc = doc;
@@ -282,8 +287,8 @@ export function FormBuilderPage() {
   return (
     <div className="space-y-6 max-w-screen-2xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
-        eyebrow="Form Builder"
-        title="Template and field orchestration"
+        eyebrow={t("Common_Navigation_Link_FormBuilder")}
+        title={t("NGO_FormBuilder_Header_CreateForm")}
         description="Manage field catalog references, versioned templates, and publishable survey structures using the existing backend form endpoints."
       />
 
@@ -294,27 +299,42 @@ export function FormBuilderPage() {
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_2fr] xl:grid-cols-[300px_1fr_300px]">
-        <Panel className="space-y-5 flex flex-col max-h-[85vh] overflow-y-auto">
-          <div className="flex flex-col gap-3">
-            <p className="text-xl font-semibold tracking-tight text-ink">Templates</p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                className="w-full text-xs py-1.5"
-                disabled={scanDocumentMutation.isPending}
-                onClick={() => fileInputRef.current?.click()}
-                variant="primary"
-              >
-                Scan AI Document
-              </Button>
-              <input
-                title="image"
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/*,application/pdf"
-                onChange={onFileChange}
-              />
-              <Button
+          <Panel className="space-y-5 flex flex-col max-h-[85vh] overflow-y-auto">
+            <div className="flex flex-col gap-3">
+              <p className="text-xl font-semibold tracking-tight text-ink">Templates</p>
+              
+              <div className="flex flex-col gap-2 p-3 bg-canvas-soft-2 rounded-md border border-hairline">
+                <p className="text-xs font-medium text-body mb-1">{t("NGO_FormBuilder_Label_TargetLanguage")}</p>
+                <select
+                  value={targetLanguage}
+                  onChange={(e) => setTargetLanguage(e.target.value)}
+                  className="w-full rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm text-ink focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer mb-2"
+                >
+                  <option value="">English (Default)</option>
+                  {LANGUAGES.filter(l => l.code !== 'en').map(lang => (
+                    <option key={lang.code} value={lang.code}>{lang.label}</option>
+                  ))}
+                </select>
+                <Button
+                  className="w-full text-xs py-1.5"
+                  disabled={scanDocumentMutation.isPending}
+                  onClick={() => fileInputRef.current?.click()}
+                  variant="primary"
+                >
+                  Scan AI Document
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <input
+                  title="image"
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*,application/pdf"
+                  onChange={onFileChange}
+                />
+                <Button
                 className="flex-1 text-xs py-1.5"
                 onClick={() => {
                   const name = prompt("Enter new template name:");

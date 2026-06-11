@@ -86,10 +86,14 @@ router.patch(
 	documentsController.updateDocumentStatus,
 );
 
+const triggerExtractionBodySchema = z.object({
+	targetLanguage: z.string().optional(),
+});
+
 router.post(
 	"/:id/extract-fields",
 	allowRoles(["superadmin", "ngo_admin", "field_worker"]),
-	validate({ params: documentIdParamsSchema }),
+	validate({ params: documentIdParamsSchema, body: triggerExtractionBodySchema }),
 	documentsController.triggerExtraction,
 );
 

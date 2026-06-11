@@ -4,6 +4,7 @@ import { db } from "../../config/db";
 import { AppError } from "../../middleware/errorHandler";
 import { auditService } from "../../services/auditService";
 import { AuthenticatedUser } from "../../types/auth";
+import { bhashiniService } from "../translation/bhashini.service";
 
 type AssignmentRow = {
 	id: string;
@@ -43,6 +44,10 @@ type FeedbackRow = {
 	action_taken: string | null;
 	resolution_status: string;
 	escalation_reason: string | null;
+	original_language: string;
+	english_actual_situation_summary: string | null;
+	english_action_taken: string | null;
+	english_escalation_reason: string | null;
 	submitted_at: Date | null;
 	created_at: Date;
 	updated_at: Date;
@@ -82,6 +87,7 @@ type SubmitFeedbackInput = {
 	action_taken?: string;
 	resolution_status?: "pending" | "resolved" | "partially_resolved" | "escalated" | "unresolved";
 	escalation_reason?: string;
+	original_language?: string;
 };
 
 type EvidenceUploadInput = {
@@ -269,6 +275,24 @@ export class FeedbackService {
 			throw new AppError(409, "Feedback already exists for this assignment");
 		}
 
+		const originalLanguage = input.original_language || 'en';
+
+		let english_actual_situation_summary = input.actual_situation_summary?.trim() || null;
+		let english_action_taken = input.action_taken?.trim() || null;
+		let english_escalation_reason = input.escalation_reason?.trim() || null;
+
+		if (originalLanguage !== 'en') {
+			if (english_actual_situation_summary) {
+				english_actual_situation_summary = await bhashiniService.translate(english_actual_situation_summary, originalLanguage, 'en');
+			}
+			if (english_action_taken) {
+				english_action_taken = await bhashiniService.translate(english_action_taken, originalLanguage, 'en');
+			}
+			if (english_escalation_reason) {
+				english_escalation_reason = await bhashiniService.translate(english_escalation_reason, originalLanguage, 'en');
+			}
+		}
+
 		const feedback = await db.transaction(async (trx) => {
 			const [createdFeedback] = (await trx("volunteer_feedback")
 				.insert({
@@ -288,6 +312,10 @@ export class FeedbackService {
 					action_taken: input.action_taken?.trim() || null,
 					resolution_status: input.resolution_status || "pending",
 					escalation_reason: input.escalation_reason?.trim() || null,
+					original_language: originalLanguage,
+					english_actual_situation_summary,
+					english_action_taken,
+					english_escalation_reason,
 					submitted_at: new Date(),
 				})
 				.returning("*")) as FeedbackRow[];

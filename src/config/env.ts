@@ -47,6 +47,10 @@ const envSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
 
   API_INTERNAL_SECRET: z.string().optional(),
+
+  BHASHINI_USER_ID: z.string().optional(),
+  BHASHINI_API_KEY: z.string().optional(),
+  BHASHINI_INFERENCE_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
