@@ -6,12 +6,14 @@ import { assignmentsApi, feedbackApi } from "@/lib/services";
 import { useAuth } from "@/features/auth/useAuth";
 import { Button, Input, LoaderBlock, PageHeader, Panel, Select, StatusBadge, Textarea } from "@/components/ui";
 import { formatDateTime, toneForStatus } from "@/lib/format";
+import { useTranslation } from "react-i18next";
 
 function StatusPill({ value }: { value: string }) {
   return <StatusBadge tone={toneForStatus(value)}>{value}</StatusBadge>;
 }
 
 export function FeedbackIndexPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const canListAssignments =
     user?.role === "superadmin" ||
@@ -39,15 +41,14 @@ export function FeedbackIndexPage() {
     return (
       <div className="space-y-6 max-w-7xl mx-auto py-8 px-4 sm:px-6">
         <PageHeader
-          eyebrow="Feedback"
-          title="Feedback workspace"
-          description="NGO accounts can submit and review feedback when an admin-created assignment is opened for follow-up."
+          eyebrow={t("NGO_Feedback_Header_CaseFeedback")}
+          title={t("NGO_Feedback_Text_CaseFeedback")}
+          description={t("NGO_Feedback_Description_CaseFeedback")}
         />
         <Panel className="space-y-4">
-          <p className="text-xl font-semibold tracking-tight text-ink">No direct assignment controls</p>
+          <p className="text-xl font-semibold tracking-tight text-ink">{t("NGO_Feedback_Label_CaseFeedback")}</p>
           <p className="text-sm leading-relaxed text-body">
-            Matching and assignment management are reserved for the NIYOJAN superadmin.
-            Use this section for feedback records linked from an assigned case.
+            {t("NGO_Feedback_Reason_CaseFeedback")}
           </p>
         </Panel>
       </div>
@@ -57,13 +58,13 @@ export function FeedbackIndexPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
-        eyebrow="Feedback"
-        title={user?.role === "volunteer" ? "Select an open case" : user?.role === "superadmin" ? "Choose an assignment" : "Review volunteer field feedback"}
+        eyebrow={t("NGO_Feedback_Header_Feedback")}
+        title={user?.role === "volunteer" ? t("NGO_Feedback_Title_Volunteer") : user?.role === "superadmin" ? t("NGO_Feedback_Title_Superadmin") : t("NGO_Feedback_Title_Review")}
         description={user?.role === "volunteer"
-          ? "Choose one of your assigned cases and submit the observed ground reality after the field visit."
+          ? t("NGO_Feedback_Description_Volunteer")
           : user?.role === "superadmin"
-            ? "Assignments drive volunteer feedback submission and admin case closure."
-            : "Review volunteer actions against your submitted surveys and verify whether the field response actually happened."}
+            ? t("NGO_Feedback_Description_Superadmin")
+            : t("NGO_Feedback_Description_Review")}
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {availableAssignments.map((assignment) => (
@@ -85,16 +86,16 @@ export function FeedbackIndexPage() {
             </div>
             <Link className="action-button-secondary w-full text-center mt-auto" to={`/feedback/assignments/${assignment.id}`}>
               {user?.role === "volunteer"
-                ? "Open Field Feedback"
+                ? t("NGO_Feedback_Button_OpenFieldFeedback")
                 : user?.role === "superadmin"
-                  ? "Open Feedback Record"
-                  : "Review Volunteer Response"}
+                  ? t("NGO_Feedback_Button_OpenFeedbackRecord")
+                  : t("NGO_Feedback_Button_ReviewVolunteerResponse")}
             </Link>
           </Panel>
         ))}
         {availableAssignments.length === 0 && (
           <div className="col-span-full py-12 text-center text-sm text-body border-2 border-dashed border-hairline rounded-md">
-            No assignments found.
+            {t("NGO_Feedback_NoAssignments")}
           </div>
         )}
       </div>
@@ -107,7 +108,7 @@ export function FeedbackPage() {
   const { user } = useAuth();
   const [evidencePaths, setEvidencePaths] = useState<string[]>([]);
   const [message, setMessage] = useState("");
-
+  const { t } = useTranslation();
   const assignmentQuery = useQuery({
     queryKey: ["feedback-assignment", assignmentId],
     queryFn: () => assignmentsApi.get(assignmentId),
@@ -184,12 +185,12 @@ export function FeedbackPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
-        eyebrow="Ground Truth"
+        eyebrow={t("NGO_Feedback_Detailed_Header_Part")}
         title={assignment.needSummary}
-        description="Field verification against the original need and AI-derived routing decision."
+        description={t("NGO_Feedback_Detailed_Description_Part")}
         actions={
           <Link className="action-button-secondary" to={user?.role === "superadmin" ? "/assignments" : "/feedback"}>
-            Back
+            {t("NGO_Feedback_Detailed_Button_BackToAssignments")}
           </Link>
         }
       />

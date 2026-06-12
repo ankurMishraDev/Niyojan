@@ -373,6 +373,7 @@ export type Survey = {
   locationText: string | null;
   latitude: number | null;
   longitude: number | null;
+  submittedLanguage?: string | null;
   status: string;
   submittedAt: string | null;
   createdAt: string;

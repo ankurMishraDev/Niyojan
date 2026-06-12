@@ -164,20 +164,21 @@ const toNullableNumber = (value: string | number | null) => {
 };
 
 const mapSurvey = (survey: SurveyRow) => {
-  return {
-    id: survey.id,
-    orgId: survey.org_id,
-    templateVersionId: survey.template_version_id,
-    conductedBy: survey.conducted_by,
-    respondentName: survey.respondent_name,
-    locationText: survey.location_text,
-    latitude: toNullableNumber(survey.latitude),
-    longitude: toNullableNumber(survey.longitude),
-    status: survey.status,
-    submittedAt: survey.submitted_at,
-    createdAt: survey.created_at,
-    updatedAt: survey.updated_at,
-  };
+    return {
+      id: survey.id,
+      orgId: survey.org_id,
+      templateVersionId: survey.template_version_id,
+      conductedBy: survey.conducted_by,
+      respondentName: survey.respondent_name,
+      locationText: survey.location_text,
+      latitude: toNullableNumber(survey.latitude),
+      longitude: toNullableNumber(survey.longitude),
+      submittedLanguage: survey.submitted_language,
+      status: survey.status,
+      submittedAt: survey.submitted_at,
+      createdAt: survey.created_at,
+      updatedAt: survey.updated_at,
+    };
 };
 
 const mapSurveyResponse = (response: SurveyResponseRow) => {

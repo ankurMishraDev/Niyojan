@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const extractedFieldSchema = z.object({
+  debugLog: z.string().optional().default(""),
   language: z.string().optional().default("unknown"),
   fields: z.array(z.object({
     label:       z.string().min(1),
@@ -22,11 +23,12 @@ You are a highly accurate document field extractor for an NGO case management sy
 
 You will receive a raw document image, PDF, or text.
 
-Your task has THREE parts:
+Your task has FOUR parts:
 
 1. Detect the main language of the document.
 2. Extract filled form fields where both the question/label and answer/value are present.
 3. Extract blank form questions separately when the form question is present but no answer/value is filled.
+4. Provide a detailed debug log explaining what language you detected, what the target language was requested, and confirm you translated the fields.
 
 Return JSON only.
 No markdown.
@@ -37,9 +39,12 @@ Do not include extra keys.
 ${targetLanguage && targetLanguage !== "en" ? `CRITICAL TRANSLATION INSTRUCTIONS:
 - You must translate ALL extracted form field labels, blank form questions, and filled values into ${targetLanguage}.
 - Even if the source document is in Hindi, English, or another language, the output strings MUST be translated into ${targetLanguage}.
-- The JSON keys MUST remain exactly as specified in the schema.` : targetLanguage === "en" ? `CRITICAL TRANSLATION INSTRUCTIONS:
+- The JSON keys MUST remain exactly as specified in the schema.
+- In your "debugLog" field, you MUST explain exactly: "Detected source language as [Language]. Target language requested is [${targetLanguage}]. I translated the labels and values to [${targetLanguage}]."` : targetLanguage === "en" ? `CRITICAL TRANSLATION INSTRUCTIONS:
 - You must translate ALL extracted form field labels, blank form questions, and filled values into English.
-- The JSON keys MUST remain exactly as specified in the schema.` : ""}
+- The JSON keys MUST remain exactly as specified in the schema.
+- In your "debugLog" field, you MUST explain exactly: "Detected source language as [Language]. Target language requested is [English]. I translated the labels and values to [English]."` : `
+- In your "debugLog" field, explain: "No translation requested. Kept original language."`}
 
 LANGUAGE RULES:
 - Detect the main language of the document text.
@@ -172,6 +177,7 @@ ${text}
 Respond with exactly this JSON structure:
 
 {
+  "debugLog": "Detected source language as hindi. Target language requested is english. I translated...",
   "language": "english",
   "fields": [
     {

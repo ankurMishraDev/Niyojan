@@ -66,7 +66,7 @@ const normalizeToKey = (value: string) =>
 	value
 		.trim()
 		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "_")
+		.replace(/[^\p{L}\p{N}]+/gu, "_")
 		.replace(/^_+|_+$/g, "");
 
 const inferCategory = (label: string) => {
@@ -129,7 +129,7 @@ const normalizeFieldIdentity = (value: string) =>
 	value
 		.trim()
 		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "_")
+		.replace(/[^\p{L}\p{N}]+/gu, "_")
 		.replace(/^_+|_+$/g, "");
 
 const modelOutputSchema = z.array(mappedFieldSchema);
@@ -164,6 +164,7 @@ export class GeminiService {
 				JSON.stringify(candidates),
 			].join("\n");
 
+			console.log(`[DEBUG-EXTRACTION] Field Mapping candidates input: ${JSON.stringify(candidates.map(c => c.label))}`);
 			const result = await vertexService.generateStructuredJson({
 				model: env.VERTEX_DOCUMENT_MODEL,
 				promptVersion: "field_mapping_v1",
@@ -172,8 +173,11 @@ export class GeminiService {
 			});
 
 			if ("validationErrors" in result && result.validationErrors?.length) {
+				console.error(`[DEBUG-EXTRACTION] Field mapping failed: ${result.validationErrors.join(", ")}`);
 				throw new Error("Vertex mapping failed");
 			}
+
+			console.log(`[DEBUG-EXTRACTION] Field Mapping result output labels: ${JSON.stringify(result.output.map(o => o.label))}`);
 
 			if (result.output.length !== candidates.length) {
 				throw new Error(

@@ -52,7 +52,7 @@ const normalizeFieldToken = (value: string) =>
   value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/[^\p{L}\p{N}]+/gu, "_")
     .replace(/^_+|_+$/g, "");
 
 const toConfidenceNumber = (value: unknown) => {
@@ -341,15 +341,18 @@ const collectExtractionEntries = (extractionResult: any): ExtractionEntry[] => {
 
 import { pipelineApi } from "@/lib/services";
 import { DynamicLoader } from "@/components/DynamicLoader";
+import { useTranslation } from "react-i18next";
 
 const applyExtractionToDraft = (
   currentDraft: SurveyDraftState,
   fields: FormField[],
   extractionResult: any,
 ) => {
+  console.log(`[DEBUG-EXTRACTION] Applying Extraction To Draft. Raw extraction result:`, extractionResult);
   const nextDraft = { ...currentDraft };
   const fieldExtractionMeta: Record<string, FieldExtractionMeta> = {};
   const entries = collectExtractionEntries(extractionResult);
+  console.log(`[DEBUG-EXTRACTION] Collected Extraction Entries:`, entries);
   const usedFieldIds = new Set<string>();
 
   for (const entry of entries) {
@@ -469,9 +472,10 @@ const uploadAndExtractDocument = async (
     source_survey_id: sourceSurveyId,
   });
 
-    if (onStage) onStage("Extracting");
-    onProgress("Triggering AI extraction...");
-    await documentsApi.extract(document.id, targetLanguage || "en");
+  if (onStage) onStage("Extracting");
+  onProgress(`Triggering AI extraction... (Lang: ${targetLanguage || "en"})`);
+  console.log(`[DEBUG-EXTRACTION] Frontend triggering extraction with targetLanguage: ${targetLanguage || "en"}`);
+  await documentsApi.extract(document.id, targetLanguage || "en");
   
     onProgress("Waiting for extraction (this may take a minute)...");
   let currentDocument = document;
@@ -510,6 +514,7 @@ export function SurveyNewPage() {
   const [targetLanguage, setTargetLanguage] = useState("");
   const filledFormInputRef = useRef<HTMLInputElement>(null);
 
+  const { t } = useTranslation();
   const templatesQuery = useQuery({
     queryKey: ["survey-templates"],
     queryFn: () =>
@@ -609,9 +614,9 @@ export function SurveyNewPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
-        eyebrow="Field Workflow"
-        title="Create survey draft"
-        description="Create a draft from a published template or upload a filled survey form and prefill the draft from extracted data."
+        eyebrow={t("NGO_SurveyPages_Header_CreateSurvey")}
+        title={t("NGO_SurveyPages_Header")}
+        description={t("NGO_SurveyPages_Header_Description")}
       />
 
       {creationFeedback ? (
@@ -623,12 +628,12 @@ export function SurveyNewPage() {
       <Panel className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-hairline">
           <div>
-            <p className="text-xl font-semibold tracking-tight text-ink">Blank Draft</p>
+            <p className="text-xl font-semibold tracking-tight text-ink">{t("NGO_SurveyPages_Header_BlankDraft")}</p>
             <p className="mt-1 text-sm text-body">
-              Start with an empty survey draft and fill it manually.
+              {t("NGO_SurveyPages_Header_BlankDraft_Description")}
             </p>
           </div>
-          <Button
+          {/* <Button
             className="w-full sm:w-auto shrink-0"
             disabled={!versionId || createFromFilledFormMutation.isPending}
             onClick={() => filledFormInputRef.current?.click()}
@@ -652,12 +657,12 @@ export function SurveyNewPage() {
               }
               event.currentTarget.value = "";
             }}
-          />
+          /> */}
         </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-body px-1">Template</label>
+              <label className="text-xs font-medium text-body px-1">{t("NGO_SurveyPages_Header_Template")}</label>
               <Select
                 value={templateId}
                 onChange={(event) => setTemplateId(event.target.value)}
@@ -670,7 +675,7 @@ export function SurveyNewPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-body px-1">Version</label>
+              <label className="text-xs font-medium text-body px-1">{t("NGO_SurveyPages_Header_Version")}</label>
               <Select
                 value={versionId}
                 onChange={(event) => setVersionId(event.target.value)}
@@ -684,7 +689,7 @@ export function SurveyNewPage() {
               </Select>
             </div>
             <div className="space-y-1 sm:col-span-2">
-              <label className="text-xs font-medium text-body px-1">Form Filling Language</label>
+              <label className="text-xs font-medium text-body px-1">{t("NGO_SurveyPages_Header_Language")}:</label>
               <Select
                 value={targetLanguage}
                 onChange={(e) => setTargetLanguage(e.target.value)}
@@ -696,7 +701,7 @@ export function SurveyNewPage() {
                   </option>
                 ))}
               </Select>
-              <p className="text-xs text-mute px-1 mt-1">Select the language for document extraction or manual entry to translate responses to English on submission.</p>
+              <p className="text-xs text-mute px-1 mt-1">{t("NGO_SurveyPages_Text_LanguageDescription")}</p>
             </div>
           </div>
 
@@ -720,19 +725,19 @@ export function SurveyNewPage() {
             }}
         >
           <div className="space-y-1">
-            <label className="text-xs font-medium text-body px-1">Respondent / Site Name</label>
+            <label className="text-xs font-medium text-body px-1">{t("NGO_SurveyPages_Form_Respondent")}</label>
             <Input name="respondent_name" placeholder="John Doe / Camp A" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-body px-1">Location Text</label>
+            <label className="text-xs font-medium text-body px-1">{t("NGO_SurveyPages_Form_Location")}</label>
             <Input name="location_text" placeholder="Village, District" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-body px-1">Latitude (Optional)</label>
+            <label className="text-xs font-medium text-body px-1">{t("NGO_SurveyPages_Form_Latitude")}</label>
             <Input name="latitude" placeholder="e.g. 12.3456" type="number" step="any" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-body px-1">Longitude (Optional)</label>
+            <label className="text-xs font-medium text-body px-1">{t("NGO_SurveyPages_Form_Longitude")}</label>
             <Input name="longitude" placeholder="e.g. 78.9101" type="number" step="any" />
           </div>
           <div className="sm:col-span-2 pt-4 border-t border-hairline mt-2">
@@ -765,6 +770,7 @@ export function SurveyDetailPage() {
   const appliedPrefillRef = useRef(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslation();
 
   const surveyQuery = useQuery({
     queryKey: ["survey-detail", surveyId],
@@ -831,7 +837,8 @@ export function SurveyDetailPage() {
         file, 
         setAnalysisFeedback, 
         surveyId,
-        setExtractionStage
+        setExtractionStage,
+        surveyQuery.data?.submittedLanguage || undefined
       );
     },
     onSuccess: (documentItem) => {
@@ -969,9 +976,9 @@ export function SurveyDetailPage() {
           <Panel className="w-full max-w-2xl space-y-4 border border-warning/30 bg-canvas shadow-modal animate-in fade-in zoom-in-95 duration-200">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-hairline">
               <div>
-                <p className="text-xl font-semibold tracking-tight text-ink">Fields to verify</p>
+                <p className="text-xl font-semibold tracking-tight text-ink">{t("NGO_SurveyPages_Warning_FieldAttention")}</p>
                 <p className="mt-1 text-sm text-body">
-                  These fields were either extracted with lower confidence or need a manual value.
+                  {t("NGO_SurveyPages_Warning_FieldAttention_Description")}
                 </p>
               </div>
               <StatusBadge tone="warning">{extractionAttentionItems.length} field(s)</StatusBadge>
@@ -983,13 +990,13 @@ export function SurveyDetailPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <p className="font-semibold text-ink text-sm">{item.label}</p>
                     <StatusBadge tone={toneForConfidence(item.confidence)}>
-                      {item.confidence === null ? "Confidence unavailable" : `AI confidence ${formatPercent(item.confidence)}`}
+                      {item.confidence === null ? t("NGO_SurveyPages_Warning_ConfidenceUnavailable") : `AI confidence ${formatPercent(item.confidence)}`}
                     </StatusBadge>
                   </div>
                   <p className="mt-2 text-sm text-warning-deep">{item.reason}</p>
-                  <p className="mt-2 text-xs font-mono text-mute">Current value: {item.value}</p>
+                  <p className="mt-2 text-xs font-mono text-mute">{t("NGO_SurveyPages_Warning_CurrentValue")}: {item.value}</p>
                   {item.sourceLabel ? (
-                    <p className="mt-1 text-xs font-mono text-mute">Matched from: {item.sourceLabel}</p>
+                    <p className="mt-1 text-xs font-mono text-mute">{t("NGO_SurveyPages_Warning_MatchValue")}: {item.sourceLabel}</p>
                   ) : null}
                 </div>
               ))}
@@ -997,7 +1004,7 @@ export function SurveyDetailPage() {
 
             <div className="flex justify-end pt-3 border-t border-hairline">
               <Button onClick={() => setShowExtractionAttentionCard(false)} type="button" variant="secondary">
-                Review Fields
+                {t("NGO_SurveyPages_Warning_ReviewFields_Button")}
               </Button>
             </div>
           </Panel>
@@ -1007,7 +1014,7 @@ export function SurveyDetailPage() {
       <PageHeader
         eyebrow="Field Survey"
         title={version.templateName ?? "Survey Detail"}
-        description="Dynamic survey rendering powered by the current form template version."
+        description={t("NGO_SurveyPages_Header_SurveyDescription")}
         actions={
           <div className="flex flex-wrap gap-3 w-full sm:w-auto">
             <Button
@@ -1016,7 +1023,7 @@ export function SurveyDetailPage() {
               onClick={() => fileInputRef.current?.click()}
               variant="secondary"
             >
-              Scan Image Data
+              {t("NGO_SurveyPages_Button_ScanDocument")}
             </Button>
             <input
               title="image"
@@ -1046,16 +1053,19 @@ export function SurveyDetailPage() {
       <Panel className="space-y-6">
         <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
           <InfoCard
-            label="Respondent"
+            label={t("NGO_SurveyPages_Info_Respondent")}
             value={survey.respondentName ?? "Not set"}
           />
           <InfoCard
-            label="Location"
+            label={t("NGO_SurveyPages_Info_Location")}
             value={survey.locationText ?? "Not set"}
           />
-          <InfoCard label="Status" value={survey.status} />
           <InfoCard
-            label="Coordinates"
+            label={t("NGO_SurveyPages_Info_Status")}
+            value={survey.status}
+          />
+          <InfoCard
+            label={t("NGO_SurveyPages_Info_Coordinates")}
             value={`${survey.latitude ?? "—"}, ${survey.longitude ?? "—"}`}
           />
         </div>

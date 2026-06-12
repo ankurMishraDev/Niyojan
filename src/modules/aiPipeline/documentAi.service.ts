@@ -514,8 +514,12 @@ const LANGUAGE_MAP: Record<string, string> = {
 };
 
 const extractWithGemini = async (input: DocumentExtractionInput, fileBytes: Buffer, startedAt: number) => {
+	console.log(`[DEBUG-EXTRACTION] Received input targetLanguage: ${input.targetLanguage}`);
 	const langName = input.targetLanguage ? LANGUAGE_MAP[input.targetLanguage] || input.targetLanguage : undefined;
+	console.log(`[DEBUG-EXTRACTION] Mapped langName: ${langName}`);
 	const finalPrompt = EXTRACTION_PROMPT("", langName);
+	
+	console.log(`[DEBUG-EXTRACTION] Sending final prompt to Gemini: \n${finalPrompt}`);
 
 	const geminiExtract = await vertexService.generateStructuredJson({
 		model: env.VERTEX_DOCUMENT_MODEL,
@@ -529,10 +533,15 @@ const extractWithGemini = async (input: DocumentExtractionInput, fileBytes: Buff
 	});
 
 	if ("validationErrors" in geminiExtract && geminiExtract.validationErrors?.length) {
+		console.error(`[DEBUG-EXTRACTION] Gemini Validation Errors: ${geminiExtract.validationErrors.join(", ")}`);
 		throw new Error(geminiExtract.validationErrors.join(", "));
 	}
 
 	const rawOutput = (geminiExtract as { output?: unknown }).output as z.infer<typeof extractedFieldSchema>;
+	console.log(`[DEBUG-EXTRACTION] Gemini Raw Output (Debug Log): ${rawOutput.debugLog}`);
+	console.log(`[DEBUG-EXTRACTION] Gemini Raw Output (Language): ${rawOutput.language}`);
+	console.log(`[DEBUG-EXTRACTION] Gemini Raw Output (Fields Count): ${rawOutput.fields.length}`);
+	console.log(`[DEBUG-EXTRACTION] Gemini Raw Output (Fields): ${JSON.stringify(rawOutput.fields, null, 2)}`);
 	
 	// Map the new schema back to the internal ExtractedCandidateField
 	const normalizedFields: ExtractedCandidateField[] = [

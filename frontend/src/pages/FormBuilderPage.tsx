@@ -176,15 +176,17 @@ export function FormBuilderPage() {
           }
         }
   
-        if (currentDoc.status === "failed") {
+          if (currentDoc.status === "failed") {
           throw new Error("Document extraction failed");
         }
   
         setExtractionStage("Finalizing");
         setFeedback("Generating form template...");
+        console.log(`[DEBUG-EXTRACTION] Frontend creating template with doc.id: ${doc.id}`);
         const newTemplate = await formsApi.createFromDocument(doc.id, {
           name: file.name.replace(/\.[^/.]+$/, "") + " Template",
         });
+        console.log(`[DEBUG-EXTRACTION] Template created successfully:`, newTemplate);
         return newTemplate;
       },
       onSuccess: async (result) => {
@@ -289,7 +291,7 @@ export function FormBuilderPage() {
       <PageHeader
         eyebrow={t("Common_Navigation_Link_FormBuilder")}
         title={t("NGO_FormBuilder_Header_CreateForm")}
-        description="Manage field catalog references, versioned templates, and publishable survey structures using the existing backend form endpoints."
+        description={t("NGO_FormBuilder_Header_Description")}
       />
 
       {feedback ? (
@@ -301,11 +303,12 @@ export function FormBuilderPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_2fr] xl:grid-cols-[300px_1fr_300px]">
           <Panel className="space-y-5 flex flex-col max-h-[85vh] overflow-y-auto">
             <div className="flex flex-col gap-3">
-              <p className="text-xl font-semibold tracking-tight text-ink">Templates</p>
+              <p className="text-xl font-semibold tracking-tight text-ink">{t("NGO_FormBuilder_Label_TemplateName")}</p>
               
               <div className="flex flex-col gap-2 p-3 bg-canvas-soft-2 rounded-md border border-hairline">
                 <p className="text-xs font-medium text-body mb-1">{t("NGO_FormBuilder_Label_TargetLanguage")}</p>
                 <select
+                title="Select target language for AI extraction and template generation"
                   value={targetLanguage}
                   onChange={(e) => setTargetLanguage(e.target.value)}
                   className="w-full rounded-md border border-hairline bg-canvas px-3 py-1.5 text-sm text-ink focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer mb-2"
@@ -321,7 +324,7 @@ export function FormBuilderPage() {
                   onClick={() => fileInputRef.current?.click()}
                   variant="primary"
                 >
-                  Scan AI Document
+                  {t("NGO_FormBuilder_Button_ScanDocument")}
                 </Button>
               </div>
 
@@ -345,7 +348,7 @@ export function FormBuilderPage() {
                 variant="secondary"
                 disabled={createTemplateMutation.isPending}
               >
-                New Template
+                {t("NGO_FormBuilder_Button_NewTemplate")}
               </Button>
               <Button
                 className="flex-1 text-xs py-1.5"
@@ -355,7 +358,7 @@ export function FormBuilderPage() {
                 onClick={() => void createVersionMutation.mutate()}
                 variant="secondary"
               >
-                New version
+                {t("NGO_FormBuilder_Button_NewVersion")}
               </Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-1">
@@ -365,7 +368,7 @@ export function FormBuilderPage() {
                 onClick={() => void renameTemplate()}
                 variant="secondary"
               >
-                Rename
+                {t("NGO_FormBuilder_Button_RenameTemplate")}
               </Button>
               <Button
                 className="flex-1 text-xs py-1.5"
@@ -373,7 +376,7 @@ export function FormBuilderPage() {
                 onClick={() => void deleteSelectedTemplate()}
                 variant="danger"
               >
-                Delete
+                {t("NGO_FormBuilder_Button_DeleteTemplate")}
               </Button>
             </div>
           </div>
@@ -410,14 +413,14 @@ export function FormBuilderPage() {
 
           <div className="space-y-3 border-t border-hairline pt-5 mt-auto">
             <div className="flex items-center justify-between gap-3">
-              <p className="label-caps">Versions</p>
+              <p className="label-caps">{t("NGO_FormBuilder_Text_Versions")}</p>
               <Button
                 className="text-[10px] py-1 px-2"
                 disabled={!selectedVersionId}
                 onClick={() => void deleteSelectedVersion()}
                 variant="danger"
               >
-                Delete version
+                {t("NGO_FormBuilder_Button_DeleteVersion")}
               </Button>
             </div>
             {versionsQuery.data?.map((version) => (

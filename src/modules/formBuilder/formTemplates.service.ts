@@ -348,7 +348,7 @@ const normalizeFieldIdentity = (
   return `label:${field.label
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/[^\p{L}\p{N}]+/gu, "_")
     .replace(/^_+|_+$/g, "")}`;
 };
 
@@ -414,15 +414,22 @@ const mergeOrderedFields = (
   sourceFields: NormalizedExtractionField[],
   mappedFields: NormalizedExtractionField[],
 ) => {
-  return dedupeOrderedFields(
+  console.log(`[DEBUG-EXTRACTION] FormBuilder merging fields.`);
+  console.log(`[DEBUG-EXTRACTION] Source Fields (AI Output): ${JSON.stringify(sourceFields.map(f => f.label))}`);
+  console.log(`[DEBUG-EXTRACTION] Mapped Fields (Catalog keys): ${JSON.stringify(mappedFields.map(f => f.label))}`);
+
+  const merged = dedupeOrderedFields(
     sourceFields.map((sourceField, index) => {
       const mappedField = mappedFields[index];
       if (!mappedField) {
         return sourceField;
       }
 
+      const finalLabel = sourceField.label || mappedField.label;
+      console.log(`[DEBUG-EXTRACTION] Merged field ${index}: Source='${sourceField.label}', Mapped='${mappedField.label}' => Final='${finalLabel}'`);
+
       return {
-        label: sourceField.label || mappedField.label,
+        label: finalLabel,
         inputType: mappedField.inputType,
         options: mappedField.options,
         required: mappedField.required,
@@ -431,6 +438,9 @@ const mergeOrderedFields = (
       };
     }),
   );
+
+  console.log(`[DEBUG-EXTRACTION] Final merged labels: ${JSON.stringify(merged.map(f => f.label))}`);
+  return merged;
 };
 
 const parseExtractionFields = (extraction: unknown) => {

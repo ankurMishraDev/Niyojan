@@ -356,6 +356,7 @@ export class DocumentsService {
     console.info(
       `[Document AI] Document ID: ${document.id} | File Name: ${document.file_name}`,
     );
+    console.info(`[DEBUG-EXTRACTION] Triggering Extraction with targetLanguage: ${targetLanguage}`);
     console.info(`[Document AI] Starting AI orchestrator processing...`);
 
     await db("documents").where({ id: documentId }).update({
