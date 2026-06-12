@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { env } from "../../config/env";
 import { getGoogleAccessToken } from "../../config/googleCredentials";
+import { REASONING_PROMPT, documentReasoningSchema } from "../../langgraph-pipeline/prompts/reasoningPrompt";
 import {
-	documentReasoningSchema,
 	parseStructuredJson,
 	surveyNeedDraftListSchema,
 } from "./ai.schemas";
@@ -337,8 +337,6 @@ export class VertexService {
 			const caseSummary = buildFallbackSummary(input);
 			const urgencyReasons = buildFallbackUrgencyReasons(input);
 			const urgencyEvidenceRefs = buildFallbackEvidenceRefs(input);
-			const verificationRiskReasons = buildFallbackVerificationRiskReasons(input);
-
 			return {
 				providerName: "vertex-ai",
 				model: env.VERTEX_REASONING_MODEL,
@@ -355,7 +353,6 @@ export class VertexService {
 					recommendedAction: "Review this case, confirm the important details, and then continue it for form or case processing.",
 					reasoningConfidence: 0.58,
 					verificationRisk: "high" as const,
-					verificationRiskReasons,
 				},
 				latencyMs: 0,
 				inputTokenCount: null,
@@ -369,21 +366,28 @@ export class VertexService {
 		})();
 
 		try {
-			const prompt = [
-				"You are classifying a humanitarian intake document.",
-				"Return JSON only.",
-				"Use the extracted fields and canonical text to estimate urgency, category, recommended skills, and verification risk.",
-				"Write for a non-technical NGO admin in simple language.",
-				"caseSummary must be a short 2-4 sentence explanation of what the survey or intake is basically about.",
-				"urgencyReasons and verificationRiskReasons must be plain-language explanations, not system messages.",
-				"urgencyEvidenceRefs must contain short human-readable text snippets or field references from the intake, not codes like p1:b1.",
-				"Urgency score must be 0-100.",
-				"Verification risk must be low, medium, or high.",
-				"Extracted fields JSON:",
-				JSON.stringify(input.fields),
-				"Canonical text:",
+			// Convert the local fields format to MappedField format expected by the prompt
+			const mappedFields = input.fields.map(f => ({
+				label: f.label,
+				value: String(f.matchedCatalogKey || f.label),
+				confidence: f.confidence,
+				inputType: f.inputType,
+				required: false,
+				options: null,
+				matchedCatalogKey: f.matchedCatalogKey || null,
+				isCustom: !f.matchedCatalogKey,
+				category: f.category || "unknown",
+				fieldCatalogId: null,
+				trustLevel: "untrusted" as const,
+				evidenceRef: null
+			}));
+
+			const prompt = REASONING_PROMPT(
+				mappedFields,
 				input.canonicalText.slice(0, 12000),
-			].join("\n");
+				fallback.output.recommendedSkillKeys || [],
+				null
+			);
 
 			return await this.generateStructuredJson({
 				model: env.VERTEX_REASONING_MODEL,

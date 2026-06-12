@@ -20,6 +20,7 @@ type NeedRow = {
 	survey_longitude?: string | number | null;
 	respondent_name?: string | null;
 	template_version_id?: string;
+	cluster_id?: string | null;
 };
 
 type NeedSkillRow = {
@@ -80,6 +81,8 @@ const mapNeed = (need: NeedRow, skills: NeedSkillRow[]) => {
 		longitude: need.survey_longitude === undefined || need.survey_longitude === null ? null : Number(need.survey_longitude),
 		respondentName: need.respondent_name ?? null,
 		templateVersionId: need.template_version_id ?? null,
+		clusterStatus: need.cluster_id ? "clustered" : "unclustered",
+		clusterId: need.cluster_id ?? null,
 		skills: skills.map(mapNeedSkill),
 	};
 };
@@ -98,6 +101,7 @@ const getNeedSkills = async (needIds: string[]) => {
 const getNeedRowById = async (needId: string) => {
 	return (await db("needs_analysis as n")
 		.join("surveys as s", "n.survey_id", "s.id")
+		.leftJoin("aggregate_need_members as anm", "n.id", "anm.needs_analysis_id")
 		.where("n.id", needId)
 		.select(
 			"n.id",
@@ -115,6 +119,7 @@ const getNeedRowById = async (needId: string) => {
 			"s.longitude as survey_longitude",
 			"s.respondent_name",
 			"s.template_version_id",
+			"anm.aggregate_need_id as cluster_id"
 		)
 		.first()) as NeedRow | undefined;
 };
@@ -122,7 +127,9 @@ const getNeedRowById = async (needId: string) => {
 export class NeedsService {
 	async listNeeds(query: ListNeedsQuery, user: AuthenticatedUser) {
 		const { page, pageSize, offset } = getPaginationParams(query.page, query.pageSize);
-		const baseQuery = db("needs_analysis as n").join("surveys as s", "n.survey_id", "s.id");
+		const baseQuery = db("needs_analysis as n")
+			.join("surveys as s", "n.survey_id", "s.id")
+			.leftJoin("aggregate_need_members as anm", "n.id", "anm.needs_analysis_id");
 
 		if (user.role === "superadmin") {
 			if (query.org_id) {
@@ -170,6 +177,7 @@ export class NeedsService {
 				"s.longitude as survey_longitude",
 				"s.respondent_name",
 				"s.template_version_id",
+				"anm.aggregate_need_id as cluster_id"
 			)
 			.orderBy("n.created_at", "desc")
 			.offset(offset)

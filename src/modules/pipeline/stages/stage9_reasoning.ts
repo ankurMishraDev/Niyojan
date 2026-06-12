@@ -30,7 +30,6 @@ export const stage9Reasoning = async (fields: ReasoningField[], canonicalText: s
 		recommendedAction: result.output.recommendedAction,
 		reasoningConfidence: result.output.reasoningConfidence,
 		verificationRisk: result.output.verificationRisk,
-		verificationRiskReasons: result.output.verificationRiskReasons,
 		inputTokenCount: result.inputTokenCount,
 		outputTokenCount: result.outputTokenCount,
 		latencyMs: result.latencyMs,

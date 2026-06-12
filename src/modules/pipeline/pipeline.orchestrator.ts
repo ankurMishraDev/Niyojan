@@ -838,9 +838,7 @@ export class PipelineOrchestrator {
               recommended_action: reasoning.recommendedAction,
               reasoning_confidence: reasoning.reasoningConfidence,
               verification_risk: reasoning.verificationRisk,
-              verification_risk_reasons: JSON.stringify(
-                reasoning.verificationRiskReasons,
-              ),
+              verification_risk_reasons: JSON.stringify([]),
               input_token_count: reasoning.inputTokenCount,
               output_token_count: reasoning.outputTokenCount,
               latency_ms: reasoning.latencyMs,

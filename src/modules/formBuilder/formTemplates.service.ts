@@ -422,7 +422,7 @@ const mergeOrderedFields = (
       }
 
       return {
-        label: mappedField.label,
+        label: sourceField.label || mappedField.label,
         inputType: mappedField.inputType,
         options: mappedField.options,
         required: mappedField.required,

@@ -12,17 +12,6 @@ import {
 
 const geminiFallbackSchema = z.any();
 
-const GEMINI_DOCUMENT_EXTRACTION_PROMPT = [
-	"Extract all user-visible form fields from this document in top-to-bottom reading order.",
-	"Return JSON only in the required schema.",
-	"Include blank fields from empty forms and filled values from completed forms.",
-	"Use `valueHint` for any detected filled value, selected option, checkbox state, or handwritten/typed answer.",
-	"Infer `inputType` carefully: text, number, boolean, date, select, multiselect, textarea.",
-	"Do not skip signature, consent, checkbox, or footer fields if they are actual form inputs.",
-	"Do not output duplicate fields.",
-	"Keep exactly the same order as the document.",
-].join(" ");
-
 export type DocumentExtractionInput = {
 	documentId: string;
 	gcsPath: string;
@@ -502,6 +491,9 @@ const normalizeGeminiOutputFields = (rawOutput: unknown) => {
 		.filter((field): field is ExtractedCandidateField => Boolean(field));
 };
 
+import { buildDocumentExtractionPrompt } from "../../langgraph-pipeline/prompts/documentExtractionPrompt";
+import { EXTRACTION_PROMPT, extractedFieldSchema } from "../../langgraph-pipeline/prompts/extractionPrompt";
+
 const LANGUAGE_MAP: Record<string, string> = {
 	en: "English",
 	hi: "Hindi",
@@ -522,26 +514,13 @@ const LANGUAGE_MAP: Record<string, string> = {
 };
 
 const extractWithGemini = async (input: DocumentExtractionInput, fileBytes: Buffer, startedAt: number) => {
-	let finalPrompt = GEMINI_DOCUMENT_EXTRACTION_PROMPT;
-	if (input.targetLanguage && input.targetLanguage !== "en") {
-		const langName = LANGUAGE_MAP[input.targetLanguage] || input.targetLanguage;
-		finalPrompt += `\n\nCRITICAL TRANSLATION INSTRUCTIONS:
-- The source document might be in English or another language, but YOU MUST TRANSLATE EVERYTHING into ${langName}.
-- You must translate ALL extracted form field labels, text prompt instructions, choices, and filled values into ${langName}.
-- The output MUST be in ${langName}.
-- The JSON keys in the output schema must remain strictly in English, but their string values must be translated to ${langName}.`;
-	} else if (input.targetLanguage === "en") {
-		finalPrompt += `\n\nCRITICAL TRANSLATION INSTRUCTIONS:
-- The source document might be in a regional language (like Hindi, Tamil, etc).
-- YOU MUST TRANSLATE ALL extracted form field labels, text prompt instructions, choices, and filled values into English.
-- The output MUST be in English.
-- The JSON keys in the output schema must remain strictly in English.`;
-	}
+	const langName = input.targetLanguage ? LANGUAGE_MAP[input.targetLanguage] || input.targetLanguage : undefined;
+	const finalPrompt = EXTRACTION_PROMPT("", langName);
 
 	const geminiExtract = await vertexService.generateStructuredJson({
 		model: env.VERTEX_DOCUMENT_MODEL,
-		promptVersion: "doc_extract_v2",
-		schema: geminiFallbackSchema,
+		promptVersion: "doc_extract_v3",
+		schema: extractedFieldSchema,
 		prompt: finalPrompt,
 		fileData: {
 			mimeType: input.fileType,
@@ -553,8 +532,28 @@ const extractWithGemini = async (input: DocumentExtractionInput, fileBytes: Buff
 		throw new Error(geminiExtract.validationErrors.join(", "));
 	}
 
-	const rawOutput = (geminiExtract as { output?: unknown }).output;
-	const normalizedFields = normalizeGeminiOutputFields(rawOutput);
+	const rawOutput = (geminiExtract as { output?: unknown }).output as z.infer<typeof extractedFieldSchema>;
+	
+	// Map the new schema back to the internal ExtractedCandidateField
+	const normalizedFields: ExtractedCandidateField[] = [
+		...(rawOutput.fields || []).map(f => ({
+			label: f.label,
+			valueHint: f.value,
+			confidence: f.confidence,
+			inputType: f.inputType,
+			required: false,
+			pageInfo: { pageNumber: 1 }
+		})),
+		...(rawOutput.formQuestions || []).map(f => ({
+			label: f.label,
+			valueHint: "",
+			confidence: f.confidence,
+			inputType: f.inputType,
+			required: false,
+			pageInfo: { pageNumber: 1 }
+		}))
+	];
+
 	const fields = dedupeCandidates(mergeChoiceCandidates(normalizedFields));
 	return {
 		providerMode: "live" as const,

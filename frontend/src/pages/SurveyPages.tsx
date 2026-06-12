@@ -292,10 +292,10 @@ const collectExtractionEntries = (extractionResult: any): ExtractionEntry[] => {
   candidateFields.forEach((candidate: any, index: number) => {
     const mappedField = mappedFields[index];
     const resolvedLabel =
-      typeof mappedField?.label === "string" && mappedField.label.trim().length > 0
-        ? mappedField.label
-        : typeof candidate?.label === "string"
-          ? candidate.label
+      typeof candidate?.label === "string" && candidate.label.trim().length > 0
+        ? candidate.label
+        : typeof mappedField?.label === "string"
+          ? mappedField.label
           : "";
 
     pushIfPresent({
