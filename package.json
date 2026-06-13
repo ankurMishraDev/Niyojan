@@ -61,6 +61,7 @@
     "@types/morgan": "^1.9.10",
     "@types/node": "^25.6.0",
     "@types/pg": "^8.20.0",
+    "@types/react": "~19.1.10",
     "@types/supertest": "^6.0.3",
     "@types/uuid": "^10.0.0",
     "knex-cli": "^1.0.1",

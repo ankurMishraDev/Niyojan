@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { PageHeader, Panel } from "@/components/ui";
 import { useAuth } from "@/features/auth/useAuth";
 import type { AppRole } from "@/types/api";
-
+import { useTranslation } from "react-i18next";
 type GuideSection = {
   label: string;
   title: string;
@@ -21,6 +21,7 @@ type RoleGuide = {
 };
 
 const guides: Record<AppRole, RoleGuide> = {
+  
   superadmin: {
     eyebrow: "Admin Help",
     title: "Command panel guide",

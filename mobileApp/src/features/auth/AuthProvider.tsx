@@ -1,0 +1,157 @@
+import {
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  onIdTokenChanged,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  User as FirebaseUser,
+} from "firebase/auth";
+import { authApi } from "../../lib/services";
+import { firebaseAuth } from "../../lib/firebase";
+import { AuthContext } from "./auth-context";
+import { setAccessToken } from "./authSession";
+import type { UserProfile } from "../../types/api";
+import { useAppStore } from "../../store/appStore";
+
+type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+
+async function loadProfile() {
+  const profile = await authApi.me();
+  return profile;
+}
+
+async function syncAccessToken(firebaseUser: { getIdToken: (forceRefresh?: boolean) => Promise<string> }) {
+  const token = await firebaseUser.getIdToken(true);
+  await setAccessToken(token);
+  return token;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [status, setStatus] = useState<AuthStatus>("loading");
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const mounted = useRef(true);
+  
+  // AppStore sync
+  const setGlobalUser = useAppStore((state) => state.setUser);
+
+  const applySignedOutState = () => {
+    setAccessToken(null);
+    if (!mounted.current) return;
+    setUser(null);
+    setGlobalUser(null);
+    setStatus("unauthenticated");
+  };
+
+  useEffect(() => {
+    mounted.current = true;
+
+    const applyProfile = (profile: UserProfile | null) => {
+      if (!mounted.current) return;
+      setUser(profile);
+      // Map to global app store format
+      if (profile) {
+        setGlobalUser({
+          id: profile.id,
+          role: profile.role === 'volunteer' ? 'volunteer' : 'ngo',
+          name: profile.name,
+          email: profile.email
+        });
+      } else {
+        setGlobalUser(null);
+      }
+      setStatus(profile ? "authenticated" : "unauthenticated");
+    };
+
+    const auth = firebaseAuth;
+    if (!auth) {
+      applyProfile(null);
+      return () => { mounted.current = false; };
+    }
+
+    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      try {
+        setStatus("loading");
+
+        if (firebaseUser) {
+          await syncAccessToken(firebaseUser);
+          // Only fetch profile if not offline, else rely on async storage or fallback
+          const profile = await loadProfile();
+          applyProfile(profile);
+          return;
+        }
+
+        applySignedOutState();
+      } catch (e) {
+        applyProfile(null);
+      }
+    });
+
+    return () => {
+      mounted.current = false;
+      unsubscribe();
+    };
+  }, []);
+
+  const signInWithEmail = async (email: string, password: string) => {
+    if (!firebaseAuth) {
+      throw new Error("Firebase config missing");
+    }
+
+    try {
+      const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+      await credential.user.reload();
+      const firebaseUser = firebaseAuth.currentUser ?? credential.user;
+
+      await syncAccessToken(firebaseUser);
+      const profile = await loadProfile();
+      
+      setUser(profile);
+      setGlobalUser({
+        id: profile.id,
+        role: profile.role === 'volunteer' ? 'volunteer' : 'ngo',
+        name: profile.name,
+        email: profile.email
+      });
+      setStatus("authenticated");
+    } catch (error) {
+      applySignedOutState();
+      if (firebaseAuth.currentUser) {
+        await firebaseSignOut(firebaseAuth);
+      }
+      throw error;
+    }
+  };
+
+  const signOut = async () => {
+    applySignedOutState();
+    if (firebaseAuth?.currentUser) {
+      await firebaseSignOut(firebaseAuth);
+    }
+  };
+
+  const refreshProfile = async () => {
+    setStatus("loading");
+    const profile = await loadProfile();
+    setUser(profile);
+    setStatus("authenticated");
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        status,
+        user,
+        usingFirebase: Boolean(firebaseAuth),
+        signInWithEmail,
+        signOut,
+        refreshProfile,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
