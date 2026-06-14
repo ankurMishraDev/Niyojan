@@ -126,9 +126,9 @@ export default function SurveyDetail() {
       )}
 
       <View className="bg-canvas rounded-lg p-6 shadow-card-soft mb-6 border border-hairline">
-        <Text className="text-xs uppercase tracking-wider font-mono text-mute mb-2">Field Survey</Text>
+        <Text className="text-xs uppercase tracking-wider font-mono text-mute mb-2">{t("NGO_Survey_Header_FieldSurvey")}</Text>
         <Text className="text-2xl font-bold text-ink">{version.templateName ?? "Survey Detail"}</Text>
-        <Text className="text-mute mt-2">Fill the fields manually before final submission.</Text>
+        <Text className="text-mute mt-2">{t('NGO_SurveyPages_Header_SurveyDescription')}</Text>
       </View>
 
       <View className="flex-row flex-wrap gap-2 mb-6">
@@ -141,7 +141,7 @@ export default function SurveyDetail() {
             <ActivityIndicator size="small" color="#ffffff" />
           ) : (
             <Text className="text-white font-medium">
-                {survey.status === "draft" ? "Submit Survey" : "Already Submitted"}
+                {survey.status === "draft" ? t("NGO_Survey_Button_Submit") : t("NGO_Survey_Text_AlreadySubmitted")}
             </Text>
           )}
         </Pressable>
@@ -150,20 +150,20 @@ export default function SurveyDetail() {
       <View className="flex-row flex-wrap mb-4">
         <View className="w-1/2 p-2">
           <View className="bg-canvas border border-hairline rounded p-3">
-            <Text className="text-xs text-mute uppercase mb-1">Respondent</Text>
+            <Text className="text-xs text-mute uppercase mb-1">{t("NGO_SurveyPages_Info_Respondent")}</Text>
             <Text className="font-semibold text-ink" numberOfLines={1}>{survey.respondentName ?? "Not set"}</Text>
           </View>
         </View>
         <View className="w-1/2 p-2">
           <View className="bg-canvas border border-hairline rounded p-3">
-            <Text className="text-xs text-mute uppercase mb-1">Status</Text>
+            <Text className="text-xs text-mute uppercase mb-1">{t("NGO_SurveyPages_Info_Status")}</Text>
             <Text className="font-semibold text-ink" numberOfLines={1}>{survey.status}</Text>
           </View>
         </View>
       </View>
 
       <View className="bg-canvas rounded-lg p-5 shadow-card-soft mb-6 border border-hairline">
-        <Text className="text-lg font-bold text-ink mb-4">Questions</Text>
+        {/* <Text className="text-lg font-bold text-ink mb-4">Questions</Text> */}
         
         {version.fields?.map((field: any) => (
           <View key={field.id} className="mb-4">

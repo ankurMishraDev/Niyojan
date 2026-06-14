@@ -107,10 +107,13 @@ export const createManualCluster = async (orgId: string, userId: string, needIds
     throw new Error("At least one need must be provided to create a cluster");
   }
 
+  // Handle superadmin bypass
+  const actualOrgId = orgId === 'superadmin-bypass' ? null : orgId;
+
   return await db.transaction(async (trx) => {
     // 1. Create the aggregate need
     const [aggregate] = await trx("aggregate_needs").insert({
-      org_id: orgId,
+      org_id: actualOrgId,
       status: "active",
       category: category,
       representative_summary: clusterName,
@@ -138,7 +141,10 @@ export const createManualCluster = async (orgId: string, userId: string, needIds
 };
 
 export const fetchClusters = async (orgId: string, status?: string) => {
-  const query = db("aggregate_needs").where({ org_id: orgId });
+  const query = db("aggregate_needs");
+  if (orgId !== 'superadmin-bypass') {
+    query.where({ org_id: orgId });
+  }
   if (status) query.andWhere({ status });
   return await query.orderBy("created_at", "desc");
 };

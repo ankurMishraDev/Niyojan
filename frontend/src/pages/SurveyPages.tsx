@@ -1012,7 +1012,7 @@ export function SurveyDetailPage() {
       ) : null}
 
       <PageHeader
-        eyebrow="Field Survey"
+        eyebrow={t("NGO_Survey_Header_FieldSurvey")}
         title={version.templateName ?? "Survey Detail"}
         description={t("NGO_SurveyPages_Header_SurveyDescription")}
         actions={
@@ -1038,7 +1038,7 @@ export function SurveyDetailPage() {
               disabled={submitMutation.isPending || survey.status !== "draft"}
               onClick={() => void submitMutation.mutate()}
             >
-              {submitMutation.isPending ? "Submitting…" : survey.status === "draft" ? "Submit Survey" : "Already Submitted"}
+              {submitMutation.isPending ? "Submitting…" : survey.status === "draft" ? t("NGO_Survey_Button_Submit") : t("NGO_Survey_Text_AlreadySubmitted")}
             </Button>
           </div>
         }

@@ -200,9 +200,9 @@ export default function SurveyNew() {
         contentContainerStyle={{ paddingBottom: 60 }}
       >
         <View className="bg-canvas rounded-lg p-6 shadow-card-soft mb-6 border border-hairline">
-        <Text className="text-xs uppercase tracking-wider font-mono text-mute mb-2">Create Survey</Text>
-        <Text className="text-2xl font-bold text-ink">New Draft</Text>
-        <Text className="text-mute mt-2">Create a blank draft to manually enter survey responses or scan a filled form using AI.</Text>
+        <Text className="text-xs uppercase tracking-wider font-mono text-mute mb-2">{t('NGO_SurveyPages_Header_CreateSurvey')}</Text>
+        <Text className="text-2xl font-bold text-ink">{t('NGO_SurveyPages_Header')}</Text>
+        <Text className="text-mute mt-2">{t('NGO_SurveyPages_Header_Description')}</Text>
       </View>
 
       {creationFeedback ? (
@@ -215,8 +215,8 @@ export default function SurveyNew() {
       ) : null}
 
       <View className="bg-canvas rounded-lg p-5 shadow-card-soft border border-hairline mb-6">
-        <Text className="text-lg font-bold text-ink mb-3">AI Form Extraction</Text>
-        <Text className="text-sm font-medium text-ink mb-1">Target Language</Text>
+        <Text className="text-lg font-bold text-ink mb-3">{t('NGO_Mobile_Forms_FormExtraction')}</Text>
+        <Text className="text-sm font-medium text-ink mb-1">{t('NGO_SurveyPages_Header_Language')}</Text>
         <View className="mb-3">
            <CustomDropdown
              items={LANGUAGES}
@@ -226,21 +226,21 @@ export default function SurveyNew() {
         </View>
         
         <Pressable 
-          className={`bg-canvas-soft-2 border border-hairline rounded-pill py-3 items-center shadow-card-soft mt-2 mb-4 ${createFromFilledFormMutation.isPending ? 'opacity-70' : ''}`}
+          className={`bg-ink border border-hairline rounded-pill py-3 items-center shadow-card-soft mt-2 mb-4 ${createFromFilledFormMutation.isPending ? 'opacity-70' : ''}`}
           onPress={handleDocumentPick}
           disabled={createFromFilledFormMutation.isPending}
         >
           {createFromFilledFormMutation.isPending ? (
              <ActivityIndicator size="small" color="#171717" />
           ) : (
-            <Text className="text-ink font-medium">Create From Filled Form (Scan)</Text>
+            <Text className=" text-white  font-medium">{t('NGO_SurveyPages_Button_ScanDocument')}</Text>
           )}
         </Pressable>
 
         <View className="border-t border-hairline my-4" />
 
-        <Text className="text-lg font-bold text-ink mb-3">Blank Draft</Text>
-        <Text className="text-sm font-medium text-ink mb-1">Template</Text>
+        <Text className="text-lg font-bold text-ink mb-3">{t('NGO_SurveyPages_Header_BlankDraft')}</Text>
+        <Text className="text-sm font-medium text-ink mb-1">{t('NGO_SurveyPages_Header_Template')}</Text>
         <View className="mb-3">
            <CustomDropdown
              items={(templatesQuery.data?.items || []).map((t:any) => ({ label: t.name, value: t.id }))}
@@ -250,7 +250,7 @@ export default function SurveyNew() {
            />
         </View>
 
-        <Text className="text-sm font-medium text-ink mb-1">Version</Text>
+        <Text className="text-sm font-medium text-ink mb-1">{t('NGO_SurveyPages_Header_Version')}</Text>
         <View className="mb-3">
            <CustomDropdown
              items={(versionsQuery.data || []).map((v:any) => ({ label: `Version ${v.versionNo}`, value: v.id }))}
@@ -262,7 +262,7 @@ export default function SurveyNew() {
 
         <View className="border-t border-hairline my-4" />
 
-        <Text className="text-sm font-medium text-ink mb-1">Respondent Name</Text>
+        <Text className="text-sm font-medium text-ink mb-1">{t('NGO_SurveyPages_Form_Respondent')}</Text>
         <TextInput 
           className="border border-hairline rounded-md p-3 text-ink bg-canvas-soft-2 mb-4"
           placeholder="John Doe / Camp A"
@@ -270,7 +270,7 @@ export default function SurveyNew() {
           onChangeText={setRespondentName}
         />
 
-        <Text className="text-sm font-medium text-ink mb-1">Location</Text>
+        <Text className="text-sm font-medium text-ink mb-1">{t('NGO_SurveyPages_Form_Location')}</Text>
         <TextInput 
           className="border border-hairline rounded-md p-3 text-ink bg-canvas-soft-2 mb-4"
           placeholder="Village, District"
@@ -278,7 +278,7 @@ export default function SurveyNew() {
           onChangeText={setLocationText}
         />
 
-        <Text className="text-sm font-medium text-ink mb-1">Latitude</Text>
+        <Text className="text-sm font-medium text-ink mb-1">{t('NGO_SurveyPages_Form_Latitude')}</Text>
         <TextInput 
           className="border border-hairline rounded-md p-3 text-ink bg-canvas-soft-2 mb-4"
           placeholder="e.g. 12.3456"
@@ -287,7 +287,7 @@ export default function SurveyNew() {
           onChangeText={setLatitude}
         />
 
-        <Text className="text-sm font-medium text-ink mb-1">Longitude</Text>
+        <Text className="text-sm font-medium text-ink mb-1">{t('NGO_SurveyPages_Form_Longitude')}</Text>
         <TextInput 
           className="border border-hairline rounded-md p-3 text-ink bg-canvas-soft-2 mb-4"
           placeholder="e.g. 78.9101"
@@ -304,7 +304,7 @@ export default function SurveyNew() {
           {createSurveyMutation.isPending ? (
              <ActivityIndicator size="small" color="white" />
           ) : (
-            <Text className="text-on-primary font-medium">Create Blank Draft</Text>
+            <Text className="text-on-primary font-medium">{t('NGO_Mobile_Forms_CreateDraft')}</Text>
           )}
         </Pressable>
       </View>

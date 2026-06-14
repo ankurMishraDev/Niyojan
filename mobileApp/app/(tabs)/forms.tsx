@@ -37,21 +37,21 @@ export default function Forms() {
   return (
     <View className="flex-1 bg-canvas-soft-2 p-4">
       <View className="flex-row justify-between items-center mb-4">
-        <Text className="text-xl font-bold text-ink">{t('forms.title', 'My Forms')}</Text>
+        <Text className="text-xl font-bold text-ink">{t('NGO_Forms_Header_Title', 'My Forms')}</Text>
         <View className="flex-row gap-2">
           <Pressable 
             className="bg-canvas border border-hairline rounded-pill flex-row items-center px-3 py-2 shadow-card-soft"
             onPress={() => router.push('/surveys/new' as any)}
           >
             <Plus size={16} color="#171717" />
-            <Text className="text-ink ml-1 font-medium">New Survey</Text>
+            <Text className="text-ink ml-1 font-medium">{t('NGO_Forms_Button_NewSurvey')}</Text>
           </Pressable>
           <Pressable 
             className="bg-primary rounded-pill flex-row items-center px-3 py-2 shadow-card-soft"
             onPress={() => router.push('/forms/builder' as any)}
           >
             <Plus size={16} color="white" />
-            <Text className="text-on-primary ml-1 font-medium">{t('forms.createNew', 'Form Builder')}</Text>
+            <Text className="text-on-primary ml-1 font-medium">{t('NGO_FormBuilder_Button_FormBuilder')}</Text>
           </Pressable>
         </View>
       </View>

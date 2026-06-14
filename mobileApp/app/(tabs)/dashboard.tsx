@@ -40,13 +40,13 @@ export default function Dashboard() {
       </View>
 
       {/* Dashboard Stats */}
-      <View className="flex-row gap-4 mb-6">
+      {/* <View className="flex-row gap-4 mb-6">
         <View className="flex-1 bg-canvas rounded-lg p-4 shadow-card-soft border border-hairline">
           <Text className="text-mute text-xs font-medium uppercase tracking-wider">Account Scope</Text>
           <Text className="text-lg font-bold text-ink mt-2 line-clamp-1">{user?.name}</Text>
           <Text className="text-sm text-body">{user?.email}</Text>
         </View>
-      </View>
+      </View> */}
 
       <View className="bg-canvas rounded-lg p-5 shadow-card-soft border border-hairline mb-6">
         <Text className="text-lg font-bold text-ink mb-1">
@@ -62,7 +62,7 @@ export default function Dashboard() {
           </View>
         ) : submittedSurveysQuery.isError ? (
           <View className="py-8 items-center justify-center">
-             <Text className="text-danger">Failed to load surveys.</Text>
+             <Text className="text-danger">{t('NGO_Dashboard_Error_LoadSurveys')}</Text>
           </View>
         ) : (
           <View className="space-y-4 gap-y-4">
@@ -87,25 +87,25 @@ export default function Dashboard() {
                     {format(new Date(survey.submittedAt || survey.createdAt), 'MMM d, yyyy')}
                   </Text>
                   <Text className="text-xs text-body">• {survey.needCount} need(s)</Text>
-                  <Text className="text-xs text-body">• {survey.feedbackSubmitted ? "Volunteer feedback submitted" : "Waiting for volunteer feedback"}</Text>
+                  <Text className="text-xs text-body">• {survey.feedbackSubmitted ? t('NGO_Dashboard_Text_FeedbackSubmitted') : t('NGO_Dashboard_Text_WaitingFeedback')}</Text>
                   {survey.volunteerName && (
-                     <Text className="text-xs text-body">• Volunteer: {survey.volunteerName}</Text>
+                     <Text className="text-xs text-body">• {t('NGO_Dashboard_Text_VolunteerName')}: {survey.volunteerName}</Text>
                   )}
                 </View>
 
                 <View className="mt-4 flex-row flex-wrap gap-2">
                   <Pressable 
-                    className="bg-canvas border border-hairline rounded-md px-3 py-2 flex-1 items-center"
+                    className="bg-canvas border border-hairline rounded-md justify-center px-3 py-2 flex-1 items-center"
                     onPress={() => router.push(`/surveys/${survey.id}` as any)}
                   >
-                    <Text className="text-xs font-medium text-ink">View survey</Text>
+                    <Text className="text-xs font-medium text-ink">{t('NGO_Dashboard_Button_ViewSurvey')}</Text>
                   </Pressable>
                   {survey.assignmentId ? (
                     <Pressable 
-                      className="bg-canvas border border-hairline rounded-md px-3 py-2 flex-1 items-center"
+                      className="bg-canvas border border-hairline rounded-md justify-center px-3 py-2 flex-1 items-center"
                       onPress={() => router.push(`/assignments/${survey.assignmentId}` as any)}
                     >
-                      <Text className="text-xs font-medium text-ink">Open feedback response</Text>
+                      <Text className="text-xs font-medium text-ink">{t('NGO_Dashboard_Button_OpenFeedback')}</Text>
                     </Pressable>
                   ) : null}
                 </View>
@@ -115,7 +115,7 @@ export default function Dashboard() {
             
             {(submittedSurveysQuery.data?.length === 0 || !submittedSurveysQuery.data) && (
               <View className="py-8 items-center border-2 border-dashed border-hairline rounded-lg">
-                <Text className="text-mute text-sm">No surveys submitted yet.</Text>
+                <Text className="text-mute text-sm">{t('NGO_Dashboard_Text_NoSurveys')}</Text>
               </View>
             )}
           </View>

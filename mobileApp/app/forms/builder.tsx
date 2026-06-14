@@ -8,6 +8,7 @@ import { useAppStore } from '../../src/store/appStore';
 import * as DocumentPicker from 'expo-document-picker';
 import { api } from '../../src/lib/api';
 import CustomDropdown from '../../src/components/CustomDropdown';
+import { Trash2, Edit2 } from 'lucide-react-native';
 
 const LANGUAGES = [
   { value: 'en', label: 'English' },
@@ -42,6 +43,9 @@ export default function FormBuilder() {
   const [feedback, setFeedback] = useState("");
   const [targetLanguage, setTargetLanguage] = useState("en");
   const [extractionStage, setExtractionStage] = useState("");
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [editTemplateName, setEditTemplateName] = useState("");
+
   const [showNewTemplateInput, setShowNewTemplateInput] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
 
@@ -94,6 +98,38 @@ export default function FormBuilder() {
     onSuccess: async (version) => {
       setSelectedVersionId(version.id);
       setFeedback("New template version created.");
+      await refreshAll();
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: (id: string) => formsApi.deleteTemplate(id),
+    onSuccess: async () => {
+      setFeedback("Template deleted.");
+      if (selectedTemplateId === deleteTemplateMutation.variables) {
+        setSelectedTemplateId("");
+        setSelectedVersionId("");
+      }
+      await refreshAll();
+    },
+  });
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => formsApi.updateTemplate(id, { name }),
+    onSuccess: async () => {
+      setFeedback("Template renamed.");
+      setEditingTemplateId(null);
+      await refreshAll();
+    },
+  });
+
+  const deleteVersionMutation = useMutation({
+    mutationFn: (id: string) => formsApi.deleteVersion(id),
+    onSuccess: async () => {
+      setFeedback("Version deleted.");
+      if (selectedVersionId === deleteVersionMutation.variables) {
+        setSelectedVersionId("");
+      }
       await refreshAll();
     },
   });
@@ -238,9 +274,9 @@ export default function FormBuilder() {
         contentContainerStyle={{ paddingBottom: 60 }}
       >
         <View className="bg-canvas rounded-lg p-6 shadow-card-soft mb-4 border border-hairline">
-        <Text className="text-xs uppercase tracking-wider font-mono text-mute mb-2">Form Builder</Text>
-        <Text className="text-2xl font-bold text-ink">Create Form</Text>
-        <Text className="text-mute mt-2">Design intake forms, add fields from the catalog, and publish versions.</Text>
+        <Text className="text-xs uppercase tracking-wider font-mono text-mute mb-2">{t("NGO_FormBuilder_Button_FormBuilder")}</Text>
+        <Text className="text-2xl font-bold text-ink">{t("NGO_FormBuilder_Header_CreateForm")}</Text>
+        <Text className="text-mute mt-2">{t("NGO_FormBuilder_Header_Description")}</Text>
       </View>
 
       {feedback ? (
@@ -250,8 +286,8 @@ export default function FormBuilder() {
       ) : null}
 
       <View className="bg-canvas rounded-lg p-4 shadow-card-soft mb-4 border border-hairline">
-        <Text className="text-lg font-bold text-ink mb-3">AI Form Extraction</Text>
-        <Text className="text-sm font-medium text-ink mb-1">Target Language</Text>
+        <Text className="text-lg font-bold text-ink mb-3">{t("NGO_Mobile_Forms_CreateForm")}</Text>
+        <Text className="text-sm font-medium text-ink mb-1">{t("NGO_FormBuilder_Label_TargetLanguage")}</Text>
         <View className="mb-3">
            <CustomDropdown
              items={LANGUAGES}
@@ -267,27 +303,27 @@ export default function FormBuilder() {
           {scanDocumentMutation.isPending ? (
             <Text className="text-on-primary font-medium">{extractionStage || "Processing..."}</Text>
           ) : (
-            <Text className="text-on-primary font-medium">Scan Document</Text>
+            <Text className="text-on-primary font-medium">{t("NGO_FormBuilder_Button_ScanDocument")}</Text>
           )}
         </Pressable>
       </View>
 
       <View className="bg-canvas rounded-lg p-4 shadow-card-soft mb-4 border border-hairline">
-        <Text className="text-lg font-bold text-ink mb-3">Template</Text>
+        <Text className="text-lg font-bold text-ink mb-3">{t("NGO_FormBuilder_Label_TemplateName")}</Text>
         
         <View className="flex-row gap-2 mb-4">
           <Pressable 
             className="flex-1 bg-canvas-soft border border-hairline py-2 rounded items-center"
             onPress={() => setShowNewTemplateInput(!showNewTemplateInput)}
           >
-            <Text className="text-sm font-medium">New Template</Text>
+            <Text className="text-sm font-medium">{t("NGO_FormBuilder_Button_Template")}</Text>
           </Pressable>
           <Pressable 
             className="flex-1 bg-canvas-soft border border-hairline py-2 rounded items-center"
             onPress={() => selectedTemplateId && createVersionMutation.mutate()}
             disabled={!selectedTemplateId}
           >
-            <Text className="text-sm font-medium">New Version</Text>
+            <Text className="text-sm font-medium">{t("NGO_FormBuilder_Button_NewVersion")}</Text>
           </Pressable>
         </View>
 
@@ -315,46 +351,121 @@ export default function FormBuilder() {
         )}
 
         {templatesQuery.data?.items?.map((t: any) => (
-          <Pressable 
-            key={t.id}
-            onPress={() => {
-              setSelectedTemplateId(t.id);
-              setSelectedVersionId("");
-            }}
-            className={`p-3 mb-2 rounded border ${selectedTemplateId === t.id ? 'border-ink bg-canvas-soft' : 'border-hairline bg-canvas'}`}
-          >
-            <Text className="font-semibold text-ink">{t.name}</Text>
-            <Text className="text-xs text-mute mt-1">{t.status}</Text>
-          </Pressable>
+          <View key={t.id} className="mb-2">
+            {editingTemplateId === t.id ? (
+              <View className="flex-row gap-2 items-center p-2 border border-ink bg-canvas-soft rounded">
+                <TextInput
+                  className="flex-1 border border-hairline rounded p-2 bg-canvas text-ink"
+                  value={editTemplateName}
+                  onChangeText={setEditTemplateName}
+                  autoFocus
+                />
+                <Pressable
+                  className="bg-primary px-3 py-2 rounded"
+                  onPress={() => updateTemplateMutation.mutate({ id: t.id, name: editTemplateName })}
+                >
+                  <Text className="text-on-primary">Save</Text>
+                </Pressable>
+                <Pressable
+                  className="px-3 py-2 bg-canvas-soft border border-hairline rounded"
+                  onPress={() => setEditingTemplateId(null)}
+                >
+                  <Text className="text-ink">Cancel</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable 
+                onPress={() => {
+                  setSelectedTemplateId(t.id);
+                  setSelectedVersionId("");
+                }}
+                className={`p-3 rounded border flex-row items-center justify-between ${selectedTemplateId === t.id ? 'border-ink bg-canvas-soft' : 'border-hairline bg-canvas'}`}
+              >
+                <View className="flex-1">
+                  <Text className="font-semibold text-ink">{t.name}</Text>
+                  <Text className="text-xs text-mute mt-1">{t.status}</Text>
+                </View>
+                <View className="flex-row items-center gap-4 px-2">
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      setEditTemplateName(t.name);
+                      setEditingTemplateId(t.id);
+                    }}
+                    hitSlop={10}
+                  >
+                    <Edit2 size={18} color="#0055ff" />
+                  </Pressable>
+                  <Pressable
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      Alert.alert(
+                        "Delete Template",
+                        "Are you sure you want to delete this template and all its versions?",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          { text: "Delete", style: "destructive", onPress: () => deleteTemplateMutation.mutate(t.id) }
+                        ]
+                      );
+                    }}
+                    hitSlop={10}
+                  >
+                    <Trash2 size={18} color="#ee0000" />
+                  </Pressable>
+                </View>
+              </Pressable>
+            )}
+          </View>
         ))}
 
-        <Text className="text-lg font-bold text-ink mt-4 mb-2">Versions</Text>
+        <Text className="text-lg font-bold text-ink mt-4 mb-2">{t("NGO_FormBuilder_Text_Versions")}</Text>
         {versionsQuery.data?.map((v: any) => (
           <Pressable
             key={v.id}
             onPress={() => setSelectedVersionId(v.id)}
-            className={`p-3 mb-2 rounded border flex-row justify-between ${selectedVersionId === v.id ? 'border-ink bg-canvas-soft' : 'border-hairline bg-canvas'}`}
+            className={`p-3 mb-2 rounded border flex-row justify-between items-center ${selectedVersionId === v.id ? 'border-ink bg-canvas-soft' : 'border-hairline bg-canvas'}`}
           >
-            <Text className="font-semibold text-ink">Version {v.versionNo}</Text>
-            {v.isPublished && <Text className="text-xs text-success">Published</Text>}
+            <View>
+              <Text className="font-semibold text-ink">{t('NGO_Mobile_Forms_Version')} {v.versionNo}</Text>
+              {v.isPublished && <Text className="text-xs text-success">{t("NGO_Mobile_Forms_Published")}</Text>}
+            </View>
+            {!v.isPublished && (
+              <Pressable
+                className="p-2"
+                hitSlop={10}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Alert.alert(
+                    "Delete Version",
+                    "Are you sure you want to delete this version?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Delete", style: "destructive", onPress: () => deleteVersionMutation.mutate(v.id) }
+                    ]
+                  );
+                }}
+              >
+                <Trash2 size={18} color="#ee0000" />
+              </Pressable>
+            )}
           </Pressable>
         ))}
       </View>
 
       <View className="bg-canvas rounded-lg p-4 shadow-card-soft mb-4 border border-hairline">
         <View className="flex-row justify-between items-center mb-4">
-           <Text className="text-lg font-bold text-ink">Fields</Text>
+           <Text className="text-lg font-bold text-ink">{t('NGO_Mobile_Forms_Fields')}</Text>
            <Pressable 
              className="bg-primary px-3 py-1.5 rounded"
              onPress={() => publishMutation.mutate()}
              disabled={!selectedVersionId}
            >
-             <Text className="text-on-primary text-xs font-medium">Publish</Text>
+             <Text className="text-on-primary text-xs font-medium">{t('NGO_Mobile_Forms_Publish')}</Text>
            </Pressable>
         </View>
         
         {orderedFields.length === 0 ? (
-          <Text className="text-center text-mute py-4">No fields yet.</Text>
+          <Text className="text-center text-mute py-4">{t('NGO_Mobile_Forms_NoFields')}</Text>
         ) : (
           orderedFields.map((f: any) => (
             <View key={f.id} className="border border-hairline rounded p-3 mb-2 bg-canvas-soft-2">
@@ -366,7 +477,7 @@ export default function FormBuilder() {
       </View>
 
       <View className="bg-canvas rounded-lg p-4 shadow-card-soft mb-6 border border-hairline">
-        <Text className="text-lg font-bold text-ink mb-3">Add Field</Text>
+        <Text className="text-lg font-bold text-ink mb-3">{t('NGO_Mobile_Forms_AddField')}</Text>
         <TextInput
           className="border border-hairline rounded p-2 mb-3 bg-canvas-soft-2"
           placeholder="Custom field label"
@@ -384,7 +495,7 @@ export default function FormBuilder() {
           onPress={() => addFieldMutation.mutate()}
           disabled={!newFieldLabel || addFieldMutation.isPending}
         >
-          <Text className="text-white font-medium">Add Custom Field</Text>
+          <Text className="text-white font-medium">{t('NGO_Mobile_Forms_Button_AddField')}</Text>
         </Pressable>
       </View>
       <View className="h-10" />

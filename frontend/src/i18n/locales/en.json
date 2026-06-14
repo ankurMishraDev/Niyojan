@@ -55,7 +55,10 @@
   "NGO_SurveyPages_Form_Location": "Location",
   "NGO_SurveyPages_Form_Latitude": "Latitude",
   "NGO_SurveyPages_Form_Longitude": "Longitude",
+  
   "NGO_Survey_Button_Submit": "Submit Survey",
+  "NGO_Survey_Text_AlreadySubmitted": "Already Submitted",
+  "NGO_Survey_Header_FieldSurvey": "Field Survey",
   "NGO_Survey_Button_ExtractData": "Extract Data from Document",
   "NGO_Survey_Text_UploadPrompt": "Upload a document to extract data automatically.",
   "NGO_SurveyPages_Warning_FieldAttention": "Fields to verify",
