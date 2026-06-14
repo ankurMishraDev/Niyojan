@@ -56,7 +56,12 @@ export default function FillForm() {
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView className="flex-1 p-4">
+        <ScrollView 
+          className="flex-1 p-4"
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
+          contentContainerStyle={{ paddingBottom: 60 }}
+        >
         {form.fields.map((field: any) => (
           <View key={field.id} className="bg-canvas rounded-lg p-4 shadow-card-soft mb-4 border border-hairline">
             <Text className="font-medium text-ink mb-2">

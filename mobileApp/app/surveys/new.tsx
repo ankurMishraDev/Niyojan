@@ -11,11 +11,21 @@ import CustomDropdown from '../../src/components/CustomDropdown';
 
 const LANGUAGES = [
   { value: 'en', label: 'English' },
-  { value: 'hi', label: 'Hindi' },
-  { value: 'bn', label: 'Bengali' },
-  { value: 'ta', label: 'Tamil' },
-  { value: 'te', label: 'Telugu' },
-  { value: 'mr', label: 'Marathi' },
+  { value: 'hi', label: 'हिंदी (Hindi)' },
+  { value: 'bn', label: 'বাংলা (Bengali)' },
+  { value: 'te', label: 'తెలుగు (Telugu)' },
+  { value: 'mr', label: 'मराठी (Marathi)' },
+  { value: 'ta', label: 'தமிழ் (Tamil)' },
+  { value: 'ur', label: 'اُردُو (Urdu)' },
+  { value: 'gu', label: 'ગુજરાતી (Gujarati)' },
+  { value: 'kn', label: 'ಕನ್ನಡ (Kannada)' },
+  { value: 'ml', label: 'മലയാളം (Malayalam)' },
+  { value: 'or', label: 'ଓଡ଼ିଆ (Odia)' },
+  { value: 'pa', label: 'ਪੰਜਾਬੀ (Punjabi)' },
+  { value: 'as', label: 'অসমীয়া (Assamese)' },
+  { value: 'mai', label: 'मैथिली (Maithili)' },
+  { value: 'sat', label: 'ᱥᱟᱱᱛᱟᱲᱤ (Santali)' },
+  { value: 'ks', label: 'कॉशुर (Kashmiri)' },
 ];
 
 export default function SurveyNew() {
@@ -183,7 +193,12 @@ export default function SurveyNew() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
-      <ScrollView className="flex-1 bg-canvas-soft-2 p-4">
+      <ScrollView 
+        className="flex-1 bg-canvas-soft-2 p-4"
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+        contentContainerStyle={{ paddingBottom: 60 }}
+      >
         <View className="bg-canvas rounded-lg p-6 shadow-card-soft mb-6 border border-hairline">
         <Text className="text-xs uppercase tracking-wider font-mono text-mute mb-2">Create Survey</Text>
         <Text className="text-2xl font-bold text-ink">New Draft</Text>

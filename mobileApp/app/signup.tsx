@@ -59,7 +59,12 @@ export default function Signup() {
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView className="flex-1 px-6">
+        <ScrollView 
+          className="flex-1 px-6"
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
+          contentContainerStyle={{ paddingBottom: 60 }}
+        >
         <View className="py-8 w-full max-w-md mx-auto">
           
           <View className="items-center mb-8">

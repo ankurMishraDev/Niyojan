@@ -41,7 +41,12 @@ export default function Login() {
         style={{ flex: 1, justifyContent: 'center' }} 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View className="w-full max-w-md mx-auto relative z-10 p-6 bg-canvas rounded-lg shadow-card-soft border border-hairline">
+        <ScrollView 
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
+        >
+          <View className="w-full max-w-md mx-auto relative z-10 p-6 bg-canvas rounded-lg shadow-card-soft border border-hairline">
         
         <View className="items-center mb-8">
           <View className="w-12 h-12 rounded-full bg-ink flex items-center justify-center mb-4 shadow-card-medium">
@@ -89,8 +94,9 @@ export default function Login() {
               {t("LoginPage_Button_SignIn", "Sign In")}
             </Text>
           )}
-        </Pressable>
-      </View>
+          </Pressable>
+        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

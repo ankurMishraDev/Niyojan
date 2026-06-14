@@ -113,7 +113,12 @@ export default function SurveyDetail() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
-      <ScrollView className="flex-1 bg-canvas-soft-2 p-4">
+      <ScrollView 
+        className="flex-1 bg-canvas-soft-2 p-4"
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+        contentContainerStyle={{ paddingBottom: 60 }}
+      >
         {showExtractionInfo && (
         <View className="bg-warning/10 border border-warning/30 rounded-lg p-4 mb-4">
             <Text className="text-warning-deep font-medium">{extractionMessage}</Text>

@@ -1,9 +1,10 @@
 {
   "expo": {
-    "name": "Niyojan Mobile",
+    "name": "Niyojan",
     "slug": "niyojan-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
     "scheme": "niyojan",
     "ios": {
@@ -13,6 +14,15 @@
       "expo-router",
       "expo-font"
     ],
+    "android": {
+      "package": "com.niyojan.mobile",
+      "versionCode": 1,
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#0D4F4F"
+      }
+    },
     "extra": {
       "router": {},
       "eas": {

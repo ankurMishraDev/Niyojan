@@ -4,24 +4,25 @@ import { useRouter } from 'expo-router';
 import { useAppStore } from '../../src/store/appStore';
 import { LogOut, Globe, CircleHelp } from 'lucide-react-native';
 import i18n from '../../src/i18n';
+import CustomDropdown from '../../src/components/CustomDropdown';
 
 const LANGUAGES = [
-  { code: 'en', label: 'English' },
-  { code: 'hi', label: 'हिंदी (Hindi)' },
-  { code: 'bn', label: 'বাংলা (Bengali)' },
-  { code: 'te', label: 'తెలుగు (Telugu)' },
-  { code: 'mr', label: 'मराठी (Marathi)' },
-  { code: 'ta', label: 'தமிழ் (Tamil)' },
-  { code: 'ur', label: 'اُردُو (Urdu)' },
-  { code: 'gu', label: 'ગુજરાતી (Gujarati)' },
-  { code: 'kn', label: 'ಕನ್ನಡ (Kannada)' },
-  { code: 'ml', label: 'മലയാളം (Malayalam)' },
-  { code: 'or', label: 'ଓଡ଼ିଆ (Odia)' },
-  { code: 'pa', label: 'ਪੰਜਾਬੀ (Punjabi)' },
-  { code: 'as', label: 'অসমীয়া (Assamese)' },
-  { code: 'mai', label: 'मैथिली (Maithili)' },
-  { code: 'sat', label: 'ᱥᱟᱱᱛᱟᱲᱤ (Santali)' },
-  { code: 'ks', label: 'कॉशुर (Kashmiri)' },
+  { value: 'en', label: 'English' },
+  { value: 'hi', label: 'हिंदी (Hindi)' },
+  { value: 'bn', label: 'বাংলা (Bengali)' },
+  { value: 'te', label: 'తెలుగు (Telugu)' },
+  { value: 'mr', label: 'मराठी (Marathi)' },
+  { value: 'ta', label: 'தமிழ் (Tamil)' },
+  { value: 'ur', label: 'اُردُو (Urdu)' },
+  { value: 'gu', label: 'ગુજરાતી (Gujarati)' },
+  { value: 'kn', label: 'ಕನ್ನಡ (Kannada)' },
+  { value: 'ml', label: 'മലയാളം (Malayalam)' },
+  { value: 'or', label: 'ଓଡ଼ିଆ (Odia)' },
+  { value: 'pa', label: 'ਪੰਜਾਬੀ (Punjabi)' },
+  { value: 'as', label: 'অসমীয়া (Assamese)' },
+  { value: 'mai', label: 'मैथिली (Maithili)' },
+  { value: 'sat', label: 'ᱥᱟᱱᱛᱟᱲᱤ (Santali)' },
+  { value: 'ks', label: 'कॉशुर (Kashmiri)' },
 ];
 
 export default function Profile() {
@@ -52,22 +53,13 @@ export default function Profile() {
       </View>
 
       <Text className="font-bold text-ink mb-2 uppercase text-xs tracking-wider ml-1">{t('profile.language', 'Language')}</Text>
-      <View className="bg-canvas rounded-lg shadow-card-soft mb-6 overflow-hidden">
-        {LANGUAGES.map((lang, index) => (
-          <Pressable 
-            key={lang.code}
-            className={`flex-row justify-between items-center p-4 ${index !== LANGUAGES.length - 1 ? 'border-b border-hairline' : ''}`}
-            onPress={() => changeLanguage(lang.code)}
-          >
-            <View className="flex-row items-center">
-              <Globe size={20} color="#888888" className="mr-3" />
-              <Text className="text-ink">{lang.label}</Text>
-            </View>
-            {i18n.language === lang.code && (
-              <View className="w-3 h-3 rounded-full bg-primary" />
-            )}
-          </Pressable>
-        ))}
+      <View className="mb-6 z-50">
+        <CustomDropdown
+          items={LANGUAGES}
+          selectedValue={i18n.language}
+          onValueChange={(itemValue) => changeLanguage(itemValue)}
+          placeholder="Select Language"
+        />
       </View>
 
       <Text className="font-bold text-ink mb-2 uppercase text-xs tracking-wider ml-1">{t('profile.account', 'Account')}</Text>
