@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, ScrollView, Pressable } from 'react-native';
+import { View, Text, TextInput, ScrollView, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Save } from 'lucide-react-native';
@@ -52,7 +52,11 @@ export default function FillForm() {
         {form.description ? <Text className="text-on-primary/80 mt-1">{form.description}</Text> : null}
       </View>
 
-      <ScrollView className="flex-1 p-4">
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView className="flex-1 p-4">
         {form.fields.map((field: any) => (
           <View key={field.id} className="bg-canvas rounded-lg p-4 shadow-card-soft mb-4 border border-hairline">
             <Text className="font-medium text-ink mb-2">
@@ -78,6 +82,7 @@ export default function FillForm() {
         </Pressable>
         <View className="h-20" />
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

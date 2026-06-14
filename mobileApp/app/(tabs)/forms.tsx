@@ -38,13 +38,22 @@ export default function Forms() {
     <View className="flex-1 bg-canvas-soft-2 p-4">
       <View className="flex-row justify-between items-center mb-4">
         <Text className="text-xl font-bold text-ink">{t('forms.title', 'My Forms')}</Text>
-        <Pressable 
-          className="bg-primary rounded-pill flex-row items-center px-4 py-2 shadow-card-soft"
-          onPress={() => router.push('/forms/create')}
-        >
-          <Plus size={16} color="white" />
-          <Text className="text-on-primary ml-1 font-medium">{t('forms.createNew', 'New Template')}</Text>
-        </Pressable>
+        <View className="flex-row gap-2">
+          <Pressable 
+            className="bg-canvas border border-hairline rounded-pill flex-row items-center px-3 py-2 shadow-card-soft"
+            onPress={() => router.push('/surveys/new' as any)}
+          >
+            <Plus size={16} color="#171717" />
+            <Text className="text-ink ml-1 font-medium">New Survey</Text>
+          </Pressable>
+          <Pressable 
+            className="bg-primary rounded-pill flex-row items-center px-3 py-2 shadow-card-soft"
+            onPress={() => router.push('/forms/builder' as any)}
+          >
+            <Plus size={16} color="white" />
+            <Text className="text-on-primary ml-1 font-medium">{t('forms.createNew', 'Form Builder')}</Text>
+          </Pressable>
+        </View>
       </View>
 
       <FlashList
@@ -54,7 +63,7 @@ export default function Forms() {
         renderItem={({ item }) => (
           <Pressable 
             className="bg-canvas rounded-lg p-4 shadow-card-soft mb-3 border border-hairline"
-            onPress={() => router.push(`/forms/${item.id}`)}
+            onPress={() => router.push(`/forms/${item.id}` as any)}
           >
             <View className="flex-row justify-between items-start">
               <View className="flex-1 pr-2">

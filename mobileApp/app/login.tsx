@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter, Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,7 +37,11 @@ export default function Login() {
 
   return (
     <SafeAreaView className="flex-1 bg-canvas-soft justify-center px-6">
-      <View className="w-full max-w-md mx-auto relative z-10 p-6 bg-canvas rounded-lg shadow-card-soft border border-hairline">
+      <KeyboardAvoidingView 
+        style={{ flex: 1, justifyContent: 'center' }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View className="w-full max-w-md mx-auto relative z-10 p-6 bg-canvas rounded-lg shadow-card-soft border border-hairline">
         
         <View className="items-center mb-8">
           <View className="w-12 h-12 rounded-full bg-ink flex items-center justify-center mb-4 shadow-card-medium">
@@ -87,6 +91,7 @@ export default function Login() {
           )}
         </Pressable>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

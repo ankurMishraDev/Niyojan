@@ -1,15 +1,17 @@
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../../src/store/appStore';
 import { useAuth } from '../../src/features/auth/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardApi } from '../../src/lib/services';
 import { format } from 'date-fns';
+import { useRouter } from 'expo-router';
 
 export default function Dashboard() {
   const { t } = useTranslation();
   const { isOffline } = useAppStore();
   const { user } = useAuth();
+  const router = useRouter();
 
   const submittedSurveysQuery = useQuery({
     queryKey: ['ngo-dashboard-submitted-surveys'],
@@ -51,7 +53,7 @@ export default function Dashboard() {
           {t('NGO_Dashboard_Metric_TotalSurveys', 'Submitted surveys')}
         </Text>
         <Text className="text-body text-sm mb-4">
-          Review your past submissions and open the volunteer feedback response linked to each case.
+          {t('NGO_Dashboard_Text_Overview')}
         </Text>
 
         {submittedSurveysQuery.isLoading ? (
@@ -85,7 +87,29 @@ export default function Dashboard() {
                     {format(new Date(survey.submittedAt || survey.createdAt), 'MMM d, yyyy')}
                   </Text>
                   <Text className="text-xs text-body">• {survey.needCount} need(s)</Text>
+                  <Text className="text-xs text-body">• {survey.feedbackSubmitted ? "Volunteer feedback submitted" : "Waiting for volunteer feedback"}</Text>
+                  {survey.volunteerName && (
+                     <Text className="text-xs text-body">• Volunteer: {survey.volunteerName}</Text>
+                  )}
                 </View>
+
+                <View className="mt-4 flex-row flex-wrap gap-2">
+                  <Pressable 
+                    className="bg-canvas border border-hairline rounded-md px-3 py-2 flex-1 items-center"
+                    onPress={() => router.push(`/surveys/${survey.id}` as any)}
+                  >
+                    <Text className="text-xs font-medium text-ink">View survey</Text>
+                  </Pressable>
+                  {survey.assignmentId ? (
+                    <Pressable 
+                      className="bg-canvas border border-hairline rounded-md px-3 py-2 flex-1 items-center"
+                      onPress={() => router.push(`/assignments/${survey.assignmentId}` as any)}
+                    >
+                      <Text className="text-xs font-medium text-ink">Open feedback response</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              
               </View>
             ))}
             

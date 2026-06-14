@@ -11,6 +11,17 @@ const LANGUAGES = [
   { code: 'bn', label: 'বাংলা (Bengali)' },
   { code: 'te', label: 'తెలుగు (Telugu)' },
   { code: 'mr', label: 'मराठी (Marathi)' },
+  { code: 'ta', label: 'தமிழ் (Tamil)' },
+  { code: 'ur', label: 'اُردُو (Urdu)' },
+  { code: 'gu', label: 'ગુજરાતી (Gujarati)' },
+  { code: 'kn', label: 'ಕನ್ನಡ (Kannada)' },
+  { code: 'ml', label: 'മലയാളം (Malayalam)' },
+  { code: 'or', label: 'ଓଡ଼ିଆ (Odia)' },
+  { code: 'pa', label: 'ਪੰਜਾਬੀ (Punjabi)' },
+  { code: 'as', label: 'অসমীয়া (Assamese)' },
+  { code: 'mai', label: 'मैथिली (Maithili)' },
+  { code: 'sat', label: 'ᱥᱟᱱᱛᱟᱲᱤ (Santali)' },
+  { code: 'ks', label: 'कॉशुर (Kashmiri)' },
 ];
 
 export default function Profile() {

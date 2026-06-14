@@ -1,5 +1,7 @@
 import { buildAuthHeaders } from "../features/auth/authSession";
 import type { ApiEnvelope, ApiMeta, Paginated } from "../types/api";
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 export class ApiError extends Error {
   status: number;
@@ -29,13 +31,33 @@ const buildUrl = (path: string) => {
     return path;
   }
 
-  let baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || "http://10.0.2.2:3000/api";
+  // Use the env var. Default to "/api" if none is provided.
+  let baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || "/api";
   
-  if (baseUrl.startsWith('/')) {
-    // Android emulator loopback alias
-    baseUrl = `http://10.0.2.2:3000${baseUrl}`; 
+  if (!isAbsoluteUrl(baseUrl)) {
+    let host = 'localhost';
+    
+    // Auto-detect the development LAN IP
+    if (typeof location !== 'undefined' && location.hostname) {
+      // If we are running on web, we must use exactly the same hostname as the browser
+      // Otherwise we'll hit CORS issues
+      host = location.hostname;
+    } else {
+      const hostUri = Constants.expoConfig?.hostUri;
+      if (hostUri) {
+        host = hostUri.split(':')[0];
+      } else if (Platform.OS === 'android') {
+        host = '10.0.2.2'; // Safe fallback for local emulator
+      }
+    }
+    
+    // Backend API_PREFIX is /api (no /v1 segment).
+    // e.g. http://localhost:8080/api/auth/me returns 401 (requires token)
+    //      http://localhost:8080/api/v1/auth/me returns 404 (route not found)
+    baseUrl = `http://${host}:8080${baseUrl}`; 
   }
 
+  // Construct the final URL
   return `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 };
 
@@ -71,6 +93,11 @@ async function requestOnce<T>(path: string, options: RequestOptions = {}): Promi
 
   let response: Response;
   try {
+    console.log(`\n[API REQUEST] ${options.method ?? "GET"} ${buildUrl(path)}`);
+    if (options.body !== undefined) {
+      console.log(`[API REQUEST BODY]`, options.body instanceof FormData ? 'FormData' : options.body);
+    }
+    
     response = await fetch(buildUrl(path), {
       method: options.method ?? "GET",
       headers,
@@ -82,8 +109,10 @@ async function requestOnce<T>(path: string, options: RequestOptions = {}): Promi
             : JSON.stringify(options.body),
       signal: options.signal,
     });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
+  } catch (error: any) {
+    console.error(`[API NETWORK ERROR] ${options.method ?? "GET"} ${buildUrl(path)}`, error);
+    
+    if (error && error.name === "AbortError") {
       throw error;
     }
 
@@ -94,18 +123,28 @@ async function requestOnce<T>(path: string, options: RequestOptions = {}): Promi
   const isJson = contentType.includes("application/json");
   const payload = isJson ? await response.json() : null;
 
-  if (!response.ok) {
-    throw new ApiError(
-      payload?.message ?? response.statusText ?? "Request failed",
-      response.status,
-      payload?.details,
-    );
-  }
+  console.log(`[API RESPONSE] ${response.status} ${response.statusText} for ${buildUrl(path)}`);
+  
+      if (!response.ok) {
+        if (response.status !== 404) {
+          console.error(`[API ERROR PAYLOAD]`, payload);
+        } else {
+          // just log the 404 quietly instead of using console.warn to avoid Redboxes
+          console.log(`[API 404 PAYLOAD]`, payload);
+        }
+        throw new ApiError(
+          payload?.message ?? response.statusText ?? "Request failed",
+          response.status,
+          payload?.details,
+        );
+      }
 
   if (!payload) {
+    console.warn(`[API WARNING] Empty response for ${buildUrl(path)}`);
     throw new ApiError("API returned an empty response", response.status);
   }
 
+  console.log(`[API SUCCESS PAYLOAD]`, JSON.stringify(payload).slice(0, 200) + '...');
   return payload as ApiEnvelope<T>;
 }
 
@@ -148,6 +187,23 @@ export const api = {
   delete: <T>(path: string, signal?: AbortSignal) =>
     request<T>(path, { method: "DELETE", signal }),
   paginated,
+  uploadToSignedUrl: async (url: string, file: any, headers?: Record<string, string>) => {
+    // In React Native, fetch can take a Blob or we can send the local URI using XMLHttpRequest / fetch.
+    // For large files on mobile, we can use the fetch API passing the URI in a formData or sending it directly if possible.
+    // To send exactly as PUT raw binary from a local URI:
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        ...headers,
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      body: file, // file object fetched via fetch(uri).blob() usually
+    });
+
+    if (!response.ok) {
+      throw new ApiError("Signed upload failed", response.status);
+    }
+  },
 };
 
 export const getApiErrorMessage = (error: unknown) => {

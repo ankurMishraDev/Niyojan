@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { runClustering, getClusters, getClusterById, confirmCluster, createManualClusterController } from "./clustering.controller";
-import { requireAuth } from "../../middleware/auth";
+import { requireAuth, requireAnyResolvedUser } from "../../middleware/auth";
 
 const router = Router();
 
 router.use(requireAuth);
+router.use(requireAnyResolvedUser);
 
 router.post("/run", runClustering);
 router.post("/manual", createManualClusterController);

@@ -98,16 +98,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmail = async (email: string, password: string) => {
     if (!firebaseAuth) {
+      console.error("[AUTH] Firebase config missing");
       throw new Error("Firebase config missing");
     }
 
     try {
+      console.log(`[AUTH] Attempting to sign in with email: ${email}`);
       const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       await credential.user.reload();
       const firebaseUser = firebaseAuth.currentUser ?? credential.user;
+      
+      console.log(`[AUTH] Firebase sign in successful for UID: ${firebaseUser.uid}`);
 
+      console.log(`[AUTH] Syncing access token...`);
       await syncAccessToken(firebaseUser);
+      
+      console.log(`[AUTH] Loading profile from backend...`);
       const profile = await loadProfile();
+      console.log(`[AUTH] Profile loaded successfully:`, profile);
       
       setUser(profile);
       setGlobalUser({
@@ -118,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       setStatus("authenticated");
     } catch (error) {
+      console.error(`[AUTH] Sign in failed:`, error);
       applySignedOutState();
       if (firebaseAuth.currentUser) {
         await firebaseSignOut(firebaseAuth);

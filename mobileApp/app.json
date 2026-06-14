@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Niyojan Mobile",
+    "slug": "niyojan-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "niyojan",
+    "ios": {
+      "supportsTablet": true
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "330143b9-af43-4988-b578-3a6e8e3fcf8b"
+      }
+    }
+  }
+}
