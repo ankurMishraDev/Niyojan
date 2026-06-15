@@ -9,6 +9,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import { api } from '../../src/lib/api';
 import CustomDropdown from '../../src/components/CustomDropdown';
 import { DynamicLoader } from '../../src/components/DynamicLoader';
+import { db } from '../../src/db/schema';
+import { enqueueSurvey } from '../../src/lib/syncService';
 
 const LANGUAGES = [
   { value: 'en', label: 'English' },
@@ -43,6 +45,18 @@ export default function SurveyNew() {
   const [longitude, setLongitude] = useState("");
   const [extractionStage, setExtractionStage] = useState("");
   const [creationFeedback, setCreationFeedback] = useState("");
+
+  // ── Offline: load cached templates from SQLite ──────────────────────────────
+  const [cachedTemplates, setCachedTemplates] = useState<any[]>([]);
+  useEffect(() => {
+    if (isOffline) {
+      const rows = db.getAllSync('SELECT id, title FROM forms WHERE status = ?', ['active']) as any[];
+      setCachedTemplates(rows);
+      if (rows.length > 0 && !templateId) {
+        setTemplateId(rows[0].id);
+      }
+    }
+  }, [isOffline]);
 
   const templatesQuery = useQuery({
     queryKey: ["survey-templates"],
@@ -178,13 +192,117 @@ export default function SurveyNew() {
   };
 
   if (isOffline) {
+    const handleOfflineDraft = () => {
+      if (!templateId) {
+        setCreationFeedback("Select a cached template first.");
+        return;
+      }
+      const surveyId = Date.now().toString();
+      const now = new Date().toISOString();
+      db.runSync(
+        `INSERT OR REPLACE INTO surveys (id, formId, volunteerId, respondentName, locationText, latitude, longitude, data, status, createdAt, updatedAt, synced)
+         VALUES (?, ?, ?, ?, ?, ?, ?, '{}', 'draft', ?, ?, 0)`,
+        [
+          surveyId,
+          templateId,
+          '',
+          respondentName || null,
+          locationText || null,
+          latitude ? Number(latitude) : null,
+          longitude ? Number(longitude) : null,
+          now,
+          now,
+        ]
+      );
+      enqueueSurvey(surveyId);
+      router.push(`/forms/${templateId}`);
+    };
+
     return (
-      <View className="flex-1 items-center justify-center p-4 bg-canvas-soft-2">
-        <Text className="text-warning-deep text-center">Data collection initialization requires internet to fetch templates.</Text>
-        <Pressable className="mt-4 bg-primary px-4 py-2 rounded" onPress={() => router.back()}>
-          <Text className="text-on-primary">Go Back</Text>
-        </Pressable>
-      </View>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          className="flex-1 bg-canvas-soft-2 p-4"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 60 }}
+        >
+          <View className="bg-canvas rounded-lg p-6 shadow-card-soft mb-6 border border-hairline">
+            <Text className="text-xs uppercase tracking-wider font-mono text-mute mb-2">Offline Mode</Text>
+            <Text className="text-2xl font-bold text-ink">{t('NGO_SurveyPages_Header')}</Text>
+            <Text className="text-warning-deep mt-2 text-sm">
+              You are offline. AI scan is unavailable. Select a cached template and create a draft — it will sync automatically when you reconnect.
+            </Text>
+          </View>
+
+          {creationFeedback ? (
+            <View className="bg-canvas-soft border border-hairline p-3 rounded-md mb-4">
+              <Text className="text-ink text-sm font-medium">{creationFeedback}</Text>
+            </View>
+          ) : null}
+
+          <View className="bg-canvas rounded-lg p-5 shadow-card-soft border border-hairline mb-6">
+            <Text className="text-lg font-bold text-ink mb-3">Cached Templates</Text>
+            {cachedTemplates.length === 0 ? (
+              <Text className="text-mute text-sm">No cached templates available. Connect to the internet and open this screen once to cache templates.</Text>
+            ) : (
+              <View className="mb-3">
+                <CustomDropdown
+                  items={cachedTemplates.map((t: any) => ({ label: t.title, value: t.id }))}
+                  selectedValue={templateId}
+                  onValueChange={(v) => setTemplateId(v)}
+                  placeholder="Select Cached Template"
+                />
+              </View>
+            )}
+
+            <View className="border-t border-hairline my-4" />
+
+            <Text className="text-sm font-medium text-ink mb-1">{t('NGO_SurveyPages_Form_Respondent')}</Text>
+            <TextInput
+              className="border border-hairline rounded-md p-3 text-ink bg-canvas-soft-2 mb-4"
+              placeholder="John Doe / Camp A"
+              value={respondentName}
+              onChangeText={setRespondentName}
+            />
+
+            <Text className="text-sm font-medium text-ink mb-1">{t('NGO_SurveyPages_Form_Location')}</Text>
+            <TextInput
+              className="border border-hairline rounded-md p-3 text-ink bg-canvas-soft-2 mb-4"
+              placeholder="Village, District"
+              value={locationText}
+              onChangeText={setLocationText}
+            />
+
+            <Text className="text-sm font-medium text-ink mb-1">{t('NGO_SurveyPages_Form_Latitude')}</Text>
+            <TextInput
+              className="border border-hairline rounded-md p-3 text-ink bg-canvas-soft-2 mb-4"
+              placeholder="e.g. 12.3456"
+              keyboardType="numeric"
+              value={latitude}
+              onChangeText={setLatitude}
+            />
+
+            <Text className="text-sm font-medium text-ink mb-1">{t('NGO_SurveyPages_Form_Longitude')}</Text>
+            <TextInput
+              className="border border-hairline rounded-md p-3 text-ink bg-canvas-soft-2 mb-4"
+              placeholder="e.g. 78.9101"
+              keyboardType="numeric"
+              value={longitude}
+              onChangeText={setLongitude}
+            />
+
+            <Pressable
+              className={`bg-primary rounded-pill py-3 items-center shadow-card-soft mt-2 ${cachedTemplates.length === 0 ? 'opacity-50' : ''}`}
+              onPress={handleOfflineDraft}
+              disabled={cachedTemplates.length === 0}
+            >
+              <Text className="text-on-primary font-medium">Create Draft (Offline)</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 

@@ -13,7 +13,7 @@ import {
 import { authApi } from "../../lib/services";
 import { firebaseAuth } from "../../lib/firebase";
 import { AuthContext } from "./auth-context";
-import { setAccessToken } from "./authSession";
+import { setAccessToken, saveUserProfile, loadCachedProfile, clearUserProfile } from "./authSession";
 import type { UserProfile } from "../../types/api";
 import { useAppStore } from "../../store/appStore";
 
@@ -78,9 +78,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (firebaseUser) {
           await syncAccessToken(firebaseUser);
-          // Only fetch profile if not offline, else rely on async storage or fallback
-          const profile = await loadProfile();
-          applyProfile(profile);
+          try {
+            // Fetch live profile from backend
+            const profile = await loadProfile();
+            // Cache it for offline use
+            await saveUserProfile(profile);
+            applyProfile(profile);
+          } catch (networkErr) {
+            // Network/server unreachable — fall back to cached profile
+            console.warn('[AUTH] Profile fetch failed, trying cached profile:', networkErr);
+            const cached = await loadCachedProfile<UserProfile>();
+            if (cached) {
+              console.log('[AUTH] Restored profile from cache (offline mode)');
+              applyProfile(cached);
+            } else {
+              // No cache — can't authenticate without profile
+              applyProfile(null);
+            }
+          }
           return;
         }
 
@@ -117,6 +132,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profile = await loadProfile();
       console.log(`[AUTH] Profile loaded successfully:`, profile);
       
+      // Cache profile for offline sessions
+      await saveUserProfile(profile);
+      
       setUser(profile);
       setGlobalUser({
         id: profile.id,
@@ -137,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     applySignedOutState();
+    await clearUserProfile();
     if (firebaseAuth?.currentUser) {
       await firebaseSignOut(firebaseAuth);
     }

@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Save } from 'lucide-react-native';
 import { db } from '../../src/db/schema';
 import { useAppStore } from '../../src/store/appStore';
+import { enqueueSurvey } from '../../src/lib/syncService';
 
 export default function FillForm() {
   const { id } = useLocalSearchParams();
@@ -16,8 +17,8 @@ export default function FillForm() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    // Fetch form from SQLite
-    db.getFirstAsync(`SELECT * FROM forms WHERE id = '${id}'`).then((row: any) => {
+    // Fetch form from SQLite — parameterized query prevents SQL injection
+    db.getFirstAsync('SELECT * FROM forms WHERE id = ?', [id as string]).then((row: any) => {
       if (row) {
         setForm({ ...row, fields: JSON.parse(row.fields) });
       }
@@ -28,11 +29,15 @@ export default function FillForm() {
     const surveyId = Date.now().toString();
     const now = new Date().toISOString();
     
-    db.execAsync(`
-      INSERT INTO surveys (id, formId, volunteerId, data, status, createdAt, updatedAt, synced)
-      VALUES ('${surveyId}', '${id}', '${user?.id}', '${JSON.stringify(answers)}', 'Completed', '${now}', '${now}', 0);
-    `).then(() => {
-      alert(t('forms.submitSuccess', 'Survey saved successfully!'));
+    // Parameterized insert — no string interpolation
+    db.runAsync(
+      `INSERT INTO surveys (id, formId, volunteerId, data, status, createdAt, updatedAt, synced)
+       VALUES (?, ?, ?, ?, 'Completed', ?, ?, 0)`,
+      [surveyId, id as string, user?.id ?? '', JSON.stringify(answers), now, now]
+    ).then(() => {
+      // Enqueue for sync when back online
+      enqueueSurvey(surveyId);
+      alert(t('forms.submitSuccess', 'Survey saved and queued for sync!'));
       router.back();
     }).catch(err => console.error(err));
   };

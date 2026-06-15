@@ -148,7 +148,7 @@ async function syncSurvey(item: SyncRow): Promise<void> {
     throw new Error('Survey data produced zero responses — skipping submit');
   }
 
-  await surveysApi.submit(remoteId, { responses });
+  await surveysApi.submit(remoteId!, { responses });
   db.runSync("UPDATE surveys SET status='submitted' WHERE id=?", [local.id]);
 }
 
