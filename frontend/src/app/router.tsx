@@ -18,6 +18,7 @@ import { FeedbackIndexPage, FeedbackPage } from "@/pages/FeedbackPage";
 import { HelpPage } from "@/pages/HelpPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { ClusteringPage } from "@/pages/ClusteringPage";
+import MapPage from "@/pages/MapPage";
 
 function AppRedirect() {
   const { user } = useAuth();
@@ -25,22 +26,10 @@ function AppRedirect() {
 }
 
 export const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <LandingPage />,
-  },
-  {
-    path: "/login",
-    element: <LoginPage />,
-  },
-  {
-    path: "/signup",
-    element: <SignupPage />,
-  },
-  {
-    path: "/volunteer-signup",
-    element: <VolunteerSignupPage />,
-  },
+  { path: "/", element: <LandingPage /> },
+  { path: "/login", element: <LoginPage /> },
+  { path: "/signup", element: <SignupPage /> },
+  { path: "/volunteer-signup", element: <VolunteerSignupPage /> },
   {
     path: "/",
     element: <RouteGuard />,
@@ -50,16 +39,20 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { path: "app", element: <AppRedirect /> },
+
+          // ── Dashboard: all logged-in roles except volunteer ───────────────
           {
             element: <RouteGuard roles={["superadmin", "ngo_admin", "field_worker"]} />,
             children: [{ path: "dashboard", element: <DashboardPage /> }],
           },
+
+          // ── Volunteer panel ───────────────────────────────────────────────
           {
-            element: <RouteGuard roles={["superadmin", "volunteer"]} />,
-            children: [
-              { path: "assignments", element: <AssignmentsPage /> },
-            ],
+            element: <RouteGuard roles={["volunteer"]} />,
+            children: [{ path: "assignments", element: <AssignmentsPage /> }],
           },
+
+          // ── Superadmin-only tools ─────────────────────────────────────────
           {
             element: <RouteGuard roles={["superadmin"]} />,
             children: [
@@ -67,16 +60,15 @@ export const router = createBrowserRouter([
               { path: "ai-review", element: <AiReviewIndexPage /> },
               { path: "ai-review/:documentId", element: <AiReviewPage /> },
               { path: "ai-review/surveys/:surveyId", element: <AiReviewPage /> },
-              { path: "matching", element: <MatchingPage /> },
               { path: "clustering", element: <ClusteringPage /> },
+              { path: "matching", element: <MatchingPage /> },
+              { path: "map", element: <MapPage /> },
+              // Admin can also see assignments list
+              { path: "assignments", element: <AssignmentsPage /> },
             ],
           },
-          {
-            element: <RouteGuard roles={["superadmin", "ngo_admin", "field_worker"]} />,
-            children: [
-              { path: "surveys/:surveyId", element: <SurveyDetailPage /> },
-            ],
-          },
+
+          // ── NGO-panel routes ──────────────────────────────────────────────
           {
             element: <RouteGuard roles={["ngo_admin", "field_worker"]} />,
             children: [
@@ -84,6 +76,14 @@ export const router = createBrowserRouter([
               { path: "surveys/new", element: <SurveyNewPage /> },
             ],
           },
+
+          // ── Shared: survey detail (admin + ngo) ───────────────────────────
+          {
+            element: <RouteGuard roles={["superadmin", "ngo_admin", "field_worker"]} />,
+            children: [{ path: "surveys/:surveyId", element: <SurveyDetailPage /> }],
+          },
+
+          // ── Shared: feedback + misc ───────────────────────────────────────
           {
             element: <RouteGuard roles={["superadmin", "ngo_admin", "field_worker", "volunteer"]} />,
             children: [

@@ -154,8 +154,12 @@ export function ClusteringPage() {
                 <div key={cluster.id} className="rounded border border-hairline bg-canvas-soft p-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="font-medium text-ink">{cluster.representative_summary}</p>
-                      <p className="text-xs text-mute mt-1">Category: {cluster.category}</p>
+                      {/* Support both old (representative_summary/category) and new (title/need_category) column names */}
+                      <p className="font-medium text-ink">{cluster.title ?? cluster.representative_summary ?? "Unnamed Cluster"}</p>
+                      <p className="text-xs text-mute mt-1">Category: {cluster.need_category ?? cluster.category ?? "—"}</p>
+                      {cluster.memberCount != null && (
+                        <p className="text-xs text-mute mt-0.5">{cluster.memberCount} need{cluster.memberCount !== 1 ? "s" : ""}</p>
+                      )}
                     </div>
                     <StatusBadge tone={toneForStatus(cluster.status)}>{cluster.status}</StatusBadge>
                   </div>

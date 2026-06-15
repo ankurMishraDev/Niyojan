@@ -60,13 +60,16 @@ export function AssignmentsPage() {
           : "Track dispatched matches, update operational status, and route into field feedback."}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_2fr]">
-        <Panel className="space-y-4 max-h-[85vh] flex flex-col p-0 overflow-hidden shadow-card-medium">
-          <div className="p-5 border-b border-hairline bg-canvas-soft">
+      <div className="grid gap-6 lg:grid-cols-[360px_1fr] xl:grid-cols-[420px_1fr] min-h-[70vh]">
+        <Panel className="space-y-0 max-h-[85vh] flex flex-col p-0 overflow-hidden shadow-card-medium">
+          <div className="p-5 border-b border-hairline bg-canvas-soft shrink-0">
             <p className="text-lg font-semibold tracking-tight text-ink">Assignment List</p>
+            <p className="mt-1 text-xs text-body">
+              {assignmentsQuery.data?.items.length ?? 0} assignment{(assignmentsQuery.data?.items.length ?? 0) !== 1 ? "s" : ""}
+            </p>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {assignmentsQuery.data?.items.map((assignment) => (
               <button
                 className={`w-full rounded-md border px-4 py-4 text-left transition-colors ${
@@ -78,21 +81,21 @@ export function AssignmentsPage() {
                 onClick={() => setSelectedAssignmentId(assignment.id)}
                 type="button"
               >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <div className="flex-1 pr-2">
-                    <p className="font-medium text-ink truncate text-sm">{assignment.needSummary}</p>
-                    <p className="mt-1 font-mono text-[10px] text-mute truncate">
-                      {assignment.volunteerName} • {assignment.volunteerAvailabilityStatus}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-ink text-sm leading-snug line-clamp-2">{assignment.needSummary}</p>
+                    <p className="mt-1.5 font-mono text-[10px] text-mute truncate">
+                      {assignment.volunteerName} · {assignment.volunteerAvailabilityStatus}
                     </p>
                   </div>
-                  <div className="shrink-0">
+                  <div className="shrink-0 mt-0.5">
                     <StatusBadge tone={toneForStatus(assignment.status)}>{assignment.status}</StatusBadge>
                   </div>
                 </div>
               </button>
             ))}
             {assignmentsQuery.data?.items.length === 0 && (
-              <div className="text-center text-sm text-body py-8 border-2 border-dashed border-hairline rounded-md">
+              <div className="text-center text-sm text-body py-12 border-2 border-dashed border-hairline rounded-md">
                 No assignments found.
               </div>
             )}

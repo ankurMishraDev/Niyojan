@@ -12,15 +12,24 @@ const navItems: Array<{
   href: string;
   roles: AppRole[];
 }> = [
-  { i18nKey: "Common_Navigation_Link_Dashboard", href: "/dashboard", roles: ["superadmin", "ngo_admin", "field_worker"] },
-  { i18nKey: "Common_Navigation_Link_VolunteerDashboard", href: "/dashboard", roles: ["volunteer"] },
+  // ── Superadmin ────────────────────────────────────────────────────────────
+  { i18nKey: "Common_Navigation_Link_Dashboard", href: "/dashboard", roles: ["superadmin"] },
   { i18nKey: "Common_Navigation_Link_Pipeline", href: "/pipeline", roles: ["superadmin"] },
   { i18nKey: "Common_Navigation_Link_AIReview", href: "/ai-review", roles: ["superadmin"] },
-  { i18nKey: "Common_Navigation_Link_FormBuilder", href: "/form-builder", roles: ["ngo_admin", "field_worker"] },
-  { i18nKey: "Common_Navigation_Link_DataCollection", href: "/surveys/new", roles: ["ngo_admin", "field_worker"] },
   { i18nKey: "Common_Navigation_Link_Clustering", href: "/clustering", roles: ["superadmin"] },
   { i18nKey: "Common_Navigation_Link_Matching", href: "/matching", roles: ["superadmin"] },
-  { i18nKey: "Common_Navigation_Link_Assignments", href: "/assignments", roles: ["superadmin", "volunteer"] },
+  { i18nKey: "Common_Navigation_Link_Map", href: "/map", roles: ["superadmin"] },
+  { i18nKey: "Common_Navigation_Link_Assignments", href: "/assignments", roles: ["superadmin"] },
+
+  // ── NGO admin + field worker ──────────────────────────────────────────────
+  { i18nKey: "Common_Navigation_Link_Dashboard", href: "/dashboard", roles: ["ngo_admin", "field_worker"] },
+  { i18nKey: "Common_Navigation_Link_FormBuilder", href: "/form-builder", roles: ["ngo_admin", "field_worker"] },
+  { i18nKey: "Common_Navigation_Link_DataCollection", href: "/surveys/new", roles: ["ngo_admin", "field_worker"] },
+
+  // ── Volunteer ─────────────────────────────────────────────────────────────
+  { i18nKey: "Common_Navigation_Link_Assignments", href: "/assignments", roles: ["volunteer"] },
+
+  // ── All authenticated ─────────────────────────────────────────────────────
   { i18nKey: "Common_Navigation_Link_Feedback", href: "/feedback", roles: ["superadmin", "ngo_admin", "field_worker", "volunteer"] },
   { i18nKey: "Common_Navigation_Link_Help", href: "/help", roles: ["superadmin", "ngo_admin", "field_worker", "volunteer"] },
   { i18nKey: "Common_Navigation_Link_Profile", href: "/profile", roles: ["superadmin", "ngo_admin", "field_worker", "volunteer"] },
@@ -120,9 +129,9 @@ export function AppShell() {
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {navItems
             .filter((item) => (user ? item.roles.includes(user.role) : false))
-            .map((item) => (
+            .map((item, index) => (
               <NavLink
-                key={item.href}
+                key={`${item.href}-${index}`}
                 to={item.href}
                 className={({ isActive }) =>
                   cn(

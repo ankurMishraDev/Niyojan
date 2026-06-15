@@ -300,8 +300,9 @@ export function FormBuilderPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_2fr] xl:grid-cols-[300px_1fr_300px]">
-          <Panel className="space-y-5 flex flex-col max-h-[85vh] overflow-y-auto">
+      {/* Row 1: Template management (left) + Field catalog (right) */}
+      <div className="grid gap-6 md:grid-cols-2">
+          <Panel className="space-y-5 flex flex-col max-h-[80vh] overflow-y-auto">
             <div className="flex flex-col gap-3">
               <p className="text-xl font-semibold tracking-tight text-ink">{t("NGO_FormBuilder_Label_TemplateName")}</p>
               
@@ -450,58 +451,8 @@ export function FormBuilderPage() {
           </div>
         </Panel>
 
-        <Panel className="space-y-6 flex flex-col lg:order-last xl:order-none max-h-[85vh] overflow-y-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <p className="text-2xl font-semibold tracking-tight text-ink">
-                {selectedVersion?.templateName ?? "Template version"}
-              </p>
-              <p className="mt-1.5 text-sm text-body leading-relaxed max-w-lg">
-                Edit labels, required flags, and display ordering against the
-                live backend version.
-              </p>
-            </div>
-            <Button
-              className="w-full sm:w-auto shrink-0"
-              disabled={!selectedVersionId || publishMutation.isPending}
-              onClick={() => void publishMutation.mutate()}
-            >
-              {publishMutation.isPending ? "Publishing…" : "Publish version"}
-            </Button>
-          </div>
-
-          {!selectedVersion ? (
-            <div className="flex-1 flex items-center justify-center border-2 border-dashed border-hairline rounded-lg p-10 text-center text-sm text-mute">
-              Select a template version to begin editing.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {orderedFields.map((field) => (
-                <FieldEditorCard
-                  field={field}
-                  key={field.id}
-                  onDelete={async () => {
-                    await formsApi.deleteField(field.id);
-                    setFeedback(`Deleted field "${field.label}".`);
-                    await versionQuery.refetch();
-                  }}
-                  onSave={async (payload) => {
-                    await formsApi.updateField(field.id, payload);
-                    setFeedback(`Updated field "${field.label}".`);
-                    await versionQuery.refetch();
-                  }}
-                />
-              ))}
-              {orderedFields.length === 0 && (
-                <div className="py-8 text-center text-body text-sm border-2 border-dashed border-hairline rounded-lg">
-                  No fields in this version yet. Add some from the catalog.
-                </div>
-              )}
-            </div>
-          )}
-        </Panel>
-
-        <Panel className="space-y-5 max-h-[85vh] overflow-y-auto">
+        {/* Field Catalog — right column of row 1 */}
+        <Panel className="space-y-5 max-h-[80vh] overflow-y-auto">
           <p className="text-xl font-semibold tracking-tight text-ink">Field catalog</p>
           <div className="space-y-3">
             <Input
@@ -578,6 +529,58 @@ export function FormBuilderPage() {
           </div>
         </Panel>
       </div>
+
+      {/* Row 2: Template editor — full width */}
+      <Panel className="space-y-6 flex flex-col overflow-y-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-2xl font-semibold tracking-tight text-ink">
+                {selectedVersion?.templateName ?? "Template version"}
+              </p>
+              <p className="mt-1.5 text-sm text-body leading-relaxed max-w-lg">
+                Edit labels, required flags, and display ordering against the
+                live backend version.
+              </p>
+            </div>
+            <Button
+              className="w-full sm:w-auto shrink-0"
+              disabled={!selectedVersionId || publishMutation.isPending}
+              onClick={() => void publishMutation.mutate()}
+            >
+              {publishMutation.isPending ? "Publishing…" : "Publish version"}
+            </Button>
+          </div>
+
+          {!selectedVersion ? (
+            <div className="flex-1 flex items-center justify-center border-2 border-dashed border-hairline rounded-lg p-10 text-center text-sm text-mute">
+              Select a template version to begin editing.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {orderedFields.map((field) => (
+                <FieldEditorCard
+                  field={field}
+                  key={field.id}
+                  onDelete={async () => {
+                    await formsApi.deleteField(field.id);
+                    setFeedback(`Deleted field "${field.label}".`);
+                    await versionQuery.refetch();
+                  }}
+                  onSave={async (payload) => {
+                    await formsApi.updateField(field.id, payload);
+                    setFeedback(`Updated field "${field.label}".`);
+                    await versionQuery.refetch();
+                  }}
+                />
+              ))}
+              {orderedFields.length === 0 && (
+                <div className="py-8 text-center text-body text-sm border-2 border-dashed border-hairline rounded-lg">
+                  No fields in this version yet. Add some from the catalog above.
+                </div>
+              )}
+            </div>
+          )}
+        </Panel>
     </div>
   );
 }
