@@ -7,6 +7,12 @@
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
     "scheme": "niyojan",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "adaptive",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
       "supportsTablet": true
     },
