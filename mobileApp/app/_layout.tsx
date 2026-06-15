@@ -1,5 +1,4 @@
 import { Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import '../src/i18n';
@@ -19,18 +18,12 @@ const queryClient = new QueryClient({
   },
 });
 
+// initDb uses execSync internally — safe to call at module level before first render.
+// This avoids the blank-screen boot race that happens when returning null from the component
+// while waiting for a useEffect to fire on a physical device.
+initDb();
+
 export default function RootLayout() {
-  const [dbInitialized, setDbInitialized] = useState(false);
-
-  useEffect(() => {
-    initDb();
-    setDbInitialized(true);
-  }, []);
-
-  if (!dbInitialized) {
-    return null; 
-  }
-
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>

@@ -12,6 +12,15 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://niyojan.app/api",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDQYGwBpjMuAO_TsqyYLTvMF_vq6npvybI",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "helical-button-486909-m8.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "helical-button-486909-m8",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "helical-button-486909-m8.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "678265480982",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:678265480982:web:3e13b08ca3549fc5aa1237"
       }
     },
     "production": {
