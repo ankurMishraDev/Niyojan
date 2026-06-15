@@ -9,6 +9,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { api } from '../../src/lib/api';
 import CustomDropdown from '../../src/components/CustomDropdown';
 import { Trash2, Edit2 } from 'lucide-react-native';
+import { DynamicLoader } from '../../src/components/DynamicLoader';
 
 const LANGUAGES = [
   { value: 'en', label: 'English' },
@@ -267,6 +268,18 @@ export default function FormBuilder() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
+      {/* DynamicLoader overlay — rendered on top while AI template creation runs.
+          Kept here (not as a screen replacement) so the expo-router context stays
+          mounted and any navigation calls work correctly. */}
+      {scanDocumentMutation.isPending && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}>
+          <DynamicLoader
+            currentStage={extractionStage}
+            stages={['Processing', 'Extracting', 'Finalizing']}
+            label="Creating Form Template..."
+          />
+        </View>
+      )}
       <ScrollView 
         className="flex-1 bg-canvas-soft-2 p-4"
         keyboardShouldPersistTaps="handled"

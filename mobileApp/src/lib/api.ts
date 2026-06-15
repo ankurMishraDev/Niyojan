@@ -31,34 +31,40 @@ const buildUrl = (path: string) => {
     return path;
   }
 
-  // Use the env var. Default to "/api" if none is provided.
-  let baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL || "/api";
-  
-  if (!isAbsoluteUrl(baseUrl)) {
-    let host = 'localhost';
-    
-    // Auto-detect the development LAN IP
-    if (typeof location !== 'undefined' && location.hostname) {
-      // If we are running on web, we must use exactly the same hostname as the browser
-      // Otherwise we'll hit CORS issues
-      host = location.hostname;
-    } else {
-      const hostUri = Constants.expoConfig?.hostUri;
-      if (hostUri) {
-        host = hostUri.split(':')[0];
-      } else if (Platform.OS === 'android') {
-        host = '10.0.2.2'; // Safe fallback for local emulator
-      }
-    }
-    
-    // Backend API_PREFIX is /api (no /v1 segment).
-    // e.g. http://localhost:8080/api/auth/me returns 401 (requires token)
-    //      http://localhost:8080/api/v1/auth/me returns 404 (route not found)
-    baseUrl = `http://${host}:8080${baseUrl}`; 
+  // EXPO_PUBLIC_API_BASE_URL may be:
+  //   - An absolute URL like "http://192.168.1.x:8080/api"  <-- set this for APK builds!
+  //   - A relative path like "/api"  <-- only works in Expo Go via metro proxy
+  const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL || "/api";
+
+  // If the env var is already absolute, use it directly (APK / standalone build)
+  if (isAbsoluteUrl(envUrl)) {
+    const base = envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
+    return `${base}${path.startsWith('/') ? path : `/${path}`}`;
   }
 
-  // Construct the final URL
-  return `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  // Not absolute — running in Expo Go or web; auto-detect the LAN IP from metro hostUri
+  let host = 'localhost';
+
+  if (typeof location !== 'undefined' && location.hostname) {
+    // Web browser: use window.location.hostname to avoid CORS issues
+    host = location.hostname;
+  } else {
+    const hostUri = Constants.expoConfig?.hostUri;
+    if (hostUri) {
+      // Expo Go: hostUri is "192.168.x.x:19000", extract the IP portion
+      host = hostUri.split(':')[0];
+      console.log(`[API] Auto-detected LAN host from hostUri: ${host}`);
+    } else if (Platform.OS === 'android') {
+      // Android emulator loopback
+      host = '10.0.2.2';
+      console.warn('[API] hostUri not available. Using Android emulator fallback 10.0.2.2. For a real device APK, set EXPO_PUBLIC_API_BASE_URL to an absolute URL (e.g. http://192.168.x.x:8080/api)');
+    } else {
+      console.warn('[API] hostUri not available. Using localhost. Requests will fail on a physical device. Set EXPO_PUBLIC_API_BASE_URL to an absolute URL.');
+    }
+  }
+
+  const baseUrl = `http://${host}:8080${envUrl}`;
+  return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
 };
 
 const toQueryString = (query?: Record<string, unknown>) => {
@@ -83,6 +89,7 @@ async function requestOnce<T>(path: string, options: RequestOptions = {}): Promi
   headers.set("Accept", "application/json");
 
   const authHeaders = await buildAuthHeaders();
+  const hasToken = Object.keys(authHeaders).length > 0;
   for (const [key, value] of Object.entries(authHeaders)) {
     headers.set(key, value);
   }
@@ -91,14 +98,19 @@ async function requestOnce<T>(path: string, options: RequestOptions = {}): Promi
     headers.set("Content-Type", "application/json");
   }
 
+  const fullUrl = buildUrl(path);
+  console.log(`\n[API REQUEST] ${options.method ?? "GET"} ${fullUrl}`);
+  console.log(`[API AUTH] Token present: ${hasToken}`);
+  if (!hasToken) {
+    console.warn(`[API AUTH WARNING] No Bearer token attached for ${path}. User may not be logged in yet.`);
+  }
+  if (options.body !== undefined) {
+    console.log(`[API REQUEST BODY]`, options.body instanceof FormData ? 'FormData' : options.body);
+  }
+
   let response: Response;
   try {
-    console.log(`\n[API REQUEST] ${options.method ?? "GET"} ${buildUrl(path)}`);
-    if (options.body !== undefined) {
-      console.log(`[API REQUEST BODY]`, options.body instanceof FormData ? 'FormData' : options.body);
-    }
-    
-    response = await fetch(buildUrl(path), {
+    response = await fetch(fullUrl, {
       method: options.method ?? "GET",
       headers,
       body:
@@ -110,8 +122,8 @@ async function requestOnce<T>(path: string, options: RequestOptions = {}): Promi
       signal: options.signal,
     });
   } catch (error: any) {
-    console.error(`[API NETWORK ERROR] ${options.method ?? "GET"} ${buildUrl(path)}`, error);
-    
+    console.error(`[API NETWORK ERROR] ${options.method ?? "GET"} ${fullUrl}`, error);
+
     if (error && error.name === "AbortError") {
       throw error;
     }
@@ -123,24 +135,23 @@ async function requestOnce<T>(path: string, options: RequestOptions = {}): Promi
   const isJson = contentType.includes("application/json");
   const payload = isJson ? await response.json() : null;
 
-  console.log(`[API RESPONSE] ${response.status} ${response.statusText} for ${buildUrl(path)}`);
-  
-      if (!response.ok) {
-        if (response.status !== 404) {
-          console.error(`[API ERROR PAYLOAD]`, payload);
-        } else {
-          // just log the 404 quietly instead of using console.warn to avoid Redboxes
-          console.log(`[API 404 PAYLOAD]`, payload);
-        }
-        throw new ApiError(
-          payload?.message ?? response.statusText ?? "Request failed",
-          response.status,
-          payload?.details,
-        );
-      }
+  console.log(`[API RESPONSE] ${response.status} ${response.statusText} for ${fullUrl}`);
+
+  if (!response.ok) {
+    if (response.status !== 404) {
+      console.error(`[API ERROR PAYLOAD]`, payload);
+    } else {
+      console.log(`[API 404 PAYLOAD]`, payload);
+    }
+    throw new ApiError(
+      payload?.message ?? response.statusText ?? "Request failed",
+      response.status,
+      payload?.details,
+    );
+  }
 
   if (!payload) {
-    console.warn(`[API WARNING] Empty response for ${buildUrl(path)}`);
+    console.warn(`[API WARNING] Empty response for ${fullUrl}`);
     throw new ApiError("API returned an empty response", response.status);
   }
 
@@ -188,16 +199,13 @@ export const api = {
     request<T>(path, { method: "DELETE", signal }),
   paginated,
   uploadToSignedUrl: async (url: string, file: any, headers?: Record<string, string>) => {
-    // In React Native, fetch can take a Blob or we can send the local URI using XMLHttpRequest / fetch.
-    // For large files on mobile, we can use the fetch API passing the URI in a formData or sending it directly if possible.
-    // To send exactly as PUT raw binary from a local URI:
     const response = await fetch(url, {
       method: "PUT",
       headers: {
         ...headers,
         "Content-Type": file.type || "application/octet-stream",
       },
-      body: file, // file object fetched via fetch(uri).blob() usually
+      body: file,
     });
 
     if (!response.ok) {

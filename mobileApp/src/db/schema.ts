@@ -7,25 +7,49 @@ export const initDb = () => {
   db.execSync(`
     CREATE TABLE IF NOT EXISTS forms (
       id TEXT PRIMARY KEY,
+      templateVersionId TEXT,
       title TEXT,
       description TEXT,
-      fields TEXT, -- JSON string
+      fields TEXT,
       status TEXT,
       createdAt TEXT,
       updatedAt TEXT,
       synced INTEGER DEFAULT 1
     );
-    
+
     CREATE TABLE IF NOT EXISTS surveys (
       id TEXT PRIMARY KEY,
+      remoteId TEXT,
+      templateVersionId TEXT,
       formId TEXT,
       volunteerId TEXT,
-      data TEXT, -- JSON string
+      respondentName TEXT,
+      locationText TEXT,
+      latitude REAL,
+      longitude REAL,
+      data TEXT,
+      submittedLanguage TEXT DEFAULT 'en',
       status TEXT,
       createdAt TEXT,
-      updatedAt TEXT,
-      synced INTEGER DEFAULT 0
+      updatedAt TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS sync_queue (
+      id TEXT PRIMARY KEY,
+      entityType TEXT NOT NULL,
+      localId TEXT NOT NULL,
+      remoteId TEXT,
+      op TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      lastError TEXT,
+      nextAttemptAt TEXT,
+      idempotencyKey TEXT,
+      createdAt TEXT,
+      updatedAt TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(status, nextAttemptAt);
 
     CREATE TABLE IF NOT EXISTS assignments (
       id TEXT PRIMARY KEY,

@@ -8,6 +8,7 @@ import { useAppStore } from '../../src/store/appStore';
 import * as DocumentPicker from 'expo-document-picker';
 import { api } from '../../src/lib/api';
 import CustomDropdown from '../../src/components/CustomDropdown';
+import { DynamicLoader } from '../../src/components/DynamicLoader';
 
 const LANGUAGES = [
   { value: 'en', label: 'English' },
@@ -193,6 +194,18 @@ export default function SurveyNew() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
+      {/* DynamicLoader overlay — rendered on top while AI extraction runs.
+          Kept here (not as a screen replacement) so expo-router context stays
+          mounted and router.push() in onSuccess works correctly. */}
+      {createFromFilledFormMutation.isPending && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}>
+          <DynamicLoader
+            currentStage={extractionStage}
+            stages={['Processing', 'Extracting', 'Finalizing']}
+            label="Creating Survey from Document..."
+          />
+        </View>
+      )}
       <ScrollView 
         className="flex-1 bg-canvas-soft-2 p-4"
         keyboardShouldPersistTaps="handled"
