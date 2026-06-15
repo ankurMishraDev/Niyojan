@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/logo.png",
-      "resizeMode": "adaptive",
+      "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
@@ -35,6 +35,9 @@
       "eas": {
         "projectId": "330143b9-af43-4988-b578-3a6e8e3fcf8b"
       }
+    },
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }
