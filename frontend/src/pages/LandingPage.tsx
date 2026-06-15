@@ -57,7 +57,7 @@ export function LandingPage() {
               className="inline-flex items-center justify-center rounded-pill bg-primary px-5 py-2.5 text-sm font-medium text-on-primary transition-all hover:bg-ink/90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none touch-manipulation"
               to={destination}
             >
-              {t("LandingPage_Button_GetStarted")}
+              Download App
             </Link>
           </div>
         </header>

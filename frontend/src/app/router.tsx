@@ -47,10 +47,7 @@ export const router = createBrowserRouter([
           },
 
           // ── Volunteer panel ───────────────────────────────────────────────
-          {
-            element: <RouteGuard roles={["volunteer"]} />,
-            children: [{ path: "assignments", element: <AssignmentsPage /> }],
-          },
+          // Note: assignments is defined below in the shared superadmin+volunteer block.
 
           // ── Superadmin-only tools ─────────────────────────────────────────
           {
@@ -63,9 +60,15 @@ export const router = createBrowserRouter([
               { path: "clustering", element: <ClusteringPage /> },
               { path: "matching", element: <MatchingPage /> },
               { path: "map", element: <MapPage /> },
-              // Admin can also see assignments list
-              { path: "assignments", element: <AssignmentsPage /> },
             ],
+          },
+
+          // ── Assignments: superadmin sees all; volunteer sees own queue ────
+          // Both roles share the same page component — it conditionally renders
+          // based on user.role (full admin view vs. volunteer queue view).
+          {
+            element: <RouteGuard roles={["superadmin", "volunteer"]} />,
+            children: [{ path: "assignments", element: <AssignmentsPage /> }],
           },
 
           // ── NGO-panel routes ──────────────────────────────────────────────

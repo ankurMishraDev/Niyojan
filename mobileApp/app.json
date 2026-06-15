@@ -7,7 +7,7 @@
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
     "scheme": "niyojan",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/logo.png",
       "resizeMode": "contain",

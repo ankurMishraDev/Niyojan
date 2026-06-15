@@ -1,64 +1,118 @@
-import { Request, Response } from "express";
-import { runClusterAlgorithm, fetchClusters, fetchClusterById, resumeClusterGraph, createManualCluster } from "./clustering.service";
-import { AppError } from "../../middleware/errorHandler";
+import { NextFunction, Request, Response } from "express";
+import { assertTenantOrgId } from "../../middleware/tenantGuard";
+import { sendSuccess } from "../../utils/apiResponse";
+import {
+  createManualCluster,
+  runAutoClustering,
+  fetchClusters,
+  fetchClusterById,
+  resumeClusterGraph,
+} from "./clustering.service";
 
-export const createManualClusterController = async (req: Request, res: Response) => {
-  const orgId = req.user?.orgId || 'superadmin-bypass'; // Allow superadmin without org
-  const userId = req.user?.id;
-  if (!userId) throw new AppError(401, "Unauthorized");
+/**
+ * Resolves the org scope for clustering operations.
+ * - superadmin: may or may not have an orgId; null means "all orgs" (no filter).
+ * - ngo_admin / field_worker: must have an orgId (enforced by assertTenantOrgId).
+ */
+const resolveScopeOrgId = (req: Request): string | null => {
+  return req.user!.orgId ?? null;
+};
 
-  const { needIds, clusterName, category } = req.body;
-  if (!Array.isArray(needIds) || !clusterName || !category) {
-    throw new AppError(400, "Invalid payload. needIds (array), clusterName, and category are required.");
+export const createManualClusterController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const orgId = resolveScopeOrgId(req);
+
+    // Non-superadmin must have an org
+    if (req.user!.role !== "superadmin" && !orgId) {
+      throw Object.assign(
+        new Error(
+          "Your account does not have an organization assigned. Please complete NGO onboarding before creating clusters.",
+        ),
+        { statusCode: 400 },
+      );
+    }
+    if (orgId && req.user!.role !== "superadmin") {
+      assertTenantOrgId(req, orgId);
+    }
+
+    const { needIds, clusterName, category } = req.body;
+    const result = await createManualCluster({
+      // For superadmin without org, derive orgId from the first need's org (service handles this)
+      orgId,
+      userId: req.user!.id,
+      needIds,
+      clusterName,
+      category,
+    });
+    return sendSuccess(res, result, "Cluster created", 201);
+  } catch (error) {
+    next(error);
   }
-
-  const result = await createManualCluster(orgId, userId, needIds, clusterName, category);
-  res.status(200).json({ success: true, data: result });
 };
 
-export const runClustering = async (req: Request, res: Response) => {
-  const orgId = req.user?.orgId;
-  const userId = req.user?.id;
-  if (!orgId || !userId) throw new AppError(401, "Unauthorized");
+export const runClustering = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = resolveScopeOrgId(req);
+    if (req.user!.role !== "superadmin" && !orgId) {
+      throw Object.assign(new Error("Organization scope required for this operation"), {
+        statusCode: 403,
+      });
+    }
 
-  const { timeWindowDays } = req.body;
-  
-  const result = await runClusterAlgorithm(orgId, userId, timeWindowDays || 14);
-  res.status(200).json({ success: true, data: result });
+    const result = await runAutoClustering({
+      orgId,
+      userId: req.user!.id,
+      timeWindowDays: req.body.timeWindowDays ?? 14,
+    });
+    return sendSuccess(res, result, "Auto-clustering complete", 200);
+  } catch (error) {
+    next(error);
+  }
 };
 
-export const getClusters = async (req: Request, res: Response) => {
-  const orgId = req.user?.orgId;
-  
-  const status = req.query.status as string | undefined;
-  
-  // Wait, looking at this closely, if the user doesn't have an orgId (e.g., is superadmin without org)
-  // this would throw a 401. Let's make orgId optional in service fetch OR throw 403 Forbidden instead of 401 if they genuinely shouldn't be here.
-  // The prompt says it's throwing 401. And requireAnyResolvedUser is used.
-  if (!orgId && req.user?.role !== 'superadmin') throw new AppError(401, "Unauthorized");
+export const getClusters = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = resolveScopeOrgId(req);
+    if (req.user!.role !== "superadmin" && !orgId) {
+      throw Object.assign(new Error("Organization scope required"), { statusCode: 403 });
+    }
 
-  // Let's just bypass the orgId check if it's superadmin or pass null if undefined
-  const fetchOrgId = orgId || 'none'; // Needs to match service signature if it accepts null/undefined 
-  // Let's look at clustering.service.ts
-  const clusters = await fetchClusters(orgId || 'superadmin-bypass', status);
-  res.status(200).json({ success: true, data: clusters });
+    const status = req.query.status as string | undefined;
+    const clusters = await fetchClusters(orgId, status);
+    return sendSuccess(res, clusters);
+  } catch (error) {
+    next(error);
+  }
 };
 
-export const getClusterById = async (req: Request, res: Response) => {
-  const orgId = req.user?.orgId;
-  if (!orgId) throw new AppError(401, "Unauthorized");
-
-  const cluster = await fetchClusterById(req.params.id as string, orgId);
-  if (!cluster) throw new AppError(404, "Cluster not found");
-  
-  res.status(200).json({ success: true, data: cluster });
+export const getClusterById = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = resolveScopeOrgId(req);
+    const cluster = await fetchClusterById(req.params.id as string, orgId);
+    if (!cluster) {
+      const { AppError } = await import("../../middleware/errorHandler");
+      throw new AppError(404, "Cluster not found");
+    }
+    return sendSuccess(res, cluster);
+  } catch (error) {
+    next(error);
+  }
 };
 
-export const confirmCluster = async (req: Request, res: Response) => {
-  const orgId = req.user?.orgId;
-  const userId = req.user?.id;
-  if (!orgId || !userId) throw new AppError(401, "Unauthorized");
+export const confirmCluster = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const orgId = resolveScopeOrgId(req);
+    if (req.user!.role !== "superadmin" && !orgId) {
+      throw Object.assign(new Error("Organization scope required"), { statusCode: 403 });
+    }
 
-  const result = await resumeClusterGraph(req.params.id as string, orgId, userId);
-  res.status(200).json({ success: true, data: result });
+    const result = await resumeClusterGraph(req.params.id as string, orgId, req.user!.id);
+    return sendSuccess(res, result);
+  } catch (error) {
+    next(error);
+  }
 };
