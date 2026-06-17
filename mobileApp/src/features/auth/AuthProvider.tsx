@@ -25,7 +25,10 @@ async function loadProfile() {
 }
 
 async function syncAccessToken(firebaseUser: { getIdToken: (forceRefresh?: boolean) => Promise<string> }) {
-  const token = await firebaseUser.getIdToken(true);
+  // Use forceRefresh=false first — returns the cached token instantly, no network needed.
+  // The cached token is valid for ~1 hour. If it has expired, Firebase will auto-refresh it
+  // when connectivity is restored. Forcing a refresh here breaks offline auth.
+  const token = await firebaseUser.getIdToken(false);
   await setAccessToken(token);
   return token;
 }

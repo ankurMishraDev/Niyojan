@@ -31,7 +31,8 @@ export const initDb = () => {
       submittedLanguage TEXT DEFAULT 'en',
       status TEXT,
       createdAt TEXT,
-      updatedAt TEXT
+      updatedAt TEXT,
+      synced INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS sync_queue (
@@ -77,4 +78,12 @@ export const initDb = () => {
       synced INTEGER DEFAULT 0
     );
   `);
+
+  // ── Migration: add synced column to surveys if it doesn't exist yet.
+  // ALTER TABLE IF COLUMN EXISTS is not supported in SQLite — use try/catch.
+  try {
+    db.execSync('ALTER TABLE surveys ADD COLUMN synced INTEGER DEFAULT 0');
+  } catch {
+    // Column already exists — safe to ignore
+  }
 };

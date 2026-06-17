@@ -29,17 +29,21 @@ export default function FillForm() {
     const surveyId = Date.now().toString();
     const now = new Date().toISOString();
     
-    // Parameterized insert — no string interpolation
+    // Parameterized insert — synced column uses its DEFAULT 0 value
     db.runAsync(
-      `INSERT INTO surveys (id, formId, volunteerId, data, status, createdAt, updatedAt, synced)
-       VALUES (?, ?, ?, ?, 'Completed', ?, ?, 0)`,
+      `INSERT INTO surveys
+         (id, formId, volunteerId, data, status, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, 'completed', ?, ?)`,
       [surveyId, id as string, user?.id ?? '', JSON.stringify(answers), now, now]
     ).then(() => {
       // Enqueue for sync when back online
       enqueueSurvey(surveyId);
       alert(t('forms.submitSuccess', 'Survey saved and queued for sync!'));
       router.back();
-    }).catch(err => console.error(err));
+    }).catch(err => {
+      console.error('[FORM SUBMIT] Save failed:', err);
+      alert(t('forms.submitError', 'Failed to save survey. Please try again.'));
+    });
   };
 
   if (!form) {

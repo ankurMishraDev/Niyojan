@@ -199,23 +199,30 @@ export default function SurveyNew() {
       }
       const surveyId = Date.now().toString();
       const now = new Date().toISOString();
-      db.runSync(
-        `INSERT OR REPLACE INTO surveys (id, formId, volunteerId, respondentName, locationText, latitude, longitude, data, status, createdAt, updatedAt, synced)
-         VALUES (?, ?, ?, ?, ?, ?, ?, '{}', 'draft', ?, ?, 0)`,
-        [
-          surveyId,
-          templateId,
-          '',
-          respondentName || null,
-          locationText || null,
-          latitude ? Number(latitude) : null,
-          longitude ? Number(longitude) : null,
-          now,
-          now,
-        ]
-      );
-      enqueueSurvey(surveyId);
-      router.push(`/forms/${templateId}`);
+      try {
+        db.runSync(
+          `INSERT OR REPLACE INTO surveys
+             (id, formId, volunteerId, respondentName, locationText,
+              latitude, longitude, data, status, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, '{}', 'draft', ?, ?)`,
+          [
+            surveyId,
+            templateId,
+            '',
+            respondentName || null,
+            locationText || null,
+            latitude ? Number(latitude) : null,
+            longitude ? Number(longitude) : null,
+            now,
+            now,
+          ]
+        );
+        enqueueSurvey(surveyId);
+        router.push(`/forms/${templateId}`);
+      } catch (err) {
+        console.error('[OFFLINE DRAFT] Insert failed:', err);
+        setCreationFeedback('Failed to create draft. Please try again.');
+      }
     };
 
     return (
