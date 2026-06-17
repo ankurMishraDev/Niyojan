@@ -10,7 +10,6 @@ import { api } from '../../src/lib/api';
 import CustomDropdown from '../../src/components/CustomDropdown';
 import { DynamicLoader } from '../../src/components/DynamicLoader';
 import { db } from '../../src/db/schema';
-import { enqueueSurvey } from '../../src/lib/syncService';
 
 const LANGUAGES = [
   { value: 'en', label: 'English' },
@@ -217,8 +216,8 @@ export default function SurveyNew() {
             now,
           ]
         );
-        enqueueSurvey(surveyId);
-        router.push(`/forms/${templateId}`);
+        // Navigate to the form fill screen, passing the pre-created local survey ID
+        router.push({ pathname: `/forms/${templateId}`, params: { surveyId } } as any);
       } catch (err) {
         console.error('[OFFLINE DRAFT] Insert failed:', err);
         setCreationFeedback('Failed to create draft. Please try again.');
