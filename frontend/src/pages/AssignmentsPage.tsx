@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { LoaderBlock, PageHeader, Panel, Select, StatusBadge } from "@/components/ui";
-import { assignmentsApi } from "@/lib/services";
+import { assignmentsApi, organizationsApi } from "@/lib/services";
 import { formatDateTime, toneForStatus } from "@/lib/format";
 import { useAuth } from "@/features/auth/useAuth";
 
@@ -40,6 +40,14 @@ export function AssignmentsPage() {
     onSuccess: async () => {
       await Promise.all([assignmentsQuery.refetch(), detailQuery.refetch()]);
     },
+  });
+
+  // Load NGO contact details once we know the org ID from the assignment
+  const orgId = detailQuery.data?.orgId;
+  const orgQuery = useQuery({
+    enabled: Boolean(orgId),
+    queryKey: ["org-contact", orgId],
+    queryFn: () => organizationsApi.get(orgId!),
   });
 
   if (assignmentsQuery.isLoading) {
@@ -128,6 +136,41 @@ export function AssignmentsPage() {
                 <InfoRow label="Completed at" value={formatDateTime(detailQuery.data.completedAt)} />
               </div>
 
+              {/* NGO contact block — visible to volunteers so they can reach the NGO */}
+              {(orgQuery.data?.contactPhone || orgQuery.data?.contactEmail) && (
+                <div className="rounded-md border border-hairline bg-canvas-soft-2 px-5 py-4 space-y-3">
+                  <p className="label-caps">NGO Contact</p>
+                  <div className="grid gap-3 grid-cols-2">
+                    <InfoRow label="Organization" value={orgQuery.data?.name ?? "—"} />
+                    {orgQuery.data?.contactPhone && (
+                      <div className="space-y-1">
+                        <p className="label-caps">Phone</p>
+                        <a
+                          href={`tel:${orgQuery.data.contactPhone}`}
+                          className="text-sm font-medium text-link hover:text-link-deep transition-colors"
+                        >
+                          {orgQuery.data.contactPhone}
+                        </a>
+                      </div>
+                    )}
+                    {orgQuery.data?.contactEmail && (
+                      <div className="space-y-1">
+                        <p className="label-caps">Email</p>
+                        <a
+                          href={`mailto:${orgQuery.data.contactEmail}`}
+                          className="text-sm font-medium text-link hover:text-link-deep transition-colors break-all"
+                        >
+                          {orgQuery.data.contactEmail}
+                        </a>
+                      </div>
+                    )}
+                    {orgQuery.data?.addressText && (
+                      <InfoRow label="Address" value={orgQuery.data.addressText} />
+                    )}
+                  </div>
+                </div>
+              )}
+
               {detailQuery.data.survey ? (
                 <div className="rounded-md border border-hairline bg-canvas-soft p-5 space-y-5">
                   <p className="text-lg font-semibold tracking-tight text-ink">Survey details</p>
@@ -190,6 +233,22 @@ export function AssignmentsPage() {
                     <option value="cancelled">Cancelled</option>
                   </Select>
                 ) : null}
+                {detailQuery.data.surveyId && (
+                  <Link
+                    className="action-button-secondary w-full sm:w-auto text-center"
+                    to={`/surveys/${detailQuery.data.surveyId}`}
+                  >
+                    View Full Survey
+                  </Link>
+                )}
+                {/* {detailQuery.data.surveyId && (
+                  <Link
+                    className="action-button-secondary w-full sm:w-auto text-center"
+                    to={`/ai-review/${detailQuery.data.surveyId}`}
+                  >
+                    AI Review
+                  </Link>
+                )} */}
                 <Link
                   className="action-button-secondary w-full sm:w-auto text-center"
                   to={`/feedback/assignments/${detailQuery.data.id}`}

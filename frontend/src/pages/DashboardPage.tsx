@@ -1,22 +1,33 @@
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Button, InlineError, LoaderBlock, MetricCard, PageHeader, Panel, Select, StatusBadge } from "@/components/ui";
+import { InlineError, LoaderBlock, MetricCard, PageHeader, Panel, Select, StatusBadge } from "@/components/ui";
 import { useAuth } from "@/features/auth/useAuth";
 import { getApiErrorMessage } from "@/lib/api";
-import { dashboardApi, onboardingApi } from "@/lib/services";
+import { dashboardApi } from "@/lib/services";
 import { formatDateTime, formatNumber, toneForStatus } from "@/lib/format";
 import type { UserProfile } from "@/types/api";
+import { WelcomeMessenger } from "@/components/WelcomeMessenger";
 
 export function DashboardPage() {
   const { user } = useAuth();
 
   if (user?.role !== "superadmin") {
-    return <NgoDashboard user={user} />;
+    return (
+      <>
+        <WelcomeMessenger />
+        <NgoDashboard user={user} />
+      </>
+    );
   }
 
-  return <AdminDashboard user={user} />;
+  return (
+    <>
+      <WelcomeMessenger />
+      <AdminDashboard user={user} />
+    </>
+  );
 }
 
 function NgoDashboard({ user }: { user: UserProfile | null }) {
@@ -75,7 +86,7 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
             <p className="label-caps">{t("Common_Navigation_Link_FormBuilder")}</p>
             <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">{t("NGO_FormBuilder_Header_CreateForm")}</h2>
             <p className="mt-2 text-sm leading-relaxed text-body">
-              Build reusable intake forms for your field teams and survey collection.
+              {t("NGO_Dashboard_Description_CreateForm")}
             </p>
           </Panel>
         </Link>
@@ -85,7 +96,7 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
             <p className="label-caps">{t("Common_Navigation_Link_DataCollection")}</p>
             <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">{t("NGO_Survey_Header_DataCollection")}</h2>
             <p className="mt-2 text-sm leading-relaxed text-body">
-              Select a published template, enter beneficiary responses, and submit for analysis.
+              {t("NGO_Dashboard_Description_DataCollect")}
             </p>
           </Panel>
         </Link>
@@ -95,7 +106,7 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
             <p className="label-caps">{t("Common_Navigation_Link_Feedback")}</p>
             <h2 className="mt-4 text-2xl font-semibold tracking-tight text-ink group-hover:text-link">{t("NGO_Feedback_Header_CaseFeedback")}</h2>
             <p className="mt-2 text-sm leading-relaxed text-body">
-              {t("NGO_Feedback_Text_ReviewFeedback")}
+              {t("NGO_Dashboard_Description_ReviewFeedback")}
             </p>
           </Panel>
         </Link>
@@ -125,7 +136,7 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
           <div>
             <p className="text-xl font-semibold tracking-tight text-ink">{t("NGO_Dashboard_Metric_TotalSurveys")}</p>
             <p className="mt-1 text-sm text-body">
-              Review your past submissions and open the volunteer feedback response linked to each case.
+              {t("NGO_Dashboard_Description_TotalSurveys")}
             </p>
           </div>
 
@@ -189,8 +200,7 @@ function NgoDashboard({ user }: { user: UserProfile | null }) {
   );
 }
 
-function AdminDashboard({ user }: { user: UserProfile | null }) {
-  const queryClient = useQueryClient();
+function AdminDashboard({ user: _user }: { user: UserProfile | null }) {
   const [priorityFilter, setPriorityFilter] = useState("");
   const [caseStatusFilter, setCaseStatusFilter] = useState("");
   const summaryQuery = useQuery({
@@ -212,23 +222,6 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
   const pipelineHealthQuery = useQuery({
     queryKey: ["dashboard-pipeline-health"],
     queryFn: dashboardApi.pipelineHealth,
-  });
-  const pendingNgosQuery = useQuery({
-    enabled: user?.role === "superadmin",
-    queryKey: ["pending-ngos"],
-    queryFn: () => onboardingApi.listNgos({ status: "pending" }),
-  });
-  const approveMutation = useMutation({
-    mutationFn: (orgId: string) => onboardingApi.approveNgo(orgId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["pending-ngos"] });
-    },
-  });
-  const rejectMutation = useMutation({
-    mutationFn: (orgId: string) => onboardingApi.rejectNgo(orgId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["pending-ngos"] });
-    },
   });
 
   const isInitialLoading =
@@ -411,14 +404,14 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
               </div>
             </div>
 
-            <div className="space-y-3 pt-2 border-t border-hairline">
+            {/* <div className="space-y-3 pt-2 border-t border-hairline">
               {pipelineHealth.jobStatusBreakdown.map((item) => (
                 <div className="flex items-center justify-between gap-3 text-sm" key={item.status}>
                   <span className="text-body">{item.status}</span>
                   <span className="font-semibold text-ink">{formatNumber(item.count)}</span>
                 </div>
               ))}
-            </div>
+            </div> */}
 
             {pipelineHealth.recentFailures.length > 0 ? (
               <div className="space-y-3 rounded-md border border-danger/20 bg-danger/5 p-4 mt-2">
@@ -472,7 +465,7 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
             </div>
           </Panel>
 
-          {user?.role === "superadmin" ? (
+          {/* {user?.role === "superadmin" ? (
             <Panel className="space-y-5 border-warning/30">
               <div>
                 <p className="text-lg font-semibold tracking-tight text-ink">Pending NGO onboarding</p>
@@ -531,7 +524,7 @@ function AdminDashboard({ user }: { user: UserProfile | null }) {
                 ) : null}
               </div>
             </Panel>
-          ) : null}
+          ) : null} */}
         </div>
       </div>
     </div>

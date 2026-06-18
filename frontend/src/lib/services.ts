@@ -263,6 +263,11 @@ export const assignmentsApi = {
     (await api.patch<Assignment>(`/assignments/${id}/status`, { status })).data,
 };
 
+export const organizationsApi = {
+  get: async (id: string) =>
+    (await api.get<{ id: string; name: string; contactPhone?: string | null; contactEmail?: string | null; addressText?: string | null; region?: string | null }>(`/organizations/${id}`)).data,
+};
+
 export const feedbackApi = {
   get: async (assignmentId: string) =>
     (await api.get<Feedback>(`/assignments/${assignmentId}/feedback`)).data,

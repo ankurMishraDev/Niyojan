@@ -5,9 +5,9 @@
   "Common_Navigation_Link_AIReview": "AI Review",
   "Common_Navigation_Link_FormBuilder": "Form Builder",
   "Common_Navigation_Link_DataCollection": "Data Collection",
-  "Common_Navigation_Link_Clustering": "Need Clustering",
+  "Common_Navigation_Link_Clustering": "Clustering Needs",
   "Common_Navigation_Link_Matching": "Matching",
-  "Common_Navigation_Link_Map": "India Map",
+  "Common_Navigation_Link_Map": "Map",
   "Common_Navigation_Link_Assignments": "Assignments",
   "Common_Navigation_Link_Feedback": "Feedback",
   "Common_Navigation_Link_Help": "Help",
@@ -131,9 +131,9 @@
   "Volunteer_Help_Header_HelpCenter": "Volunteer Help Center",
   "Volunteer_Help_Text_Instructions": "Guidelines for completing assignments and submitting feedback.",
 
-  "LandingPage_Nav_Home": "Home",
-  "LandingPage_Nav_Mission": "Mission",
-  "LandingPage_Nav_Features": "Impact",
+  "LandingPage_Nav_Home": "Intro",
+  "LandingPage_Nav_Mission": "Features",
+  "LandingPage_Nav_Features": "FAQs",
   "LandingPage_Nav_OpenSource": "Open Source",
   "LandingPage_Button_Login": "Log In",
   "LandingPage_Button_GetStarted": "Get Started",
@@ -195,5 +195,11 @@
   "SignupPage_Text_VerificationRequired": "Verification required before first sign-in.",
   "SignupPage_Link_BackToLogin": "Back to sign in",
   "SignupPage_Button_Registering": "Registering...",
-  "SignupPage_Button_CreateAccount": "Create NGO Account"
+  "SignupPage_Button_CreateAccount": "Create NGO Account",
+
+  "NGO_Dashboard_Description_TotalSurveys": "Track your previous submitted surveys and monitor their impact over time.",
+  "NGO_Dashboard_Description_CreateForm": "Build reusable intake forms for your field teams and survey collection.",
+  "NGO_Dashboard_Description_DataCollect": "Select a published template, enter beneficiary responses, and submit for analysis.",
+  "NGO_Dashboard_Description_ReviewFeedback": "Review your past submissions and open the volunteer feedback response linked to each case."
+  
 }

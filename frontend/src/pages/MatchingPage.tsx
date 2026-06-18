@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Input, LoaderBlock, PageHeader, Panel, Select, StatusBadge } from "@/components/ui";
-import { assignmentsApi, authApi, needsApi, pipelineApi, surveysApi, volunteersApi } from "@/lib/services";
+import { assignmentsApi, authApi, clusteringApi, needsApi, pipelineApi, surveysApi, volunteersApi } from "@/lib/services";
 import { formatDateTime, formatPercent, sentence, toneForStatus } from "@/lib/format";
 import { inferVolunteerDomain } from "@/lib/volunteerDomains";
 
@@ -59,18 +59,28 @@ const formatDistance = (distanceKm: number | null) => {
 export function MatchingPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchSurveyId, setSearchSurveyId] = useState(searchParams.get("surveyId") ?? "");
+  const [searchSurveyId, setSearchSurveyId] = useState(searchParams.get("surveyId") ?? searchParams.get("clusterId") ?? "");
   const [selectedNeedId, setSelectedNeedId] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("");
   const surveyId = searchParams.get("surveyId") ?? "";
+  const clusterId = searchParams.get("clusterId") ?? "";
+  // Which mode are we in?
+  const isClusterMode = Boolean(clusterId) && !surveyId;
 
   useEffect(() => {
-    setSearchSurveyId(surveyId);
-  }, [surveyId]);
+    setSearchSurveyId(clusterId || surveyId);
+  }, [surveyId, clusterId]);
 
   const optionsQuery = useQuery({
     queryKey: ["matching-domains"],
     queryFn: () => authApi.volunteerOnboardingOptions(),
+  });
+
+  // ── Cluster mode: load aggregate need directly ──────────────────────────────
+  const clusterQuery = useQuery({
+    enabled: isClusterMode,
+    queryKey: ["matching-cluster", clusterId],
+    queryFn: () => clusteringApi.get(clusterId),
   });
 
   const surveyQuery = useQuery({
@@ -92,8 +102,8 @@ export function MatchingPage() {
   });
 
   const volunteersQuery = useQuery({
-    enabled: Boolean(surveyId),
-    queryKey: ["matching-volunteers", surveyId],
+    enabled: Boolean(surveyId) || isClusterMode,
+    queryKey: ["matching-volunteers", surveyId || clusterId],
     queryFn: () =>
       volunteersApi.list({
         page: 1,
@@ -102,7 +112,17 @@ export function MatchingPage() {
       }),
   });
 
-  const needs = needsQuery.data?.items ?? [];
+  // In survey mode: use API needs. In cluster mode: use cluster members as needs.
+  type NeedItem = { id: string; summary: string; category: string; priorityLevel: string; skills: { key: string }[] };
+  const needs: NeedItem[] = isClusterMode
+    ? (clusterQuery.data?.members ?? []).map((m: any) => ({
+        id: m.id,
+        summary: m.summary,
+        category: m.category,
+        priorityLevel: m.priority_level ?? "medium",
+        skills: [],
+      }))
+    : (needsQuery.data?.items ?? []);
 
   useEffect(() => {
     if (needs.length === 0) {
@@ -122,8 +142,14 @@ export function MatchingPage() {
 
   const rankedVolunteers = useMemo(() => {
     const survey = surveyQuery.data;
+    const cluster = clusterQuery.data;
     const volunteers = volunteersQuery.data?.items ?? [];
-    if (!survey) {
+
+    // In cluster mode, use cluster centroid as the location anchor
+    const anchorLat: number | null = isClusterMode ? (cluster?.centroid_lat != null ? Number(cluster.centroid_lat) : null) : (survey?.latitude ?? null);
+    const anchorLon: number | null = isClusterMode ? (cluster?.centroid_lng != null ? Number(cluster.centroid_lng) : null) : (survey?.longitude ?? null);
+
+    if (!survey && !cluster) {
       return [];
     }
 
@@ -149,7 +175,7 @@ export function MatchingPage() {
         const matchedSkills = volunteerSkillKeys.filter((skill) => needSkillKeys.has(skill));
         const missingSkills = [...needSkillKeys].filter((skill) => !volunteerSkillKeys.includes(skill));
         const skillScore = needSkillKeys.size === 0 ? 0.5 : matchedSkills.length / needSkillKeys.size;
-        const distanceKm = haversineKm(survey.latitude, survey.longitude, volunteer.latitude, volunteer.longitude);
+        const distanceKm = haversineKm(anchorLat, anchorLon, volunteer.latitude, volunteer.longitude);
         const location = locationScore(distanceKm);
         const availability = availabilityScore(volunteer.availabilityStatus);
         const manualScore = Number((skillScore * 0.35 + location * 0.45 + availability * 0.2).toFixed(2));
@@ -168,6 +194,7 @@ export function MatchingPage() {
           manualScore,
         };
       })
+      .filter((volunteer) => volunteer.manualScore >= 0.4)
       .sort((left, right) => {
         if (left.distanceKm === null && right.distanceKm !== null) return 1;
         if (left.distanceKm !== null && right.distanceKm === null) return -1;
@@ -177,7 +204,7 @@ export function MatchingPage() {
 
         return right.manualScore - left.manualScore || left.createdAt.localeCompare(right.createdAt);
       });
-  }, [selectedDomain, selectedNeed, surveyQuery.data, volunteersQuery.data?.items]);
+  }, [selectedDomain, selectedNeed, isClusterMode, surveyQuery.data, clusterQuery.data, volunteersQuery.data?.items]);
 
   const assignMutation = useMutation({
     mutationFn: (payload: {
@@ -189,8 +216,30 @@ export function MatchingPage() {
       volunteerName: string;
       volunteerDomain: string | null | undefined;
       volunteerProfession: string | null | undefined;
-    }) =>
-      assignmentsApi.create({
+    }) => {
+      if (isClusterMode) {
+        return assignmentsApi.create({
+          aggregate_need_id: clusterId,
+          volunteer_id: payload.volunteerId,
+          status: "suggested",
+          match_score: payload.manualScore,
+          match_reason_json: {
+            assignment_mode: "manual_nearest",
+            cluster_id: clusterId,
+            cluster_title: clusterQuery.data?.title ?? null,
+            selected_need_id: selectedNeed?.id || null,
+            selected_need_summary: selectedNeed?.summary || null,
+            volunteer_name: payload.volunteerName,
+            volunteer_domain: payload.volunteerDomain || null,
+            volunteer_profession: payload.volunteerProfession || null,
+            distance_km: payload.distanceKm,
+            matched_skills: payload.matchedSkills,
+            missing_skills: payload.missingSkills,
+            explanation: `${payload.volunteerName} was selected manually for cluster "${clusterQuery.data?.title ?? clusterId}"${payload.volunteerDomain ? ` with ${payload.volunteerDomain} domain fit` : ""}.`,
+          },
+        });
+      }
+      return assignmentsApi.create({
         survey_id: surveyId,
         need_id: selectedNeed?.id || undefined,
         volunteer_id: payload.volunteerId,
@@ -211,7 +260,8 @@ export function MatchingPage() {
           missing_skills: payload.missingSkills,
           explanation: `${payload.volunteerName} was selected manually based on nearest availability${payload.volunteerDomain ? ` and ${payload.volunteerDomain} domain fit` : ""}.`,
         },
-      }),
+      });
+    },
     onSuccess: (assignment) => {
       navigate("/assignments", { state: { assignmentId: assignment.id } });
     },
@@ -232,8 +282,14 @@ export function MatchingPage() {
       setSearchParams({});
       return;
     }
-
-    setSearchParams({ surveyId: nextId });
+    // Cluster IDs come from the clustering page via ?clusterId= link.
+    // If the user pastes a value here and it was already loaded as a cluster, keep cluster mode.
+    // Otherwise treat as surveyId.
+    if (clusterId && nextId === clusterId) {
+      setSearchParams({ clusterId: nextId });
+    } else {
+      setSearchParams({ surveyId: nextId });
+    }
   };
 
   return (
@@ -253,6 +309,7 @@ export function MatchingPage() {
           />
           <Button type="submit">Find nearest volunteers</Button>
         </form>
+      {/* ── info bar ── */}
         <div className="grid gap-4 sm:grid-cols-2">
           <Select value={selectedDomain} onChange={(event) => setSelectedDomain(event.target.value)}>
             <option value="">All profession domains</option>
@@ -263,12 +320,123 @@ export function MatchingPage() {
             ))}
           </Select>
           <div className="rounded-md border border-hairline bg-canvas-soft-2 px-4 py-2.5 text-sm text-body flex items-center">
-            {surveyId ? `Selected survey: ${surveyId}` : "Enter a survey ID to load the case and nearby volunteers."}
+            {isClusterMode
+              ? `Cluster: ${clusterQuery.data?.title ?? clusterId}`
+              : surveyId
+              ? `Selected survey: ${surveyId}`
+              : "Enter a survey ID or use 'Assign Volunteer' from a cluster to load volunteers."}
           </div>
         </div>
       </Panel>
 
-      {!surveyId ? null : surveyQuery.isLoading || needsQuery.isLoading || reviewQuery.isLoading ? (
+      {!surveyId && !clusterId ? null
+        : isClusterMode ? (
+          clusterQuery.isLoading ? (
+            <LoaderBlock label="Loading cluster…" />
+          ) : clusterQuery.data ? (
+            <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+              {/* Left: Cluster summary + member needs */}
+              <div className="space-y-6">
+                <Panel className="space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xl font-semibold tracking-tight text-ink">
+                        {clusterQuery.data.title ?? "Cluster"}
+                      </p>
+                      <p className="mt-1 text-sm text-body">
+                        {clusterQuery.data.member_count ?? clusterQuery.data.memberCount ?? 0} member need(s) · category: {clusterQuery.data.need_category ?? "—"}
+                      </p>
+                    </div>
+                    <StatusBadge tone={toneForStatus(clusterQuery.data.status)}>{clusterQuery.data.status}</StatusBadge>
+                  </div>
+                  <div className="grid gap-3 grid-cols-2">
+                    <InfoCard label="Urgency" value={clusterQuery.data.urgency_label ?? "—"} />
+                    <InfoCard
+                      label="Centroid"
+                      value={
+                        clusterQuery.data.centroid_lat != null
+                          ? `${Number(clusterQuery.data.centroid_lat).toFixed(4)}, ${Number(clusterQuery.data.centroid_lng).toFixed(4)}`
+                          : "No geo data"
+                      }
+                    />
+                  </div>
+                </Panel>
+
+                <Panel className="space-y-5">
+                  <div>
+                    <p className="text-xl font-semibold tracking-tight text-ink">Cluster member needs</p>
+                    <p className="mt-1 text-sm text-body">
+                      Select the member need that best represents the volunteer assignment.
+                    </p>
+                  </div>
+                  {needs.length === 0 ? (
+                    <div className="rounded-md border border-hairline border-dashed bg-canvas-soft-2 px-4 py-4 text-sm text-body text-center">
+                      No member needs found for this cluster.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {needs.map((need) => (
+                        <button
+                          className={`w-full rounded-md border px-4 py-4 text-left transition-colors ${
+                            selectedNeedId === need.id
+                              ? "border-ink bg-canvas-soft shadow-sm"
+                              : "border-hairline bg-canvas hover:border-hairline-strong hover:bg-canvas-soft-2"
+                          }`}
+                          key={need.id}
+                          onClick={() => setSelectedNeedId(need.id)}
+                          type="button"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-medium text-ink">{need.summary}</p>
+                              <p className="mt-1 font-mono text-[10px] text-mute">{sentence(need.category)}</p>
+                            </div>
+                            <StatusBadge tone={toneForStatus(need.priorityLevel)}>{need.priorityLevel}</StatusBadge>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </Panel>
+              </div>
+
+              {/* Right: Volunteers */}
+              <Panel className="space-y-5 bg-canvas-soft">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-hairline">
+                  <div>
+                    <p className="text-xl font-semibold tracking-tight text-ink">Nearest volunteers</p>
+                    <p className="mt-1 text-sm text-body max-w-sm">
+                      Ordered by distance from the cluster centroid.
+                    </p>
+                  </div>
+                  <StatusBadge tone="success">{rankedVolunteers.length} found</StatusBadge>
+                </div>
+                {volunteersQuery.isLoading ? (
+                  <LoaderBlock label="Finding nearest volunteers…" />
+                ) : rankedVolunteers.length === 0 ? (
+                  <div className="rounded-md border border-hairline border-dashed bg-canvas px-4 py-8 text-center text-sm text-body">
+                    No volunteers with a fit score ≥ 40% found. Try removing the domain filter or check volunteer availability.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {rankedVolunteers.map((volunteer) => (
+                      <VolunteerCard
+                        key={volunteer.id}
+                        volunteer={volunteer}
+                        selectedNeed={selectedNeed}
+                        assignMutation={assignMutation}
+                      />
+                    ))}
+                  </div>
+                )}
+              </Panel>
+            </div>
+          ) : (
+            <div className="rounded-md border border-hairline bg-canvas px-6 py-8 text-center text-sm text-body">
+              Cluster not found. Check the cluster ID and try again.
+            </div>
+          )
+        ) : surveyQuery.isLoading || needsQuery.isLoading || reviewQuery.isLoading ? (
         <LoaderBlock label="Loading survey case and nearest volunteers…" />
       ) : surveyQuery.data ? (
         <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
@@ -348,93 +516,17 @@ export function MatchingPage() {
               <LoaderBlock label="Finding nearest volunteers…" />
             ) : rankedVolunteers.length === 0 ? (
               <div className="rounded-md border border-hairline border-dashed bg-canvas px-4 py-8 text-center text-sm text-body">
-                No volunteers matched the current domain filter.
+                No volunteers with a fit score ≥ 40% found. Try removing the domain filter or check volunteer availability.
               </div>
             ) : (
               <div className="space-y-4">
                 {rankedVolunteers.map((volunteer) => (
-                  <div className="rounded-md border border-hairline bg-canvas p-5 shadow-sm" key={volunteer.id}>
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
-                      <div>
-                        <p className="text-lg font-semibold tracking-tight text-ink">{volunteer.name || volunteer.profession || volunteer.id}</p>
-                        <p className="mt-0.5 text-sm text-body">{volunteer.email || volunteer.profession || "No profession provided"}</p>
-                      </div>
-                      <StatusBadge tone="success">{formatDistance(volunteer.distanceKm)}</StatusBadge>
-                    </div>
-
-                    <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 mb-4">
-                      <div className="space-y-1">
-                        <p className="label-caps">Domain</p>
-                        <p className="text-sm font-medium text-ink">{sentence(volunteer.effectiveDomain || "other")}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="label-caps">Availability</p>
-                        <p className="text-sm font-medium text-ink capitalize">{volunteer.availabilityStatus}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="label-caps">Fit Score</p>
-                        <p className="text-sm font-medium text-ink">{formatPercent(volunteer.manualScore, 0)}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 pt-3 border-t border-hairline mb-4">
-                      <div>
-                        <p className="label-caps mb-1.5">Matched skills</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {volunteer.matchedSkills.length > 0 ? volunteer.matchedSkills.map((skill) => (
-                            <span
-                              className="rounded bg-canvas-soft border border-hairline px-2 py-0.5 text-[10px] font-mono text-ink"
-                              key={`${volunteer.id}-${skill}`}
-                            >
-                              {skill}
-                            </span>
-                          )) : <span className="text-xs text-mute italic">No skill overlap detected</span>}
-                        </div>
-                      </div>
-
-                      {volunteer.missingSkills.length > 0 ? (
-                        <div>
-                          <p className="label-caps mb-1.5 text-danger">Missing skills</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {volunteer.missingSkills.map((skill) => (
-                              <span
-                                className="rounded bg-danger/5 border border-danger/20 px-2 py-0.5 text-[10px] font-mono text-danger"
-                                key={`${volunteer.id}-missing-${skill}`}
-                              >
-                                {skill}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-hairline bg-canvas-soft -mx-5 -mb-5 px-5 py-4 rounded-b-md">
-                      <p className="text-xs leading-relaxed text-body">
-                        {selectedNeed
-                          ? `${volunteer.name || volunteer.id} is ${formatDistance(volunteer.distanceKm)} away and has ${volunteer.matchedSkills.length} matched skill(s) for the selected need.`
-                          : `${volunteer.name || volunteer.id} is ${formatDistance(volunteer.distanceKm)} away from the submitted survey location and can be assigned for manual support.`}
-                      </p>
-                      <Button
-                        className="w-full sm:w-auto shrink-0 text-xs py-1.5 px-4"
-                        disabled={assignMutation.isPending}
-                        onClick={() =>
-                          void assignMutation.mutate({
-                            volunteerId: volunteer.id,
-                            distanceKm: volunteer.distanceKm,
-                            manualScore: volunteer.manualScore,
-                            matchedSkills: volunteer.matchedSkills,
-                            missingSkills: volunteer.missingSkills,
-                            volunteerName: volunteer.name || volunteer.profession || volunteer.id,
-                            volunteerDomain: volunteer.effectiveDomain,
-                            volunteerProfession: volunteer.profession,
-                          })
-                        }
-                      >
-                        {assignMutation.isPending ? "Assigning…" : "Assign to Case"}
-                      </Button>
-                    </div>
-                  </div>
+                  <VolunteerCard
+                    key={volunteer.id}
+                    volunteer={volunteer}
+                    selectedNeed={selectedNeed}
+                    assignMutation={assignMutation}
+                  />
                 ))}
               </div>
             )}
@@ -452,6 +544,96 @@ function InfoCard({ label, value }: { label: string; value: string }) {
     <div className="rounded-md border border-hairline bg-canvas p-4 shadow-sm">
       <p className="label-caps">{label}</p>
       <p className="mt-1.5 text-sm font-medium text-ink">{value}</p>
+    </div>
+  );
+}
+
+function VolunteerCard({
+  volunteer,
+  selectedNeed,
+  assignMutation,
+}: {
+  volunteer: any;
+  selectedNeed: any;
+  assignMutation: any;
+}) {
+  return (
+    <div className="rounded-md border border-hairline bg-canvas p-5 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
+        <div>
+          <p className="text-lg font-semibold tracking-tight text-ink">{volunteer.name || volunteer.profession || volunteer.id}</p>
+          <p className="mt-0.5 text-sm text-body">{volunteer.email || volunteer.profession || "No profession provided"}</p>
+        </div>
+        <StatusBadge tone="success">{formatDistance(volunteer.distanceKm)}</StatusBadge>
+      </div>
+
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 mb-4">
+        <div className="space-y-1">
+          <p className="label-caps">Domain</p>
+          <p className="text-sm font-medium text-ink">{sentence(volunteer.effectiveDomain || "other")}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="label-caps">Availability</p>
+          <p className="text-sm font-medium text-ink capitalize">{volunteer.availabilityStatus}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="label-caps">Fit Score</p>
+          <p className="text-sm font-medium text-ink">{formatPercent(volunteer.manualScore, 0)}</p>
+        </div>
+      </div>
+
+      <div className="space-y-3 pt-3 border-t border-hairline mb-4">
+        <div>
+          <p className="label-caps mb-1.5">Matched skills</p>
+          <div className="flex flex-wrap gap-1.5">
+            {volunteer.matchedSkills.length > 0
+              ? volunteer.matchedSkills.map((skill: string) => (
+                  <span className="rounded bg-canvas-soft border border-hairline px-2 py-0.5 text-[10px] font-mono text-ink" key={`${volunteer.id}-${skill}`}>
+                    {skill}
+                  </span>
+                ))
+              : <span className="text-xs text-mute italic">No skill overlap detected</span>}
+          </div>
+        </div>
+        {volunteer.missingSkills.length > 0 && (
+          <div>
+            <p className="label-caps mb-1.5 text-danger">Missing skills</p>
+            <div className="flex flex-wrap gap-1.5">
+              {volunteer.missingSkills.map((skill: string) => (
+                <span className="rounded bg-danger/5 border border-danger/20 px-2 py-0.5 text-[10px] font-mono text-danger" key={`${volunteer.id}-missing-${skill}`}>
+                  {skill}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-hairline bg-canvas-soft -mx-5 -mb-5 px-5 py-4 rounded-b-md">
+        <p className="text-xs leading-relaxed text-body">
+          {selectedNeed
+            ? `${volunteer.name || volunteer.id} is ${formatDistance(volunteer.distanceKm)} away and has ${volunteer.matchedSkills.length} matched skill(s).`
+            : `${volunteer.name || volunteer.id} is ${formatDistance(volunteer.distanceKm)} away from the case location.`}
+        </p>
+        <Button
+          className="w-full sm:w-auto shrink-0 text-xs py-1.5 px-4"
+          disabled={assignMutation.isPending}
+          onClick={() =>
+            void assignMutation.mutate({
+              volunteerId: volunteer.id,
+              distanceKm: volunteer.distanceKm,
+              manualScore: volunteer.manualScore,
+              matchedSkills: volunteer.matchedSkills,
+              missingSkills: volunteer.missingSkills,
+              volunteerName: volunteer.name || volunteer.profession || volunteer.id,
+              volunteerDomain: volunteer.effectiveDomain,
+              volunteerProfession: volunteer.profession,
+            })
+          }
+        >
+          {assignMutation.isPending ? "Assigning…" : "Assign to Case"}
+        </Button>
+      </div>
     </div>
   );
 }

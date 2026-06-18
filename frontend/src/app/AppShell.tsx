@@ -17,8 +17,8 @@ const navItems: Array<{
   { i18nKey: "Common_Navigation_Link_Pipeline", href: "/pipeline", roles: ["superadmin"] },
   { i18nKey: "Common_Navigation_Link_AIReview", href: "/ai-review", roles: ["superadmin"] },
   { i18nKey: "Common_Navigation_Link_Clustering", href: "/clustering", roles: ["superadmin"] },
-  { i18nKey: "Common_Navigation_Link_Matching", href: "/matching", roles: ["superadmin"] },
   { i18nKey: "Common_Navigation_Link_Map", href: "/map", roles: ["superadmin"] },
+  { i18nKey: "Common_Navigation_Link_Matching", href: "/matching", roles: ["superadmin"] },
   { i18nKey: "Common_Navigation_Link_Assignments", href: "/assignments", roles: ["superadmin"] },
 
   // ── NGO admin + field worker ──────────────────────────────────────────────

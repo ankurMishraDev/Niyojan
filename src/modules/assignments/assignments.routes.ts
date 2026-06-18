@@ -26,13 +26,14 @@ const createAssignmentBodySchema = z
 	.object({
 		need_id: uuidSchema.optional(),
 		survey_id: uuidSchema.optional(),
+		aggregate_need_id: uuidSchema.optional(),
 		volunteer_id: uuidSchema,
 		status: z.enum(["suggested", "accepted", "in_progress", "completed", "cancelled"]).optional(),
 		match_score: z.number().min(0).max(1).optional(),
 		match_reason_json: z.record(z.string(), z.unknown()).optional(),
 	})
-	.refine((value) => Boolean(value.need_id || value.survey_id), {
-		message: "Either need_id or survey_id is required",
+	.refine((value) => Boolean(value.need_id || value.survey_id || value.aggregate_need_id), {
+		message: "Either need_id, survey_id, or aggregate_need_id is required",
 		path: ["need_id"],
 	});
 

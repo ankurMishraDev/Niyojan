@@ -512,7 +512,6 @@ export function SurveyNewPage() {
   const [creationFeedback, setCreationFeedback] = useState("");
   const [extractionStage, setExtractionStage] = useState("");
   const [targetLanguage, setTargetLanguage] = useState("");
-  const filledFormInputRef = useRef<HTMLInputElement>(null);
 
   const { t } = useTranslation();
   const templatesQuery = useQuery({

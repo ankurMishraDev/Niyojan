@@ -59,7 +59,7 @@ export function FeedbackIndexPage() {
     <div className="space-y-6 max-w-7xl mx-auto py-8 px-4 sm:px-6">
       <PageHeader
         eyebrow={t("NGO_Feedback_Header_Feedback")}
-        title={user?.role === "volunteer" ? t("NGO_Feedback_Title_Volunteer") : user?.role === "superadmin" ? t("NGO_Feedback_Title_Superadmin") : t("NGO_Feedback_Title_Review")}
+        title={user?.role === "volunteer" ? t("Volunteer_Feedback_Header_SubmitFeedback") : user?.role === "superadmin" ? t("NGO_Feedback_Title_Superadmin") : t("NGO_Feedback_Title_Review")}
         description={user?.role === "volunteer"
           ? t("NGO_Feedback_Description_Volunteer")
           : user?.role === "superadmin"
