@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react-native';
+import { Plus, Upload, FileText, RefreshCw } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { FlashList } from '@shopify/flash-list';
 import { db } from '../../src/db/schema';
+import { useAppStore } from '../../src/store/appStore';
+import { enqueueSurvey, flush } from '../../src/lib/syncService';
 
 type FormTemplate = {
   id: string;
@@ -14,83 +15,392 @@ type FormTemplate = {
   synced: number;
 };
 
+type SavedSurvey = {
+  id: string;
+  formId: string | null;
+  respondentName: string | null;
+  locationText: string | null;
+  data: string | null;
+  status: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  remoteId: string | null;
+  synced: number;
+  // join fields
+  formTitle: string | null;
+  syncStatus: string | null; // from sync_queue
+};
+
+type SyncQueueRow = {
+  localId: string;
+  status: string;
+  attempts: number;
+  lastError: string | null;
+};
+
+/** Merge surveys with their sync_queue status */
+function loadSavedSurveys(): SavedSurvey[] {
+  try {
+    const rows = db.getAllSync(
+      `SELECT
+         s.*,
+         f.title as formTitle,
+         sq.status as syncStatus,
+         sq.attempts as syncAttempts,
+         sq.lastError as syncLastError
+       FROM surveys s
+       LEFT JOIN forms f ON s.formId = f.id
+       LEFT JOIN (
+         SELECT localId, status, attempts, lastError
+         FROM sync_queue
+         WHERE id IN (
+           SELECT id FROM sync_queue sq2
+           WHERE sq2.localId = sync_queue.localId
+           ORDER BY createdAt DESC LIMIT 1
+         )
+       ) sq ON sq.localId = s.id
+       ORDER BY s.createdAt DESC`,
+      []
+    ) as SavedSurvey[];
+    return rows;
+  } catch {
+    // Simpler fallback if the JOIN fails
+    try {
+      const rows = db.getAllSync('SELECT s.*, f.title as formTitle FROM surveys s LEFT JOIN forms f ON s.formId = f.id ORDER BY s.createdAt DESC', []) as SavedSurvey[];
+      return rows;
+    } catch {
+      return [];
+    }
+  }
+}
+
+function pendingUploadCount(): number {
+  try {
+    const rows = db.getAllSync(
+      `SELECT COUNT(*) as cnt FROM sync_queue WHERE status IN ('pending','retrying')`,
+      []
+    ) as { cnt: number }[];
+    return rows[0]?.cnt ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+function surveyStatusLabel(survey: SavedSurvey): { label: string; color: string; bg: string } {
+  if (survey.remoteId || survey.syncStatus === 'synced') {
+    return { label: 'Uploaded', color: 'text-success', bg: 'bg-success/10' };
+  }
+  if (survey.syncStatus === 'in_flight') {
+    return { label: 'Uploading…', color: 'text-link', bg: 'bg-link-bg-soft' };
+  }
+  if (survey.syncStatus === 'failed') {
+    return { label: 'Upload Failed', color: 'text-danger', bg: 'bg-error-soft' };
+  }
+  if (survey.syncStatus === 'retrying') {
+    return { label: 'Retrying…', color: 'text-warning-deep', bg: 'bg-warning-soft' };
+  }
+  if (survey.status === 'draft') {
+    return { label: 'Draft', color: 'text-mute', bg: 'bg-canvas-soft-2' };
+  }
+  return { label: 'Saved', color: 'text-body', bg: 'bg-canvas-soft' };
+}
+
 export default function Forms() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { isOffline } = useAppStore();
+  const [activeTab, setActiveTab] = useState<'templates' | 'surveys'>('surveys');
   const [forms, setForms] = useState<FormTemplate[]>([]);
+  const [surveys, setSurveys] = useState<SavedSurvey[]>([]);
+  const [pending, setPending] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [uploadFeedback, setUploadFeedback] = useState('');
 
   useFocusEffect(
     useCallback(() => {
-      loadForms();
+      loadData();
     }, [])
   );
 
-  const loadForms = () => {
+  const loadData = () => {
     try {
-      const rows = db.getAllSync('SELECT * FROM forms ORDER BY createdAt DESC') as FormTemplate[];
+      const rows = db.getAllSync('SELECT * FROM forms ORDER BY updatedAt DESC') as FormTemplate[];
       setForms(rows);
-    } catch (e) {
-      console.log('Failed to load forms from db', e);
+    } catch { /* ignore */ }
+
+    setSurveys(loadSavedSurveys());
+    setPending(pendingUploadCount());
+  };
+
+  const handleUploadAll = async () => {
+    if (isOffline) {
+      setUploadFeedback('You are offline. Connect to upload surveys.');
+      return;
+    }
+    setUploading(true);
+    setUploadFeedback('Uploading pending surveys…');
+    try {
+      // Enqueue any saved surveys that haven't been queued yet
+      for (const survey of surveys) {
+        if (!survey.remoteId && survey.syncStatus !== 'synced') {
+          const inQueue = db.getFirstSync(
+            `SELECT id FROM sync_queue WHERE localId=? AND status NOT IN ('synced','failed')`,
+            [survey.id]
+          );
+          if (!inQueue) {
+            enqueueSurvey(survey.id);
+          }
+        }
+      }
+      await flush();
+      loadData();
+      const newPending = pendingUploadCount();
+      if (newPending === 0) {
+        setUploadFeedback('All surveys uploaded successfully!');
+      } else {
+        setUploadFeedback(`${newPending} survey(s) still pending — will retry automatically.`);
+      }
+    } catch (err) {
+      setUploadFeedback('Upload failed. Will retry when connected.');
+    } finally {
+      setUploading(false);
+      setTimeout(() => setUploadFeedback(''), 3500);
+    }
+  };
+
+  const handleUploadSingle = async (survey: SavedSurvey) => {
+    if (isOffline) {
+      Alert.alert('Offline', 'Connect to the internet to upload this survey.');
+      return;
+    }
+    try {
+      const inQueue = db.getFirstSync(
+        `SELECT id FROM sync_queue WHERE localId=? AND status NOT IN ('synced','failed')`,
+        [survey.id]
+      );
+      if (!inQueue) {
+        enqueueSurvey(survey.id);
+      }
+      await flush();
+      loadData();
+    } catch {
+      Alert.alert('Upload failed', 'Survey saved locally. Will retry when connected.');
     }
   };
 
   return (
-    <View className="flex-1 bg-canvas-soft-2 p-4">
-      <View className="flex-row justify-between items-center mb-4">
-        <Text className="text-xl font-bold text-ink">{t('NGO_Forms_Header_Title', 'My Forms')}</Text>
-        <View className="flex-row gap-2">
-          <Pressable 
-            className="bg-canvas border border-hairline rounded-pill flex-row items-center px-3 py-2 shadow-card-soft"
+    <View className="flex-1 bg-canvas-soft-2">
+      {/* Header */}
+      <View className="px-4 pt-12 pb-3 bg-canvas border-b border-hairline">
+        <View className="flex-row justify-between items-center mb-3">
+          <Text className="text-xl font-bold text-ink">Field Data</Text>
+          <Pressable
+            className="bg-primary rounded-pill flex-row items-center px-3 py-2 shadow-card-soft"
             onPress={() => router.push('/surveys/new' as any)}
           >
-            <Plus size={16} color="#171717" />
-            <Text className="text-ink ml-1 font-medium">{t('NGO_Forms_Button_NewSurvey')}</Text>
+            <Plus size={15} color="white" />
+            <Text className="text-on-primary ml-1 font-medium text-sm">New Survey</Text>
           </Pressable>
-          <Pressable 
-            className="bg-primary rounded-pill flex-row items-center px-3 py-2 shadow-card-soft"
-            onPress={() => router.push('/forms/builder' as any)}
-          >
-            <Plus size={16} color="white" />
-            <Text className="text-on-primary ml-1 font-medium">{t('NGO_FormBuilder_Button_FormBuilder')}</Text>
-          </Pressable>
+        </View>
+
+        {/* Tab row */}
+        <View className="flex-row gap-2">
+          {(['surveys', 'templates'] as const).map((tab) => (
+            <Pressable
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              className={`px-4 py-1.5 rounded-pill border ${activeTab === tab ? 'bg-primary border-primary' : 'bg-canvas border-hairline'}`}
+            >
+              <Text className={`text-sm font-medium ${activeTab === tab ? 'text-on-primary' : 'text-body'}`}>
+                {tab === 'surveys' ? `Saved Surveys${surveys.length > 0 ? ` (${surveys.length})` : ''}` : 'Form Templates'}
+              </Text>
+            </Pressable>
+          ))}
         </View>
       </View>
 
-      <FlashList
-        data={forms}
-        keyExtractor={(item) => item.id}
-        estimatedItemSize={100}
-        renderItem={({ item }) => (
-          <Pressable 
-            className="bg-canvas rounded-lg p-4 shadow-card-soft mb-3 border border-hairline"
-            onPress={() => router.push(`/forms/${item.id}` as any)}
-          >
-            <View className="flex-row justify-between items-start">
-              <View className="flex-1 pr-2">
-                <Text className="font-bold text-ink text-lg">{item.title}</Text>
-                {item.description ? <Text className="text-body text-sm mt-1 line-clamp-2" numberOfLines={2}>{item.description}</Text> : null}
+      {/* Upload feedback banner */}
+      {uploadFeedback ? (
+        <View className="bg-canvas border-b border-hairline px-4 py-2">
+          <Text className="text-ink text-xs">{uploadFeedback}</Text>
+        </View>
+      ) : null}
+
+      <ScrollView className="flex-1 p-4" contentContainerStyle={{ paddingBottom: 80 }}>
+        {activeTab === 'surveys' ? (
+          <>
+            {/* Upload all button */}
+            {surveys.length > 0 && (
+              <View className="mb-4 flex-row items-center justify-between bg-canvas rounded-lg px-4 py-3 border border-hairline shadow-card-soft">
+                <View>
+                  <Text className="text-sm font-medium text-ink">
+                    {pending > 0 ? `${pending} pending upload` : 'All surveys saved locally'}
+                  </Text>
+                  <Text className="text-xs text-mute mt-0.5">
+                    {isOffline ? 'Offline — connect to upload' : 'Connected — ready to upload'}
+                  </Text>
+                </View>
+                <Pressable
+                  className={`flex-row items-center gap-1.5 rounded-pill px-3 py-2 ${isOffline ? 'bg-canvas-soft-2 border border-hairline' : 'bg-primary'}`}
+                  onPress={() => void handleUploadAll()}
+                  disabled={uploading || isOffline}
+                >
+                  {uploading ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <>
+                      <Upload size={14} color={isOffline ? '#888888' : 'white'} />
+                      <Text className={`text-xs font-medium ${isOffline ? 'text-mute' : 'text-on-primary'}`}>
+                        Upload All
+                      </Text>
+                    </>
+                  )}
+                </Pressable>
               </View>
-              <View className={`px-2 py-1 rounded-md ${item.status === 'Active' ? 'bg-success/10' : 'bg-warning/10'}`}>
-                <Text className={`text-xs font-medium ${item.status === 'Active' ? 'text-success' : 'text-warning-deep'}`}>
-                  {item.status}
+            )}
+
+            {surveys.length === 0 ? (
+              <View className="items-center justify-center p-10 border-2 border-dashed border-hairline rounded-lg mt-4">
+                <FileText size={32} color="#888888" />
+                <Text className="text-mute text-center mt-3 mb-1 font-medium">No saved surveys yet</Text>
+                <Text className="text-xs text-body text-center">Tap "New Survey" to collect field data.</Text>
+              </View>
+            ) : (
+              surveys.map((survey) => {
+                const statusInfo = surveyStatusLabel(survey);
+                const isUploaded = survey.remoteId != null || survey.syncStatus === 'synced';
+                const fieldCount = (() => {
+                  try { return Object.keys(JSON.parse(survey.data ?? '{}')).length; }
+                  catch { return 0; }
+                })();
+                return (
+                  <View key={survey.id} className="bg-canvas rounded-lg p-4 mb-3 border border-hairline shadow-card-soft">
+                    <View className="flex-row justify-between items-start mb-2">
+                      <View className="flex-1 pr-2">
+                        <Text className="font-semibold text-ink" numberOfLines={1}>
+                          {survey.respondentName || survey.formTitle || 'Unnamed Survey'}
+                        </Text>
+                        {survey.locationText ? (
+                          <Text className="text-xs text-mute mt-0.5" numberOfLines={1}>{survey.locationText}</Text>
+                        ) : null}
+                      </View>
+                      <View className={`px-2 py-0.5 rounded-md ${statusInfo.bg}`}>
+                        <Text className={`text-[10px] font-medium ${statusInfo.color}`}>{statusInfo.label}</Text>
+                      </View>
+                    </View>
+
+                    <View className="flex-row items-center gap-3 mb-3">
+                      <Text className="text-xs text-mute">
+                        {fieldCount} field{fieldCount !== 1 ? 's' : ''} captured
+                      </Text>
+                      {survey.formTitle ? (
+                        <Text className="text-xs text-mute">· {survey.formTitle}</Text>
+                      ) : null}
+                      {survey.createdAt ? (
+                        <Text className="text-xs text-mute">
+                          · {new Date(survey.createdAt).toLocaleDateString('en-IN')}
+                        </Text>
+                      ) : null}
+                    </View>
+
+                    <View className="flex-row gap-2 pt-3 border-t border-hairline">
+                      {/* Continue filling — only for drafts */}
+                      {!isUploaded && (
+                        <Pressable
+                          className="flex-1 flex-row items-center justify-center gap-1 bg-canvas-soft border border-hairline rounded-pill py-2"
+                          onPress={() => router.push(`/forms/${survey.formId}` as any)}
+                        >
+                          <FileText size={13} color="#171717" />
+                          <Text className="text-xs font-medium text-ink">Continue</Text>
+                        </Pressable>
+                      )}
+
+                      {/* Upload button — disabled offline or if already uploaded */}
+                      {!isUploaded && (
+                        <Pressable
+                          className={`flex-1 flex-row items-center justify-center gap-1 rounded-pill py-2 ${isOffline ? 'bg-canvas-soft-2 border border-hairline' : 'bg-primary'}`}
+                          onPress={() => void handleUploadSingle(survey)}
+                          disabled={isOffline}
+                        >
+                          <Upload size={13} color={isOffline ? '#888888' : 'white'} />
+                          <Text className={`text-xs font-medium ${isOffline ? 'text-mute' : 'text-on-primary'}`}>
+                            {isOffline ? 'Offline' : 'Upload'}
+                          </Text>
+                        </Pressable>
+                      )}
+
+                      {isUploaded && (
+                        <View className="flex-1 flex-row items-center justify-center gap-1 bg-success/10 rounded-pill py-2">
+                          <Text className="text-xs font-medium text-success">✓ Uploaded to Server</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </>
+        ) : (
+          /* Templates tab */
+          <>
+            <View className="flex-row justify-end mb-3">
+              <Pressable
+                className="bg-canvas border border-hairline rounded-pill flex-row items-center px-3 py-2 shadow-card-soft"
+                onPress={() => router.push('/forms/builder' as any)}
+              >
+                <Plus size={15} color="#171717" />
+                <Text className="text-ink ml-1 font-medium text-sm">Form Builder</Text>
+              </Pressable>
+            </View>
+
+            {forms.length === 0 ? (
+              <View className="items-center justify-center p-10 border-2 border-dashed border-hairline rounded-lg mt-4">
+                <Text className="text-mute text-center mb-2">No templates cached yet.</Text>
+                <Text className="text-xs text-body text-center">
+                  Connect to the internet and open the New Survey screen to cache templates for offline use.
                 </Text>
               </View>
-            </View>
-            <View className="flex-row justify-between items-center mt-3 pt-3 border-t border-hairline">
-              <Text className="text-mute text-xs">ID: {item.id.slice(0, 8)}...</Text>
-              <Text className="text-mute text-xs">
-                {item.synced ? t('forms.synced', 'Synced') : t('forms.offline', 'Offline')}
-              </Text>
-            </View>
-          </Pressable>
+            ) : (
+              forms.map((item) => (
+                <Pressable
+                  key={item.id}
+                  className="bg-canvas rounded-lg p-4 shadow-card-soft mb-3 border border-hairline"
+                  onPress={() => router.push(`/forms/${item.id}` as any)}
+                >
+                  <View className="flex-row justify-between items-start">
+                    <View className="flex-1 pr-2">
+                      <Text className="font-bold text-ink text-base">{item.title}</Text>
+                      {item.description ? (
+                        <Text className="text-body text-sm mt-1" numberOfLines={2}>{item.description}</Text>
+                      ) : null}
+                    </View>
+                    <View className={`px-2 py-0.5 rounded-md ${item.status === 'active' || item.status === 'Active' ? 'bg-success/10' : 'bg-warning/10'}`}>
+                      <Text className={`text-[10px] font-medium ${item.status === 'active' || item.status === 'Active' ? 'text-success' : 'text-warning-deep'}`}>
+                        {item.status}
+                      </Text>
+                    </View>
+                  </View>
+                  <View className="flex-row justify-between items-center mt-3 pt-3 border-t border-hairline">
+                    <Text className="text-mute text-xs">ID: {item.id.slice(0, 8)}…</Text>
+                    <Text className="text-mute text-xs">
+                      {item.synced ? '✓ Cached' : '⚠ Not synced'}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))
+            )}
+          </>
         )}
-        ListEmptyComponent={
-          <View className="items-center justify-center p-10 border-2 border-dashed border-hairline rounded-lg mt-4">
-            <Text className="text-mute text-center mb-2">{t('forms.noForms', 'No forms created yet.')}</Text>
-            <Text className="text-xs text-body text-center">Create a form template offline to start collecting survey responses.</Text>
-          </View>
-        }
-      />
+
+        {/* Refresh button */}
+        <Pressable
+          className="flex-row items-center justify-center gap-2 mt-2 py-3"
+          onPress={loadData}
+        >
+          <RefreshCw size={14} color="#888888" />
+          <Text className="text-mute text-xs">Refresh</Text>
+        </Pressable>
+      </ScrollView>
     </View>
   );
 }
