@@ -619,6 +619,15 @@ export class AssignmentsService {
 
 		assertOrgScope(user, targetOrgId);
 
+		if (aggregate && aggregate.status === "pending_review") {
+			// Auto-confirm the aggregate need when the admin manually assigns a volunteer —
+			// the explicit assignment action serves as the confirmation step.
+			await db("aggregate_needs")
+				.where({ id: input.aggregate_need_id })
+				.update({ status: "confirmed", updated_at: new Date() });
+			aggregate.status = "confirmed";
+		}
+
 		if (aggregate && aggregate.status !== "confirmed") {
 			throw new AppError(409, "Assignments can only be created for confirmed aggregate needs");
 		}

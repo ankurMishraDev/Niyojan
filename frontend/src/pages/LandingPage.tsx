@@ -333,7 +333,7 @@ export function LandingPage() {
             {/* <a className="transition-colors hover:text-ink" href="#features">{t("LandingPage_Nav_Features")}</a> */}
             {/* FAQs nav link — scrolls to FAQ section */}
             <a className="transition-colors hover:text-ink" href="#faqs" onClick={scrollToFaq}>
-              FAQs
+              {/* FAQs */}
             </a>
           </nav>
 

@@ -551,7 +551,9 @@ const extractWithGemini = async (input: DocumentExtractionInput, fileBytes: Buff
 			confidence: f.confidence,
 			inputType: f.inputType,
 			required: false,
-			pageInfo: { pageNumber: 1 }
+			// evidenceRef carries the ORIGINAL English snippet — used by the frontend
+			// to match translated labels back to English form fields
+			provenanceRef: f.evidenceRef ?? undefined,
 		})),
 		...(rawOutput.formQuestions || []).map(f => ({
 			label: f.label,
@@ -559,7 +561,7 @@ const extractWithGemini = async (input: DocumentExtractionInput, fileBytes: Buff
 			confidence: f.confidence,
 			inputType: f.inputType,
 			required: false,
-			pageInfo: { pageNumber: 1 }
+			provenanceRef: f.evidenceRef ?? undefined,
 		}))
 	];
 

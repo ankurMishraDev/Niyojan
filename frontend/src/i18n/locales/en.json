@@ -25,7 +25,7 @@
   "NGO_FormBuilder_Header_CreateForm": "Create New Form",
   "NGO_FormBuilder_Header_Description": "Manage field catalog references, versioned templates, and publishable survey structures using the existing backend form endpoints.",
   "NGO_FormBuilder_Label_TemplateName": "Template",
-  "NGO_FormBuilder_Button_ScanDocument":"Scan AI Document",
+  "NGO_FormBuilder_Button_ScanDocument":"Scan Document",
   "NGO_FormBuilder_Button_Template": "New Template",
   "NGO_FormBuilder_Button_NewVersion":"New Version",
   "NGO_FormBuilder_Button_RenameTemplate":"Rename Template",

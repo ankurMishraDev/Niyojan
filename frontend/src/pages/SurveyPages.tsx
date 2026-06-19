@@ -298,9 +298,19 @@ const collectExtractionEntries = (extractionResult: any): ExtractionEntry[] => {
           ? mappedField.label
           : "";
 
+    // evidenceRef from Gemini extraction contains the ORIGINAL English text,
+    // which is the reliable key for matching against English form field labels.
+    // Use it as sourceLabel so the field matcher can try both translated + original.
+    const evidenceRef =
+      typeof candidate?.evidenceRef === "string" && candidate.evidenceRef.trim().length > 0
+        ? candidate.evidenceRef.trim()
+        : typeof candidate?.provenanceRef === "string" && candidate.provenanceRef.trim().length > 0
+          ? candidate.provenanceRef.trim()
+          : null;
+
     pushIfPresent({
       label: resolvedLabel,
-      rawValue: candidate?.valueHint,
+      rawValue: candidate?.valueHint ?? candidate?.value,
       confidence: combineConfidence(
         toConfidenceNumber(candidate?.confidence),
         toConfidenceNumber(mappedField?.confidence),
@@ -314,8 +324,30 @@ const collectExtractionEntries = (extractionResult: any): ExtractionEntry[] => {
           ? "mapped_field"
           : "candidate_field",
     });
+
+    // Also push an entry using the evidenceRef as label — this lets the matcher
+    // find English-labeled form fields when the extraction translated to another language.
+    if (evidenceRef && evidenceRef !== resolvedLabel) {
+      // Extract just the label portion from evidenceRef ("Name: John" → "Name")
+      const evidenceLabel = evidenceRef.includes(":")
+        ? evidenceRef.split(":")[0].trim()
+        : evidenceRef;
+      if (evidenceLabel.length >= 2) {
+        pushIfPresent({
+          label: evidenceLabel,
+          rawValue: candidate?.valueHint ?? candidate?.value,
+          confidence: combineConfidence(
+            toConfidenceNumber(candidate?.confidence),
+            toConfidenceNumber(mappedField?.confidence),
+          ),
+          sourceLabel: evidenceLabel,
+          sourceType: "key_value",
+        });
+      }
+    }
   });
 
+  // keyValuePairs always have English labels from the document
   const keyValueCollections = [
     extractionResult?.documentAi?.keyValuePairs,
     extractionResult?.keyValuePairs,
@@ -329,7 +361,7 @@ const collectExtractionEntries = (extractionResult: any): ExtractionEntry[] => {
       pushIfPresent({
         label: item.label,
         rawValue: item.value,
-        confidence: null,
+        confidence: typeof item.confidence === "number" ? item.confidence : null,
         sourceLabel: item.label,
         sourceType: "key_value",
       }),

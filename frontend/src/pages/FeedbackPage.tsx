@@ -225,7 +225,7 @@ export function FeedbackPage() {
 
             {assignment.aiReview ? (
               <div className="rounded-md border border-hairline bg-canvas-soft p-5">
-                <p className="label-caps mb-2 text-primary">AI review assessment</p>
+                <p className="label-caps mb-2 text-primary">Review assessment</p>
                 <p className="text-sm leading-relaxed text-body">
                   {assignment.aiReview.caseSummary || "No AI summary available."}
                 </p>

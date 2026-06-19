@@ -18,7 +18,8 @@ export const mappedFieldSchema = z.object({
 	confidence: z.number().min(0).max(1),
 	matchedCatalogKey: z.string().nullable(),
 	isCustom: z.boolean(),
-	category: z.string().min(1),
+	// Gemini sometimes returns null — coerce to "general" so Zod never throws here
+	category: z.string().nullable().optional().transform((v) => (v && v.trim().length > 0 ? v.trim() : "general")),
 });
 
 export const documentReasoningSchema = z.object({

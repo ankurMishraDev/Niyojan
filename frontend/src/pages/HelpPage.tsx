@@ -132,7 +132,7 @@ const guides: Record<AppRole, RoleGuide> = {
         ],
         video: {
           // UPDATE: replace with actual Google Drive file ID after uploading
-          driveFileId: "https://drive.google.com/file/d/16UcXki9vdooIRLA70T0LL1V4RLwlvmCT/view?usp=sharing",
+          driveFileId: "https://drive.google.com/file/d/102zLsrzDoavbKdAuazJefONRVWV1Pdc0/view?usp=sharing",
           title: "Dashboard Walkthrough",
           description: "How to read platform metrics, approve NGO onboarding, and triage submitted surveys.",
         },
@@ -244,7 +244,7 @@ const guides: Record<AppRole, RoleGuide> = {
         ],
         video: {
           // UPDATE: replace with actual Google Drive file ID after uploading
-          driveFileId: "https://drive.google.com/file/d/16UcXki9vdooIRLA70T0LL1V4RLwlvmCT/view?usp=sharing",
+          driveFileId: "https://drive.google.com/file/d/1fhko-r6qP25hAMjJmD0hWJUaHb4zyCw6/view?usp=drive_link",
           title: "Form Builder Guide",
           description: "How to create a template, add fields, and publish a version for field use.",
         },
@@ -261,7 +261,7 @@ const guides: Record<AppRole, RoleGuide> = {
         ],
         video: {
           // UPDATE: replace with actual Google Drive file ID after uploading
-          driveFileId: "https://drive.google.com/file/d/16UcXki9vdooIRLA70T0LL1V4RLwlvmCT/view?usp=sharing",
+          driveFileId: "https://drive.google.com/file/d/1rankuJQT6XSRccILBE9h1k42Na3i8K2o/view?usp=drive_link",
           title: "Data Collection Walkthrough",
           description: "Selecting a template, filling in field responses, and submitting a survey correctly.",
         },
@@ -278,7 +278,7 @@ const guides: Record<AppRole, RoleGuide> = {
         ],
         video: {
           // UPDATE: replace with actual Google Drive file ID after uploading
-          driveFileId: "https://drive.google.com/file/d/16UcXki9vdooIRLA70T0LL1V4RLwlvmCT/view?usp=sharing",
+          driveFileId: "https://drive.google.com/file/d/1qJJaSvsrICvMygEDAwhDWS2DP-MucZvc/view?usp=drive_link",
           title: "NGO Dashboard Overview",
           description: "Reading survey submission history, checking feedback status, and identifying unresolved cases.",
         },
@@ -295,7 +295,7 @@ const guides: Record<AppRole, RoleGuide> = {
         ],
         video: {
           // UPDATE: replace with actual Google Drive file ID after uploading
-          driveFileId: "https://drive.google.com/file/d/16UcXki9vdooIRLA70T0LL1V4RLwlvmCT/view?usp=sharing",
+          driveFileId: "https://drive.google.com/file/d/1jST_zMHXVix--rOHAgUS8LDqNA8YMmYe/view?usp=drive_link",
           title: "Feedback Review Guide",
           description: "How to open feedback records, read volunteer outcomes, and plan follow-up actions.",
         },
