@@ -1,14 +1,3 @@
-<div align="center">
-
-```
-███╗   ██╗██╗██╗   ██╗░█████╗░██╗░░░░░░█████╗░███╗░░██╗
-████╗  ██║██║╚██╗ ██╔╝██╔══██╗██║░░░░░██╔══██╗████╗░██║
-██╔██╗ ██║██║░╚████╔╝░███████║██║░░░░░██║░░██║██╔██╗██║
-██║╚██╗██║██║░░╚██╔╝░░██╔══██║██║░░░░░██║░░██║██║╚████║
-██║ ╚████║██║░░░██║░░░██║░░██║███████╗╚█████╔╝██║░╚███║
-╚═╝  ╚═══╝╚═╝░░░╚═╝░░░╚═╝░░╚═╝╚══════╝░╚════╝░╚═╝░░╚══╝
-
-```
 
 # **Niyojan**
 ### Smart Resource Allocation Platform
@@ -297,103 +286,6 @@ npm run frontend:dev    # Frontend    → http://localhost:5173
 
 ---
 
-## 📋 Available Commands
-
-<div align="center">
-
-| Category | Command | Description |
-|---|---|---|
-| **🚀 Dev** | `npm run dev` | Backend hot-reload |
-| **📦 Build** | `npm run build` | Compile TS → dist/ |
-| **✅ TypeCheck** | `npm run typecheck` | TypeScript checking |
-| **🧪 Test** | `npm run test:backend` | Vitest backend tests |
-| **🗄️ Migrate** | `npm run migrate` | Run pending migrations |
-| **⏪ Rollback** | `npm run migrate:rollback` | Rollback last batch |
-| **🌱 Seed** | `npm run seed` | Run all seeds |
-| **🌀 Reset DB** | `npm run db:reset` | Rollback → migrate → seed |
-| **🎭 Demo** | `npm run seed:demo:identity` | Bootstrap Firebase demo users |
-| **🌐 Frontend** | `npm run frontend:dev` | Vite dev on :5173 |
-| **📱 Frontend Build** | `npm run frontend:build` | Production build |
-| **🧪 E2E Tests** | `npm run frontend:test:e2e` | Playwright tests |
-| **⚡ PM2 Start** | `npm run pm2:start` | Production launch |
-
-</div>
-
----
-
-## 📖 API Overview
-
-### 🔐 Auth & Admin
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/auth/me` | Current user profile |
-| `POST` | `/api/auth/register-ngo` | Register a new NGO |
-| `GET` | `/api/admin/onboarding/ngos` | List pending NGOs |
-| `POST` | `/api/admin/onboarding/ngos/:orgId/approve` | Approve NGO |
-| `POST` | `/api/admin/onboarding/ngos/:orgId/reject` | Reject NGO |
-
-### 🏢 Organizations
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET/POST` | `/api/organizations` | List / Create orgs |
-| `GET/PATCH` | `/api/organizations/:id` | Get / Update org |
-| `GET` | `/api/organizations/:id/users` | List org members |
-
-### 📄 Documents & AI Pipeline
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/documents/upload-url` | Get signed upload URL |
-| `POST` | `/api/documents` | Create document record |
-| `GET` | `/api/documents/:id/read-url` | Get signed read URL |
-| `POST` | `/api/documents/:id/pipeline/start` | Start LangGraph pipeline |
-| `GET` | `/api/documents/:id/pipeline/status` | Pipeline status |
-| `GET` | `/api/documents/:id/review-package` | Get review data |
-| `POST` | `/api/documents/:id/review` | Submit human review |
-
-### 📝 Form Builder
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST/GET` | `/api/form-templates` | Create / List templates |
-| `POST` | `/api/form-templates/:id/versions` | Create new version |
-| `POST` | `/api/form-template-versions/:id/publish` | Publish version |
-| `POST` | `/api/form-templates/from-document/:documentId` | Generate from extracted fields |
-
-### 📋 Surveys
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST/GET` | `/api/surveys` | Create / List surveys |
-| `POST` | `/api/surveys/:id/submit` | Submit responses |
-| `POST` | `/api/surveys/:id/analyze-needs` | AI needs analysis |
-
-### 🎯 Needs & Matching
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/needs` | List needs |
-| `GET` | `/api/needs/:id/matches` | Ranked volunteer matches |
-| `POST` | `/api/needs/:id/close` | Close need with outcome |
-
-### 📌 Assignments
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/assignments` | Create assignment |
-| `GET` | `/api/assignments/:id` | Assignment details |
-| `PATCH` | `/api/assignments/:id/status` | Update status |
-
-### 💬 Feedback
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/assignments/:id/feedback` | Submit feedback |
-| `POST` | `/api/assignments/:id/feedback/evidence-url` | Evidence upload URL |
-
-### 📊 Dashboard
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/dashboard/summary` | Summary statistics |
-| `GET` | `/api/dashboard/urgent-needs` | Urgent needs |
-| `GET` | `/api/dashboard/volunteer-availability` | Availability stats |
-| `GET` | `/api/dashboard/pipeline-health` | Pipeline health |
-
----
 
 ## 🤖 AI Pipeline
 
@@ -435,22 +327,6 @@ The document processing pipeline is a **LangGraph state machine** with 10+ nodes
 
 ---
 
-## ⚡ Matching Algorithm
-
-Volunteers are ranked against needs using a weighted scoring system:
-
-```
-┌─────────────────────────────────────────────┐
-│   🏆  Final Score = Σ(weights × scores)    │
-├─────────────────────────────────────────────┤
-│   📌  Skills Match     ████████████████░ 50% │
-│   📅  Availability     ██████████░░░░░░ 30% │
-│   📍  Location         ██████░░░░░░░░░░ 20% │
-└─────────────────────────────────────────────┘
-```
-
----
-
 ## 🌐 Multilingual Support
 
 **16 Indian languages** across both web and mobile:
@@ -471,41 +347,6 @@ Volunteers are ranked against needs using a weighted scoring system:
 </div>
 
 ---
-
-## 👤 Demo Credentials
-
-| Role | Email | Password |
-|---|---|---|
-| 👑 **Superadmin** | `niyojanAdmin@gmail.com` | `asdf@1234` |
-
-Also includes seeded NGO admins, field workers, and volunteers across **5 organizations**.
-
----
-
-## 🔬 Smoke Test
-
-```bash
-# 1. Health check
-curl http://localhost:8080/health
-
-# 2. Check auth
-curl http://localhost:8080/api/auth/me -H "Authorization: Bearer <token>"
-
-# 3. Browse data
-curl "http://localhost:8080/api/field-catalog?page=1&pageSize=10"
-curl "http://localhost:8080/api/skills?page=1&pageSize=10"
-curl "http://localhost:8080/api/form-templates?page=1&pageSize=10"
-
-# 4. Dashboard
-curl http://localhost:8080/api/dashboard/summary
-
-# 5. Needs & matching
-curl http://localhost:8080/api/needs
-curl http://localhost:8080/api/needs/:id/matches
-```
-
----
-
 ## 🧪 Testing
 
 ```bash
