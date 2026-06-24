@@ -61,38 +61,26 @@ function setStatus(id: string, status: string): void {
 /**
  * Map local survey data to the responses[] format expected by surveysApi.submit.
  *
- * Handles TWO storage formats:
- *   1. Structured: { inputType: "text", valueText: "..." }  — from the web extraction flow
- *   2. Raw string: "some text answer"  — from the mobile FillForm screen
- *
- * The mobile FillForm saves answers as plain strings keyed by field ID.
- * We treat those as text responses.
+ * Mobile saves all answers as plain strings. We look up the actual field input_type
+ * from the cached template so the server doesn't reject with "input_type mismatch".
+ * For non-string types (boolean, number) we attempt to coerce the string value.
+ * Unrecognised types default to 'text'.
  */
-function buildResponsesFromLocalData(data: Record<string, unknown>): unknown[] {
+function buildResponsesFromLocalData(
+  data: Record<string, unknown>,
+  fieldTypeMap: Map<string, string> = new Map(),
+): unknown[] {
   const responses: unknown[] = [];
   for (const [fieldId, val] of Object.entries(data)) {
     if (val === null || val === undefined || val === '') continue;
 
-    // Raw string format (from mobile FillForm)
-    if (typeof val === 'string') {
-      const trimmed = val.trim();
-      if (trimmed.length > 0) {
-        responses.push({ form_field_id: fieldId, input_type: 'text', value_text: trimmed });
-      }
-      continue;
-    }
+    // Determine the actual field type from the cached template
+    const fieldType = fieldTypeMap.get(fieldId) ?? 'text';
 
-    // Number stored directly
-    if (typeof val === 'number') {
-      responses.push({ form_field_id: fieldId, input_type: 'number', value_number: val });
-      continue;
-    }
-
-    // Structured object format (from extraction / web flow)
-    if (typeof val === 'object') {
+    // If the stored value is already a structured object (web extraction flow)
+    if (typeof val === 'object' && !Array.isArray(val)) {
       const v = val as Record<string, unknown>;
-      const inputType = (v.inputType as string) ?? 'text';
-
+      const inputType = (v.inputType as string) ?? fieldType;
       if (inputType === 'number' || inputType === 'decimal') {
         if (v.valueNumber !== undefined && v.valueNumber !== null) {
           responses.push({ form_field_id: fieldId, input_type: inputType, value_number: v.valueNumber });
@@ -107,10 +95,40 @@ function buildResponsesFromLocalData(data: Record<string, unknown>): unknown[] {
         }
       } else {
         const text = (v.valueText as string | undefined)?.trim();
-        if (text) {
-          responses.push({ form_field_id: fieldId, input_type: inputType, value_text: text });
-        }
+        if (text) responses.push({ form_field_id: fieldId, input_type: 'text', value_text: text });
       }
+      continue;
+    }
+
+    // Raw primitive (from mobile FillForm — always a string)
+    const strVal = typeof val === 'number' ? String(val) : String(val).trim();
+    if (!strVal) continue;
+
+    // Coerce to the correct type based on the form template field definition
+    if (fieldType === 'number' || fieldType === 'decimal') {
+      const num = Number(strVal.replace(/[^0-9.-]/g, ''));
+      if (!Number.isNaN(num)) {
+        responses.push({ form_field_id: fieldId, input_type: 'number', value_number: num });
+      }
+    } else if (fieldType === 'boolean') {
+      const lower = strVal.toLowerCase();
+      const boolVal = ['yes', 'true', '1', 'y'].includes(lower) ? true
+        : ['no', 'false', '0', 'n'].includes(lower) ? false : null;
+      if (boolVal !== null) {
+        responses.push({ form_field_id: fieldId, input_type: 'boolean', value_bool: boolVal });
+      } else {
+        // Can't coerce to boolean — send as text so the response isn't dropped silently
+        responses.push({ form_field_id: fieldId, input_type: 'text', value_text: strVal });
+      }
+    } else if (fieldType === 'multiselect') {
+      const parts = strVal.split(/[,;|]/).map(s => s.trim()).filter(Boolean);
+      if (parts.length > 0) {
+        responses.push({ form_field_id: fieldId, input_type: 'multiselect', value_json: parts });
+      }
+    } else {
+      // text, select, date, textarea → all sent as input_type matching the field
+      const normalizedType = ['select', 'date', 'textarea'].includes(fieldType) ? fieldType : 'text';
+      responses.push({ form_field_id: fieldId, input_type: normalizedType, value_text: strVal });
     }
   }
   return responses;
@@ -132,6 +150,23 @@ export function enqueueSurvey(localId: string): void {
 }
 
 // ─── Sync survey (two-step) ───────────────────────────────────────────────────
+
+/**
+ * Resolve the input_type of a field from the cached forms table.
+ * Returns 'text' as default if not found. Used to ensure the server
+ * receives the correct input_type even for non-text fields.
+ */
+function getFieldInputTypeMap(formId: string | null): Map<string, string> {
+  if (!formId) return new Map();
+  try {
+    const form = db.getFirstSync('SELECT fields FROM forms WHERE id = ?', [formId]) as { fields: string } | null;
+    if (!form?.fields) return new Map();
+    const fields = JSON.parse(form.fields) as Array<{ id: string; inputType?: string; type?: string }>;
+    return new Map(fields.map(f => [f.id, f.inputType ?? f.type ?? 'text']));
+  } catch {
+    return new Map();
+  }
+}
 
 async function syncSurvey(item: SyncRow): Promise<void> {
   const localRows = db.getAllSync('SELECT * FROM surveys WHERE id = ?', [item.localId]) as SurveyRow[];
@@ -203,14 +238,16 @@ async function syncSurvey(item: SyncRow): Promise<void> {
     db.runSync('UPDATE sync_queue SET remoteId=?, updatedAt=? WHERE id=?', [remoteId, nowIso(), item.id]);
   }
 
-  const responses = buildResponsesFromLocalData(parsed);
+  const fieldTypeMap = getFieldInputTypeMap(local.formId);
+  const responses = buildResponsesFromLocalData(parsed, fieldTypeMap);
   if (responses.length === 0) {
     throw new Error('Survey data produced zero responses — skipping submit');
   }
 
   await surveysApi.submit(remoteId!, { responses });
   console.log(`[SYNC] Successfully submitted survey ${local.id} → remote ${remoteId} with ${responses.length} responses`);
-  db.runSync("UPDATE surveys SET status='submitted' WHERE id=?", [local.id]);
+  // Mark synced on the surveys table as well — keeps both tables consistent
+  db.runSync("UPDATE surveys SET status='submitted', synced=1 WHERE id=?", [local.id]);
 }
 
 // ─── Flush queue ─────────────────────────────────────────────────────────────

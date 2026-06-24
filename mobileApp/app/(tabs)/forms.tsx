@@ -87,7 +87,11 @@ function pendingUploadCount(): number {
 }
 
 function surveyStatusLabel(survey: SavedSurvey): { label: string; color: string; bg: string } {
-  if (survey.remoteId || survey.syncStatus === 'synced') {
+  // syncStatus is the single source of truth from the sync_queue.
+  // survey.remoteId alone is NOT sufficient — it only means the draft was created
+  // on the server (Step 1), not that responses were submitted (Step 2).
+  // Using remoteId here caused a false "Uploaded" badge even when Step 2 had a 401.
+  if (survey.syncStatus === 'synced') {
     return { label: 'Uploaded', color: 'text-success', bg: 'bg-success/10' };
   }
   if (survey.syncStatus === 'in_flight') {
@@ -391,7 +395,7 @@ export default function Forms() {
             ) : (
               surveys.map((survey) => {
                 const statusInfo = surveyStatusLabel(survey);
-                const isUploaded = survey.remoteId != null || survey.syncStatus === 'synced';
+                const isUploaded = survey.syncStatus === 'synced';
                 const fieldCount = (() => {
                   try { return Object.keys(JSON.parse(survey.data ?? '{}')).length; }
                   catch { return 0; }
