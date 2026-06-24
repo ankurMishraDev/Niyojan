@@ -28,6 +28,8 @@ type SurveyRow = {
   id: string;
   remoteId: string | null;
   templateVersionId: string | null;
+  formId: string | null;
+  volunteerId: string | null;
   respondentName: string | null;
   locationText: string | null;
   latitude: number | null;
@@ -58,31 +60,56 @@ function setStatus(id: string, status: string): void {
 
 /**
  * Map local survey data to the responses[] format expected by surveysApi.submit.
- * Mirrors the web buildResponsePayload logic.
+ *
+ * Handles TWO storage formats:
+ *   1. Structured: { inputType: "text", valueText: "..." }  — from the web extraction flow
+ *   2. Raw string: "some text answer"  — from the mobile FillForm screen
+ *
+ * The mobile FillForm saves answers as plain strings keyed by field ID.
+ * We treat those as text responses.
  */
 function buildResponsesFromLocalData(data: Record<string, unknown>): unknown[] {
   const responses: unknown[] = [];
   for (const [fieldId, val] of Object.entries(data)) {
-    if (!val || typeof val !== 'object') continue;
-    const v = val as Record<string, unknown>;
-    const inputType = (v.inputType as string) ?? 'text';
+    if (val === null || val === undefined || val === '') continue;
 
-    if (inputType === 'number' || inputType === 'decimal') {
-      if (v.valueNumber !== undefined && v.valueNumber !== null) {
-        responses.push({ form_field_id: fieldId, input_type: inputType, value_number: v.valueNumber });
+    // Raw string format (from mobile FillForm)
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (trimmed.length > 0) {
+        responses.push({ form_field_id: fieldId, input_type: 'text', value_text: trimmed });
       }
-    } else if (inputType === 'boolean' || inputType === 'checkbox') {
-      if (v.valueBool !== undefined && v.valueBool !== null) {
-        responses.push({ form_field_id: fieldId, input_type: inputType, value_bool: v.valueBool });
-      }
-    } else if (inputType === 'multiselect') {
-      if (Array.isArray(v.valueJson) && v.valueJson.length > 0) {
-        responses.push({ form_field_id: fieldId, input_type: inputType, value_json: v.valueJson });
-      }
-    } else {
-      const text = (v.valueText as string | undefined)?.trim();
-      if (text) {
-        responses.push({ form_field_id: fieldId, input_type: inputType, value_text: text });
+      continue;
+    }
+
+    // Number stored directly
+    if (typeof val === 'number') {
+      responses.push({ form_field_id: fieldId, input_type: 'number', value_number: val });
+      continue;
+    }
+
+    // Structured object format (from extraction / web flow)
+    if (typeof val === 'object') {
+      const v = val as Record<string, unknown>;
+      const inputType = (v.inputType as string) ?? 'text';
+
+      if (inputType === 'number' || inputType === 'decimal') {
+        if (v.valueNumber !== undefined && v.valueNumber !== null) {
+          responses.push({ form_field_id: fieldId, input_type: inputType, value_number: v.valueNumber });
+        }
+      } else if (inputType === 'boolean' || inputType === 'checkbox') {
+        if (v.valueBool !== undefined && v.valueBool !== null) {
+          responses.push({ form_field_id: fieldId, input_type: inputType, value_bool: v.valueBool });
+        }
+      } else if (inputType === 'multiselect') {
+        if (Array.isArray(v.valueJson) && v.valueJson.length > 0) {
+          responses.push({ form_field_id: fieldId, input_type: inputType, value_json: v.valueJson });
+        }
+      } else {
+        const text = (v.valueText as string | undefined)?.trim();
+        if (text) {
+          responses.push({ form_field_id: fieldId, input_type: inputType, value_text: text });
+        }
       }
     }
   }
@@ -114,15 +141,55 @@ async function syncSurvey(item: SyncRow): Promise<void> {
     throw new Error(`Survey ${item.localId} not found in local db`);
   }
 
-  if (!local.data || local.data === '{}' || local.data === 'null') {
+  // Check if data is actually empty — handle both {} and {"fieldId": ""} cases
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = JSON.parse(local.data);
+  } catch {
+    throw new Error('Survey data is not valid JSON');
+  }
+
+  // A survey is empty if: no keys, OR all string values are blank/empty
+  const hasContent = Object.values(parsed).some((v) => {
+    if (typeof v === 'string') return v.trim().length > 0;
+    if (typeof v === 'number') return true;
+    if (typeof v === 'boolean') return true;
+    if (v && typeof v === 'object') {
+      const obj = v as Record<string, unknown>;
+      return (
+        (typeof obj.valueText === 'string' && obj.valueText.trim().length > 0) ||
+        obj.valueNumber !== undefined ||
+        obj.valueBool !== undefined
+      );
+    }
+    return false;
+  });
+
+  if (!hasContent) {
     throw new Error('Survey has no captured data — skipping submit');
   }
+
+  console.log(`[SYNC] Survey ${local.id}: hasContent=${hasContent}, keys=${Object.keys(parsed).length}, templateVersionId=${local.templateVersionId ?? 'null'}`);
 
   // Step 1: create draft (skip if already created)
   let remoteId = item.remoteId ?? local.remoteId;
   if (!remoteId) {
+    // If templateVersionId is missing, try to look it up from the cached forms table
+    let templateVersionId = local.templateVersionId;
+    if (!templateVersionId && local.formId) {
+      const cachedForm = db.getFirstSync(
+        'SELECT templateVersionId FROM forms WHERE id = ?',
+        [local.formId]
+      ) as { templateVersionId: string | null } | null;
+      templateVersionId = cachedForm?.templateVersionId ?? null;
+    }
+
+    if (!templateVersionId) {
+      throw new Error(`No templateVersionId for survey ${local.id} — cannot create remote draft`);
+    }
+
     const survey = await surveysApi.create({
-      template_version_id: local.templateVersionId,
+      template_version_id: templateVersionId,
       respondent_name: local.respondentName ?? undefined,
       location_text: local.locationText ?? undefined,
       latitude: local.latitude ?? undefined,
@@ -130,17 +197,10 @@ async function syncSurvey(item: SyncRow): Promise<void> {
       submitted_language: local.submittedLanguage ?? 'en',
     });
     remoteId = survey.id;
+    console.log(`[SYNC] Created remote survey ${remoteId} for local ${local.id}`);
     // Store remoteId on both survey row and queue item (parameterized)
     db.runSync('UPDATE surveys SET remoteId=? WHERE id=?', [remoteId, local.id]);
     db.runSync('UPDATE sync_queue SET remoteId=?, updatedAt=? WHERE id=?', [remoteId, nowIso(), item.id]);
-  }
-
-  // Step 2: map and submit
-  let parsed: Record<string, unknown> = {};
-  try {
-    parsed = JSON.parse(local.data);
-  } catch {
-    throw new Error('Survey data is not valid JSON');
   }
 
   const responses = buildResponsesFromLocalData(parsed);
@@ -149,6 +209,7 @@ async function syncSurvey(item: SyncRow): Promise<void> {
   }
 
   await surveysApi.submit(remoteId!, { responses });
+  console.log(`[SYNC] Successfully submitted survey ${local.id} → remote ${remoteId} with ${responses.length} responses`);
   db.runSync("UPDATE surveys SET status='submitted' WHERE id=?", [local.id]);
 }
 
@@ -181,6 +242,7 @@ export async function flush(): Promise<void> {
 
       try {
         setStatus(item.id, 'in_flight');
+        console.log(`[SYNC] Processing item ${item.id}: op=${item.op}, localId=${item.localId}`);
         if (item.op === 'create_and_submit') {
           await syncSurvey(item);
         }
