@@ -103,7 +103,7 @@ function getDriveVideoUrl(input?: string): string | null {
 // ─── Guide data ───────────────────────────────────────────────────────────────
 const guides: Record<AppRole, RoleGuide> = {
 
-  superadmin: {
+    superadmin: {
     eyebrow: "Admin Help",
     title: "Command panel guide",
     description: "Use this panel to review the full operating picture, approve NGO onboarding, run pipeline workflows, and monitor live assignment execution.",
@@ -233,6 +233,8 @@ const guides: Record<AppRole, RoleGuide> = {
       "Use Feedback as the final verification layer before considering a case operationally closed.",
     ],
   },
+
+  
 
   ngo_admin: {
     eyebrow: "NGO Help",
