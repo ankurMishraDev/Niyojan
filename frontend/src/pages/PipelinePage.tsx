@@ -47,7 +47,7 @@ export function PipelinePage() {
       return pipelineApi.start(documentId);
     },
     onSuccess: async () => {
-      setActionFeedback("Pipeline run completed. Check the backend terminal for stage-by-stage logs.");
+      setActionFeedback("Pipeline run completed. Try to refresh the page in case nothing appears.");
       await statusQuery.refetch();
       await queueQuery.refetch();
       await intakeQuery.refetch();
@@ -129,7 +129,38 @@ export function PipelinePage() {
     );
   }
 
-  const isPipelineStarting = startPipelineMutation.isPending || analyzeSurveyMutation.isPending;
+  // ── Map backend stage names → DynamicLoader display buckets ──────────────
+  // The backend emits raw stage strings like "stage2_extraction". DynamicLoader
+  // does a literal match against ["Processing","Analyzing","Finalizing"], so we
+  // map them here instead of freezing on step 1 for the entire run.
+  const STAGE_BUCKET: Record<string, "Processing" | "Analyzing" | "Finalizing"> = {
+    loading_document:       "Processing",
+    survey_need_analysis:   "Processing",
+    stage2_extraction:      "Analyzing",
+    stage3_canonicalization:"Analyzing",
+    stage4_pii_masking:     "Analyzing",
+    stage5_semantic_check:  "Analyzing",
+    stage6_gemini_extraction:"Analyzing",
+    stage7_trust_gate:      "Analyzing",
+    stage8_escalation:      "Finalizing",
+    stage9_reasoning:       "Finalizing",
+    stage10_review_prep:    "Finalizing",
+    persist_pipeline_artifacts: "Finalizing",
+    // LangGraph node names
+    input:                  "Processing",
+    pii_mask:               "Processing",
+    ingestion:              "Processing",
+    ai_extraction:          "Analyzing",
+    fallback:               "Analyzing",
+    mapping:                "Analyzing",
+    trust_gate:             "Analyzing",
+    reasoning:              "Finalizing",
+    reasoning_fallback:     "Finalizing",
+    review_prep:            "Finalizing",
+    persist:                "Finalizing",
+    completed:              "Finalizing",
+  };
+  const displayStage = STAGE_BUCKET[pipelineStage] ?? "Processing";
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto py-8 px-4 sm:px-6">
@@ -265,10 +296,10 @@ export function PipelinePage() {
         </Panel>
 
         <div className="space-y-6 max-h-[85vh] overflow-y-auto pr-2 relative">
-          {isPipelineStarting && (
+          {pipelineStage && (
             <div className="absolute inset-0 z-50 bg-canvas/50 backdrop-blur-sm rounded-md flex items-center justify-center pointer-events-none">
               <DynamicLoader
-                currentStage={pipelineStage}
+                currentStage={displayStage}
                 stages={["Processing", "Analyzing", "Finalizing"]}
                 label="Running Survey Pipeline..."
               />
@@ -356,7 +387,7 @@ export function PipelinePage() {
                           </span>
                         </div>
                         <div className="pt-3">
-                          <Link className="action-button-secondary w-full text-center" to={`/ai-review/${selectedDocumentId}`}>
+                          <Link className="action-button-secondary w-full text-center" to={`/ai-review/surveys/${selectedIntakeItem?.surveyId}`}>
                             Open AI Review
                           </Link>
                         </div>

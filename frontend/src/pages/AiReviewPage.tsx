@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button, LoaderBlock, PageHeader, Panel, Select, StatusBadge, Textarea } from "@/components/ui";
 import { formatDateTime, toneForStatus } from "@/lib/format";
-import { documentsApi, needsApi, pipelineApi, surveysApi } from "@/lib/services";
+import { needsApi, pipelineApi, surveysApi } from "@/lib/services";
 
 function stringList(value: unknown) {
   if (!Array.isArray(value)) {
@@ -210,7 +210,7 @@ export function AiReviewIndexPage() {
             </div>
             <Link
               className="action-button-secondary w-full text-center mt-auto"
-              to={item.sourceDocumentId ? `/ai-review/${item.sourceDocumentId}` : `/ai-review/surveys/${item.surveyId}`}
+              to={`/ai-review/surveys/${item.surveyId}`}
             >
               Open Review Screen
             </Link>
@@ -251,18 +251,21 @@ export function AiReviewPage() {
     (reviewPackageData?.validatedCandidate?.trusted_fields as Record<string, unknown> | undefined) ?? {};
 
   const submitReviewMutation = useMutation({
-    mutationFn: async () =>
-      (isSurveyReview ? pipelineApi.submitSurveyReview(reviewTargetId, {
+    mutationFn: async () => {
+      const reviewPayload = {
         review_action: reviewAction,
         review_notes: reviewNotes || undefined,
         field_corrections: {},
         approved_fields: {},
-      }) : pipelineApi.submitReview(reviewTargetId, {
-        review_action: reviewAction,
-        review_notes: reviewNotes || undefined,
-        field_corrections: {},
-        approved_fields: {},
-      })),
+      };
+      // For document-backed surveys (accessed via /ai-review/surveys/:id), the pipeline
+      // data lives in the documents pipeline tables. Use the document endpoint so the
+      // review is written to the correct table and shows in the review history.
+      const docId = reviewQuery.data?.sourceDocumentId;
+      if (docId) return pipelineApi.submitReview(docId, reviewPayload);
+      if (isSurveyReview) return pipelineApi.submitSurveyReview(reviewTargetId, reviewPayload);
+      return pipelineApi.submitReview(reviewTargetId, reviewPayload);
+    },
     onSuccess: async () => {
       setFeedback("Review submitted successfully.");
       await reviewQuery.refetch();
@@ -274,12 +277,9 @@ export function AiReviewPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      if (isSurveyReview || !reviewQuery.data?.sourceDocumentId) {
-        await surveysApi.delete(reviewQuery.data?.sourceSurveyId || reviewTargetId);
-        return;
-      }
-
-      await documentsApi.delete(reviewQuery.data.sourceDocumentId);
+      // Always delete the survey record (cascades to linked document via DB constraints).
+      // For document-backed surveys, the sourceSurveyId is the survey we're reviewing.
+      await surveysApi.delete(reviewQuery.data?.sourceSurveyId || reviewTargetId);
     },
     onSuccess: async () => {
       navigate("/ai-review");
@@ -306,7 +306,8 @@ export function AiReviewPage() {
     },
   });
 
-  const updateAssessmentMutation = useMutation({    mutationFn: async (payload: { field: string; value: string; kind: "text" | "number" | "list" }) => {
+  const updateAssessmentMutation = useMutation({
+    mutationFn: async (payload: { field: string; value: string; kind: "text" | "number" | "list" }) => {
       const normalizedValue =
         payload.kind === "number"
           ? Number(payload.value)
@@ -317,15 +318,15 @@ export function AiReviewPage() {
                 .filter((item) => item.length > 0)
             : payload.value;
 
+      // For document-backed surveys, assessment overrides are stored against the document.
+      // Use the document endpoint so overrides actually apply to the correct record.
+      const docId = reviewQuery.data?.sourceDocumentId;
+      if (docId) {
+        return pipelineApi.updateReviewAssessment(docId, { field: payload.field, value: normalizedValue });
+      }
       return isSurveyReview
-        ? pipelineApi.updateSurveyReviewAssessment(reviewTargetId, {
-            field: payload.field,
-            value: normalizedValue,
-          })
-        : pipelineApi.updateReviewAssessment(reviewTargetId, {
-            field: payload.field,
-            value: normalizedValue,
-          });
+        ? pipelineApi.updateSurveyReviewAssessment(reviewTargetId, { field: payload.field, value: normalizedValue })
+        : pipelineApi.updateReviewAssessment(reviewTargetId, { field: payload.field, value: normalizedValue });
     },
     onSuccess: async () => {
       setFeedback("AI assessment field updated.");
@@ -432,12 +433,14 @@ export function AiReviewPage() {
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-3 border-b border-hairline">
             <div>
               <p className="text-xl font-semibold tracking-tight text-ink">
-                {reviewPackage.sourceDocumentId ? "Original document" : "Submitted survey"}
+                {reviewPackage.sourceDocumentId ? "Uploaded document" : "Submitted survey"}
               </p>
               <p className="mt-1 text-[11px] font-mono text-mute">
-                {reviewPackage.sourceDocumentId
+                {reviewPackage.sourceDocumentId && reviewPackage.document.readUrl
                   ? `Signed URL expires at ${formatDateTime(reviewPackage.document.readUrlExpiresAt)}`
-                  : "Created from a manually filled survey submission."}
+                  : reviewPackage.sourceDocumentId
+                    ? `File: ${reviewPackage.document.fileName}`
+                    : "Created from a manually filled survey submission."}
               </p>
             </div>
             {reviewPackage.sourceDocumentId && (
@@ -448,14 +451,18 @@ export function AiReviewPage() {
           </div>
 
           <div className="flex-1 overflow-hidden rounded-md border border-hairline bg-canvas-soft relative min-h-[300px]">
-            {reviewPackage.sourceDocumentId && reviewPackage.document.fileType.includes("pdf") ? (
+            {reviewPackage.sourceDocumentId && reviewPackage.document.readUrl && reviewPackage.document.fileType.includes("pdf") ? (
               <iframe className="absolute inset-0 h-full w-full border-0" src={reviewPackage.document.readUrl} title="Document preview" />
-            ) : reviewPackage.sourceDocumentId ? (
+            ) : reviewPackage.sourceDocumentId && reviewPackage.document.readUrl ? (
               <img
                 alt={reviewPackage.document.fileName}
                 className="absolute inset-0 h-full w-full object-contain p-2"
                 src={reviewPackage.document.readUrl}
               />
+            ) : reviewPackage.sourceDocumentId ? (
+              <div className="flex h-full items-center justify-center p-8 text-center text-sm text-body border-2 border-dashed border-hairline/50 m-4 rounded">
+                The uploaded document preview could not be loaded. The signed URL may have expired or the file may be unavailable. The AI review below is still valid.
+              </div>
             ) : (
               <div className="flex h-full items-center justify-center p-8 text-center text-sm text-body border-2 border-dashed border-hairline/50 m-4 rounded">
                 Manual survey submissions do not have an uploaded document preview. This AI review is based on the survey responses and generated needs.

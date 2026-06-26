@@ -1,22 +1,31 @@
 import { PipelineState } from "../pipelineState";
 
+/**
+ * ingestionNode — since rawText is already populated by inputNode from the
+ * survey's digitized responses, this node is now a simple pass-through that
+ * confirms the text is available and sets the fileType.
+ *
+ * We no longer fetch from GCS here because we don't want to process the raw
+ * uploaded PDF — we want the structured survey responses, which inputNode
+ * already loaded.
+ */
 export async function ingestionNode(state: PipelineState): Promise<Partial<PipelineState>> {
   const startTime = Date.now();
-  // Here we would download from GCS and run pdf-parse
-  // Currently we rely on rawText potentially passed in from earlier logic, or assume we fetch it
-  
-  if (!state.maskedText && !state.rawText) {
-      // Simulate reading raw text if it wasn't provided directly
-      // In a real scenario, this gets from GCS using state.documentId
-      // For testing, if we fail to get text, we set an error
-      return {
-          ingestionError: "Failed to load document text from storage",
-          nodeTimings: { ...state.nodeTimings, ingestion: Date.now() - startTime }
-      };
+
+  // rawText is populated by inputNode from survey responses.
+  // maskedText may be set if piiMaskNode has run.
+  const textAvailable = Boolean(state.maskedText?.trim() || state.rawText?.trim());
+
+  if (!textAvailable) {
+    return {
+      ingestionError: "No survey text available — survey has no responses or inputNode did not populate rawText",
+      nodeTimings: { ...state.nodeTimings, ingestion: Date.now() - startTime },
+    };
   }
 
   return {
-    fileType: state.fileType || "text/plain", // Default to text for now
-    nodeTimings: { ...state.nodeTimings, ingestion: Date.now() - startTime }
+    fileType: "text/plain", // survey responses are always treated as plain text
+    ingestionError: null,
+    nodeTimings: { ...state.nodeTimings, ingestion: Date.now() - startTime },
   };
 }

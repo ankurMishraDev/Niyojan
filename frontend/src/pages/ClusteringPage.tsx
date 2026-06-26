@@ -133,7 +133,6 @@ export function ClusteringPage() {
                         type="button"
                         onClick={() => {
                           if (need.surveyId) {
-                            // Use survey review route, not document review route
                             navigate(`/ai-review/surveys/${need.surveyId}`);
                           }
                         }}

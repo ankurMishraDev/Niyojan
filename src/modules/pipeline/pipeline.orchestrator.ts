@@ -1,4 +1,4 @@
-import { runDocumentPipeline } from "../../langgraph-pipeline/pipelineGraph";
+﻿import { runDocumentPipeline } from "../../langgraph-pipeline/pipelineGraph";
 import { generateSignedReadUrl } from "../../config/gcp";
 import { db } from "../../config/db";
 import { jobService } from "../../jobs/job.service";
@@ -1213,6 +1213,30 @@ export class PipelineOrchestrator {
     if (user.role !== "superadmin" && user.orgId !== survey.org_id)
       throw new AppError(403, "Cross-organization access is not allowed");
 
+    // ── Find any document the NGO uploaded alongside this survey ─────────────
+    // Extra columns fetched here so the fallback path can build a signed URL
+    // without a second DB round-trip.
+    const linkedDocRow = await db("documents")
+      .where({ source_survey_id: surveyId })
+      .orderBy("created_at", "desc")
+      .select("id", "status", "gcs_path", "file_name", "file_type")
+      .first() as (Pick<DocumentRow, "id" | "status" | "gcs_path" | "file_name" | "file_type">) | undefined;
+
+    // ── Tier 1: full pipeline delegation ─────────────────────────────────────
+    // If the document has a completed pipeline manifest, delegate to
+    // getReviewPackage() which returns real AI reasoning + document signed URL.
+    if (linkedDocRow) {
+      try {
+        return await this.getReviewPackage(linkedDocRow.id, user);
+      } catch {
+        // Pipeline manifest not found (pipeline hasn't run yet, or failed).
+        // Fall through to Tier 2 — we still show the document preview.
+      }
+    }
+
+    // ── Tier 2: survey-based assessment ──────────────────────────────────────
+    // Build reasoning from survey needs. If the NGO uploaded a document, also
+    // generate its signed URL so the PDF preview renders in the admin UI.
     const [responses, surveyNeeds, reviews] = await Promise.all([
       getSurveyResponsesForReview(surveyId),
       getSurveyNeedsBySurveyId(surveyId),
@@ -1228,10 +1252,7 @@ export class PipelineOrchestrator {
       ]),
     );
     const latestReview = reviews[0] as
-      | {
-          approved_fields?: unknown;
-          field_corrections?: unknown;
-        }
+      | { approved_fields?: unknown; field_corrections?: unknown }
       | undefined;
     const trustedFields = applyFieldOverrides(rawTrustedFields, latestReview);
     const topUrgencyScore = surveyNeeds.reduce(
@@ -1257,14 +1278,47 @@ export class PipelineOrchestrator {
       .filter((value) => !value.endsWith(": Not provided"))
       .slice(0, 4);
     const caseSummary = surveyNeeds.length > 0
-      ? `This manually submitted survey appears to request ${surveyNeeds.length} area(s) of support. The strongest needs are ${surveyNeeds
+      ? `This survey appears to request ${surveyNeeds.length} area(s) of support. The strongest needs are ${surveyNeeds
           .slice(0, 2)
           .map((need) => String(need.summary))
           .join(" and ")}.`
-      : "This manually submitted survey has been reviewed, but no needs were detected automatically. The admin should still review the responses and consider volunteer support.";
+      : "This survey has been reviewed, but no needs were detected automatically. The admin should still review the responses and consider volunteer support.";
 
-    return {
-      document: {
+    // ── Build document info ───────────────────────────────────────────────────
+    // If an NGO uploaded a document, generate its signed URL so the PDF/image
+    // preview renders. If URL generation fails, fall back to the placeholder.
+    let documentInfo: {
+      id: string; fileName: string; fileType: string;
+      status: string; readUrl: string; readUrlExpiresAt: string;
+    };
+    let sourceDocumentId: string | null = null;
+
+    if (linkedDocRow) {
+      try {
+        const signed = await generateSignedReadUrl(linkedDocRow.gcs_path);
+        documentInfo = {
+          id: linkedDocRow.id,
+          fileName: linkedDocRow.file_name,
+          fileType: linkedDocRow.file_type,
+          status: linkedDocRow.status,
+          readUrl: signed.url,
+          readUrlExpiresAt: signed.expiresAt,
+        };
+        sourceDocumentId = linkedDocRow.id;
+      } catch {
+        // Signed URL generation failed — show placeholder, no PDF preview.
+        documentInfo = {
+          id: survey.id,
+          fileName: survey.respondent_name ? `Survey: ${survey.respondent_name}` : "Survey submission",
+          fileType: "survey/manual",
+          status: survey.status,
+          readUrl: "",
+          readUrlExpiresAt: "",
+        };
+      }
+    } else {
+      // No linked document — purely manual survey.
+      documentInfo = {
         id: survey.id,
         fileName: survey.respondent_name
           ? `Manual survey: ${survey.respondent_name}`
@@ -1273,8 +1327,12 @@ export class PipelineOrchestrator {
         status: survey.status,
         readUrl: "",
         readUrlExpiresAt: "",
-      },
-      sourceDocumentId: null,
+      };
+    }
+
+    return {
+      document: documentInfo,
+      sourceDocumentId,
       sourceSurveyId: survey.id,
       manifest: null,
       canonicalProjection: null,
@@ -1301,7 +1359,7 @@ export class PipelineOrchestrator {
         urgency_evidence_refs:
           evidenceRefs.length > 0
             ? evidenceRefs
-            : ["The review is based on the manually filled survey responses."],
+            : ["The review is based on the submitted survey responses."],
         need_category:
           surveyNeeds.length > 0 ? String(surveyNeeds[0].category) : "general",
         need_subcategory: null,
@@ -1315,7 +1373,7 @@ export class PipelineOrchestrator {
         verification_risk_reasons:
           surveyNeeds.length > 0
             ? [
-                "This is a manually filled survey, so an admin should confirm the detected needs before assignment.",
+                "An admin should confirm the detected needs before assignment.",
               ]
             : [
                 "No needs were detected automatically, so an admin should review the responses carefully.",
