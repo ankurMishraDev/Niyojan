@@ -103,7 +103,7 @@ function getDriveVideoUrl(input?: string): string | null {
 // ─── Guide data ───────────────────────────────────────────────────────────────
 const guides: Record<AppRole, RoleGuide> = {
 
-  superadmin: {
+    superadmin: {
     eyebrow: "Admin Help",
     title: "Command panel guide",
     description: "Use this panel to review the full operating picture, approve NGO onboarding, run pipeline workflows, and monitor live assignment execution.",
@@ -138,24 +138,6 @@ const guides: Record<AppRole, RoleGuide> = {
         },
       },
       {
-        label: "Matching",
-        title: "Create stronger volunteer matches",
-        description: "Use matching when urgent cases need the most relevant available volunteer based on skills, domain, and logistics.",
-        to: "/matching",
-        steps: [
-          "Review the need summary and urgency context.",
-          "Copy the survey id from the pipeline survey list and paste it into the matching id input field",
-          "Compare recommended volunteers and suitability indicators.",
-          "Promote the strongest candidate into assignment workflow.",
-        ],
-        video: {
-          // UPDATE: replace with actual Google Drive file ID after uploading
-          driveFileId: "https://drive.google.com/file/d/16UcXki9vdooIRLA70T0LL1V4RLwlvmCT/view?usp=sharing",
-          title: "Volunteer Matching Guide",
-          description: "How to compare candidates, read suitability scores, and promote matches into assignments.",
-        },
-      },
-      {
         label: "Pipeline",
         title: "Track intake and extraction flow",
         description: "The pipeline helps you monitor document processing, generated artifacts, and operational blockers in the automation path.",
@@ -168,9 +150,46 @@ const guides: Record<AppRole, RoleGuide> = {
         ],
         video: {
           // UPDATE: replace with actual Google Drive file ID after uploading
-          driveFileId: "https://drive.google.com/file/d/16UcXki9vdooIRLA70T0LL1V4RLwlvmCT/view?usp=sharing",
+          driveFileId: "https://drive.google.com/file/d/1m4AKDWLegcXiK5n5mlWzbIN-i1NrgXpm/view?usp=sharing",
           title: "Pipeline & AI Review",
           description: "Monitoring the intake queue, inspecting extracted documents, and handling AI review confirmations.",
+        },
+      },
+      
+      {
+        label: "AI Review",
+        title: "Review AI assessments and control quality",
+        description: "AI Review is where you can inspect the AI-generated case summary and extracted needs for each survey. Use it as a quality control checkpoint before the matching and assignment steps.",
+        to: "/ai-review",
+        steps: [
+          "Review the need summary and urgency context.",
+          "Copy the survey id from the pipeline survey list and paste it into the AI review id input field",
+          "Compare recommended volunteers and suitability indicators.",
+          "Promote the strongest candidate into assignment workflow.",
+        ],
+        video: {
+          // UPDATE: replace with actual Google Drive file ID after uploading
+          driveFileId: "https://drive.google.com/file/d/1CehDeA1z1wLoQH-Ddp28XSqjseMIr_y7/view?usp=drive_link",
+          title: "AI Review Guide",
+          description: "How to review AI-generated case summaries and extracted needs.",
+        },
+      },
+      {
+        label: "Matching",
+        title: "Create stronger volunteer matches",
+        description: "Use matching when urgent cases need the most relevant available volunteer based on skills, domain, and logistics.",
+        to: "/matching",
+        steps: [
+          "Review the need summary and urgency context.",
+          "Copy the survey id from the pipeline survey list and paste it into the matching id input field",
+          "Compare recommended volunteers and suitability indicators.",
+          "Promote the strongest candidate into assignment workflow.",
+        ],
+        video: {
+          // UPDATE: replace with actual Google Drive file ID after uploading
+          driveFileId: "https://drive.google.com/file/d/113DIRvhowFC1JzIbS7cfoUwPB5cf9LcX/view?usp=drive_link",
+          title: "Volunteer Matching Guide",
+          description: "How to compare candidates, read suitability scores, and promote matches into assignments.",
         },
       },
       {
@@ -202,7 +221,7 @@ const guides: Record<AppRole, RoleGuide> = {
         ],
         video: {
           // UPDATE: replace with actual Google Drive file ID after uploading
-          driveFileId: "https://drive.google.com/file/d/16UcXki9vdooIRLA70T0LL1V4RLwlvmCT/view?usp=sharing",
+          driveFileId: "https://drive.google.com/file/d/1MP5aedR2zEsIMHQ_XLFlkE7G4LoV5viG/view?usp=drive_link",
           title: "Assignments & Field Tracking",
           description: "How to inspect dispatched assignments, update status, and close cases with feedback review.",
         },
@@ -214,6 +233,8 @@ const guides: Record<AppRole, RoleGuide> = {
       "Use Feedback as the final verification layer before considering a case operationally closed.",
     ],
   },
+
+  
 
   ngo_admin: {
     eyebrow: "NGO Help",
