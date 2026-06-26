@@ -77,6 +77,16 @@ feedbackRouter.post(
 );
 
 feedbackRouter.post(
+	"/assignments/:id/feedback/evidence-read-url",
+	allowRoles(["superadmin", "ngo_admin", "field_worker", "volunteer"]),
+	validate({
+		params: assignmentIdParamsSchema,
+		body: z.object({ gcs_path: z.string().min(1) }),
+	}),
+	feedbackController.createEvidenceReadUrl,
+);
+
+feedbackRouter.post(
 	"/needs/:id/close",
 	allowRoles(["superadmin", "ngo_admin"]),
 	validate({ params: needIdParamsSchema, body: closeNeedBodySchema }),

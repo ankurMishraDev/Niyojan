@@ -300,7 +300,6 @@ const collectExtractionEntries = (extractionResult: any): ExtractionEntry[] => {
 
     // evidenceRef from Gemini extraction contains the ORIGINAL English text,
     // which is the reliable key for matching against English form field labels.
-    // Use it as sourceLabel so the field matcher can try both translated + original.
     const evidenceRef =
       typeof candidate?.evidenceRef === "string" && candidate.evidenceRef.trim().length > 0
         ? candidate.evidenceRef.trim()
@@ -308,6 +307,7 @@ const collectExtractionEntries = (extractionResult: any): ExtractionEntry[] => {
           ? candidate.provenanceRef.trim()
           : null;
 
+    // Only push if there's an actual value
     pushIfPresent({
       label: resolvedLabel,
       rawValue: candidate?.valueHint ?? candidate?.value,
@@ -325,10 +325,8 @@ const collectExtractionEntries = (extractionResult: any): ExtractionEntry[] => {
           : "candidate_field",
     });
 
-    // Also push an entry using the evidenceRef as label — this lets the matcher
-    // find English-labeled form fields when the extraction translated to another language.
+    // Also push using evidenceRef label to match English form fields when extraction was translated
     if (evidenceRef && evidenceRef !== resolvedLabel) {
-      // Extract just the label portion from evidenceRef ("Name: John" → "Name")
       const evidenceLabel = evidenceRef.includes(":")
         ? evidenceRef.split(":")[0].trim()
         : evidenceRef;
@@ -344,6 +342,24 @@ const collectExtractionEntries = (extractionResult: any): ExtractionEntry[] => {
           sourceType: "key_value",
         });
       }
+    }
+  });
+
+  // Also process mappedFields directly (they carry the matched English label + value hint)
+  // This is the primary path when extraction fields have values
+  mappedFields.forEach((mapped: any, index: number) => {
+    const candidate = candidateFields[index];
+    const label = typeof mapped?.label === "string" && mapped.label.trim().length > 0
+      ? mapped.label : "";
+    const rawValue = candidate?.valueHint ?? candidate?.value ?? mapped?.valueHint;
+    if (label && rawValue !== undefined && rawValue !== null && rawValue !== "") {
+      pushIfPresent({
+        label,
+        rawValue,
+        confidence: toConfidenceNumber(mapped?.confidence),
+        sourceLabel: label,
+        sourceType: "mapped_field",
+      });
     }
   });
 
@@ -380,20 +396,30 @@ const applyExtractionToDraft = (
   fields: FormField[],
   extractionResult: any,
 ) => {
-  console.log(`[DEBUG-EXTRACTION] Applying Extraction To Draft. Raw extraction result:`, extractionResult);
+  console.log(`[HYDRATION] Starting. Fields in form: ${fields.length}`);
+  console.log(`[HYDRATION] extractionResult keys:`, Object.keys(extractionResult ?? {}));
+  console.log(`[HYDRATION] documentAi.fields count:`, extractionResult?.documentAi?.fields?.length ?? 'N/A');
+  console.log(`[HYDRATION] fieldMapping.mappedFields count:`, extractionResult?.fieldMapping?.mappedFields?.length ?? 'N/A');
+  console.log(`[HYDRATION] documentAi.keyValuePairs count:`, extractionResult?.documentAi?.keyValuePairs?.length ?? 'N/A');
+
   const nextDraft = { ...currentDraft };
   const fieldExtractionMeta: Record<string, FieldExtractionMeta> = {};
   const entries = collectExtractionEntries(extractionResult);
-  console.log(`[DEBUG-EXTRACTION] Collected Extraction Entries:`, entries);
+  
+  console.log(`[HYDRATION] Collected ${entries.length} extraction entries`);
+  if (entries.length > 0) {
+    console.log(`[HYDRATION] First 5 entries:`, entries.slice(0, 5).map(e => ({ label: e.label, value: e.rawValue })));
+  } else {
+    console.warn(`[HYDRATION] ZERO entries collected — check candidateFields and keyValuePairs`);
+  }
+  
   const usedFieldIds = new Set<string>();
+  let matchCount = 0;
 
   for (const entry of entries) {
     const normalizedEntryLabel = normalizeFieldToken(entry.label);
     const field = fields.find((candidateField) => {
-      if (usedFieldIds.has(candidateField.id)) {
-        return false;
-      }
-
+      if (usedFieldIds.has(candidateField.id)) return false;
       const normalizedFieldLabel = normalizeFieldToken(candidateField.label);
       return (
         normalizedFieldLabel === normalizedEntryLabel ||
@@ -402,16 +428,16 @@ const applyExtractionToDraft = (
       );
     });
 
-    if (!field) {
-      continue;
-    }
+    if (!field) continue;
 
     const coerced = coerceExtractedValue(field, entry.rawValue);
     if (!coerced) {
+      console.log(`[HYDRATION] Field "${field.label}" matched but coercion failed for value:`, entry.rawValue);
       continue;
     }
 
     usedFieldIds.add(field.id);
+    matchCount++;
     nextDraft[field.id] = {
       ...(nextDraft[field.id] ?? { inputType: field.inputType }),
       ...coerced,
@@ -424,10 +450,8 @@ const applyExtractionToDraft = (
     };
   }
 
-  return {
-    draft: nextDraft,
-    fieldExtractionMeta,
-  };
+  console.log(`[HYDRATION] Matched and populated ${matchCount} form fields`);
+  return { draft: nextDraft, fieldExtractionMeta };
 };
 
 const buildExtractionAttentionItems = (

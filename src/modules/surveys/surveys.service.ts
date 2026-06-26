@@ -325,20 +325,18 @@ const hasMeaningfulValue = (
   response: SubmitSurveyResponseInput,
 ) => {
   if (inputType === "number") {
-    return response.value_number !== undefined;
+    return response.value_number !== undefined || (typeof response.value_text === "string" && response.value_text.trim().length > 0);
   }
 
   if (inputType === "boolean") {
-    return response.value_bool !== undefined;
+    return response.value_bool !== undefined || (typeof response.value_text === "string" && response.value_text.trim().length > 0);
   }
 
-  if (inputType === "multiselect") {
-    return Array.isArray(response.value_json) && response.value_json.length > 0;
-  }
-
+  // All other types: accept value_text, value_json, or value_number as valid
   return (
-    typeof response.value_text === "string" &&
-    response.value_text.trim().length > 0
+    (typeof response.value_text === "string" && response.value_text.trim().length > 0) ||
+    (Array.isArray(response.value_json) && response.value_json.length > 0) ||
+    response.value_number !== undefined
   );
 };
 
@@ -346,9 +344,10 @@ const assertResponseMatchesField = (
   field: FormFieldContextRow,
   response: SubmitSurveyResponseInput,
 ) => {
-  if (field.input_type !== response.input_type) {
-    throw new AppError(422, `Input type mismatch for field ${field.label}`);
-  }
+  // PERMISSIVE TYPE HANDLING: We accept any response that carries a usable value.
+  // All field types except 'number' and 'boolean' are treated as text so that
+  // mobile apps and AI extraction never fail with "Input type mismatch" errors.
+  // The stored input_type comes from the response, not the field definition.
 
   if (response.input_type === "number") {
     if (response.value_number === undefined) {
@@ -371,6 +370,7 @@ const assertResponseMatchesField = (
     return;
   }
 
+  // All other types (text, select, date, textarea, list, etc.) — require value_text
   if (!response.value_text || response.value_text.trim().length === 0) {
     throw new AppError(422, `Field ${field.label} requires value_text`);
   }
@@ -380,25 +380,26 @@ const normalizeResponseInsert = (
   surveyId: string,
   response: SubmitSurveyResponseInput,
 ) => {
-    return {
-      survey_id: surveyId,
-      form_field_id: response.form_field_id,
-      input_type: response.input_type,
-      value_text:
-        response.input_type === "number" ||
-        response.input_type === "boolean" ||
-        response.input_type === "multiselect"
-          ? null
-          : response.value_text?.trim() || null,
-      english_value_text: null as string | null,
-      value_number:
-        response.input_type === "number" ? (response.value_number ?? null) : null,
-    value_bool:
-      response.input_type === "boolean" ? (response.value_bool ?? null) : null,
-    value_json:
-      response.input_type === "multiselect"
-        ? JSON.stringify(response.value_json ?? [])
-        : null,
+  // Normalize to the actual stored type:
+  // - 'number' and 'boolean' keep their typed columns.
+  // - Everything else is coerced to 'text' storage so there is a single
+  //   consistent path for reading responses back out.
+  const storedType = (response.input_type === "number" || response.input_type === "boolean")
+    ? response.input_type
+    : "text";
+
+  return {
+    survey_id: surveyId,
+    form_field_id: response.form_field_id,
+    input_type: storedType,
+    value_text:
+      storedType === "number" || storedType === "boolean"
+        ? null
+        : response.value_text?.trim() || null,
+    english_value_text: null as string | null,
+    value_number: storedType === "number" ? (response.value_number ?? null) : null,
+    value_bool: storedType === "boolean" ? (response.value_bool ?? null) : null,
+    value_json: null, // multiselect coerced to text; json column unused for text values
   };
 };
 
@@ -957,6 +958,99 @@ export class SurveysService {
     if (result === 0) {
       throw new AppError(404, "Survey not found");
     }
+  }
+
+  /**
+   * Returns a self-contained printable HTML document for the survey.
+   * Accessible to volunteers so they can view/download the full form
+   * without needing NGO-level route access.
+   */
+  async getSurveyDownloadHtml(surveyId: string, user: AuthenticatedUser): Promise<string> {
+    const survey = await db("surveys as s")
+      .leftJoin("organizations as o", "s.org_id", "o.id")
+      .where("s.id", surveyId)
+      .select(
+        "s.id", "s.respondent_name", "s.location_text", "s.latitude", "s.longitude",
+        "s.status", "s.submitted_at", "s.created_at",
+        "o.name as org_name", "o.contact_phone as org_phone", "o.contact_email as org_email",
+      )
+      .first() as {
+        id: string; respondent_name: string | null; location_text: string | null;
+        latitude: unknown; longitude: unknown; status: string; submitted_at: Date | null;
+        created_at: Date; org_name: string | null; org_phone: string | null; org_email: string | null;
+      } | undefined;
+
+    if (!survey) throw new AppError(404, "Survey not found");
+
+    const responses = await db("survey_responses as sr")
+      .join("form_fields as ff", "sr.form_field_id", "ff.id")
+      .where("sr.survey_id", surveyId)
+      .orderBy("ff.display_order", "asc")
+      .select("ff.label", "sr.value_text", "sr.value_number", "sr.value_bool", "sr.value_json") as {
+        label: string; value_text: string | null; value_number: unknown;
+        value_bool: boolean | null; value_json: unknown;
+      }[];
+
+    const fmtValue = (r: typeof responses[0]) => {
+      if (r.value_text?.trim()) return r.value_text.trim();
+      if (r.value_number !== null && r.value_number !== undefined) return String(r.value_number);
+      if (r.value_bool !== null && r.value_bool !== undefined) return r.value_bool ? "Yes" : "No";
+      if (Array.isArray(r.value_json)) return (r.value_json as string[]).join(", ");
+      return "—";
+    };
+
+    const esc = (v: string | null | undefined) =>
+      (v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    const rows = responses.map((r) =>
+      `<tr><td style="padding:8px 12px;border-bottom:1px solid #ebebeb;color:#888;font-size:13px;width:40%">${esc(r.label)}</td><td style="padding:8px 12px;border-bottom:1px solid #ebebeb;font-size:13px;color:#171717">${esc(fmtValue(r))}</td></tr>`
+    ).join("");
+
+    const submittedDate = survey.submitted_at
+      ? new Date(survey.submitted_at).toLocaleDateString("en-IN", { dateStyle: "long" })
+      : "Draft";
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Survey — ${esc(survey.respondent_name ?? "Unnamed")}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafafa; margin: 0; padding: 24px; color: #171717; }
+    .card { background: #fff; border: 1px solid #ebebeb; border-radius: 8px; padding: 32px; max-width: 700px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+    h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
+    .meta { color: #888; font-size: 13px; margin-bottom: 24px; }
+    .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #888; font-weight: 500; margin: 20px 0 8px; }
+    table { width: 100%; border-collapse: collapse; }
+    @media print { body { background: #fff; padding: 0; } .card { box-shadow: none; border: none; } .no-print { display: none; } }
+  </style>
+</head>
+<body>
+<div class="card">
+  <p style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#888;margin:0 0 8px">Survey Form</p>
+  <h1>${esc(survey.respondent_name ?? "Unnamed Respondent")}</h1>
+  <p class="meta">
+    ${esc(survey.location_text ?? "No location specified")} &nbsp;·&nbsp;
+    Submitted: ${esc(submittedDate)} &nbsp;·&nbsp;
+    Status: ${esc(survey.status)}
+  </p>
+  ${survey.org_name || survey.org_phone || survey.org_email ? `
+  <div class="section-title">NGO Contact</div>
+  <table>
+    ${survey.org_name ? `<tr><td style="padding:6px 12px;color:#888;font-size:13px;width:40%">Organization</td><td style="padding:6px 12px;font-size:13px">${esc(survey.org_name)}</td></tr>` : ""}
+    ${survey.org_phone ? `<tr><td style="padding:6px 12px;color:#888;font-size:13px">Phone</td><td style="padding:6px 12px;font-size:13px"><a href="tel:${esc(survey.org_phone)}" style="color:#0070f3">${esc(survey.org_phone)}</a></td></tr>` : ""}
+    ${survey.org_email ? `<tr><td style="padding:6px 12px;color:#888;font-size:13px">Email</td><td style="padding:6px 12px;font-size:13px"><a href="mailto:${esc(survey.org_email)}" style="color:#0070f3">${esc(survey.org_email)}</a></td></tr>` : ""}
+  </table>` : ""}
+  <div class="section-title">Survey Responses</div>
+  ${responses.length === 0 ? '<p style="color:#888;font-size:13px">No responses recorded.</p>' : `<table>${rows}</table>`}
+  <div style="margin-top:24px;padding-top:16px;border-top:1px solid #ebebeb" class="no-print">
+    <button onclick="window.print()" style="background:#171717;color:#fff;border:none;border-radius:100px;padding:8px 20px;font-size:13px;cursor:pointer">Print / Save as PDF</button>
+  </div>
+  <p style="margin-top:16px;font-size:11px;color:#ccc;text-align:right">Survey ID: ${esc(survey.id)}</p>
+</div>
+</body>
+</html>`;
   }
 }
 

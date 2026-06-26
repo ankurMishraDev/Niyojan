@@ -371,8 +371,11 @@ const mapMappedFields = (fields: ExtractionMappedField[]) => {
       .filter((field) => field.label && field.inputType)
       .map((field) => ({
         label: field.label as string,
-        inputType: field.inputType as string,
-        options: field.options ?? null,
+        // NORMALIZE: all field types except 'number' are stored as 'text'.
+        // This prevents empty select/boolean/multiselect dropdowns when Gemini
+        // creates fields without options, and ensures consistent submission handling.
+        inputType: (field.inputType === "number") ? "number" : "text",
+        options: null, // options not needed when everything is text
         required: Boolean(field.required),
         fieldCatalogId: field.fieldCatalogId || null,
         isCustom: field.isCustom ?? !field.fieldCatalogId,
@@ -386,8 +389,9 @@ const mapCandidateFields = (fields: ExtractionCandidateField[]) => {
       .filter((field) => field.label && field.inputType)
       .map((field) => ({
         label: field.label as string,
-        inputType: field.inputType as string,
-        options: field.options ?? null,
+        // Normalize all types to text except number
+        inputType: (field.inputType === "number") ? "number" : "text",
+        options: null,
         required: Boolean(field.required),
         fieldCatalogId: null,
         isCustom: true,
@@ -430,8 +434,9 @@ const mergeOrderedFields = (
 
       return {
         label: finalLabel,
-        inputType: mappedField.inputType,
-        options: mappedField.options,
+        // Normalize: always use text except for number fields
+        inputType: (mappedField.inputType === "number" || sourceField.inputType === "number") ? "number" : "text",
+        options: null,
         required: mappedField.required,
         fieldCatalogId: mappedField.fieldCatalogId,
         isCustom: mappedField.isCustom,

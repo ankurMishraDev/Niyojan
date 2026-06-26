@@ -12,6 +12,62 @@ function StatusPill({ value }: { value: string }) {
   return <StatusBadge tone={toneForStatus(value)}>{value}</StatusBadge>;
 }
 
+/**
+ * EvidenceLink — compact, clickable evidence file entry.
+ * Shows only the filename (not the full GCS path) and fetches a signed URL on click.
+ */
+function EvidenceLink({ path, index, assignmentId }: { path: string; index: number; assignmentId: string }) {
+  const [loading, setLoading] = useState(false);
+
+  // Show only the filename — strip the long GCS path prefix
+  const fileName = path.split("/").pop() || `Evidence ${index + 1}`;
+  // Infer icon from extension
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const icon = ["jpg", "jpeg", "png", "gif", "webp"].includes(ext) ? "🖼" : ["pdf"].includes(ext) ? "📄" : "📎";
+
+  const handleOpen = async () => {
+    setLoading(true);
+    try {
+      const { buildAuthHeaders } = await import("@/features/auth/authSession");
+      const resp = await fetch(`/api/assignments/${assignmentId}/feedback/evidence-read-url`, {
+        method: "POST",
+        headers: { ...(buildAuthHeaders() as Record<string, string>), "Content-Type": "application/json" },
+        body: JSON.stringify({ gcs_path: path }),
+      });
+      if (resp.ok) {
+        const data = await resp.json() as { data?: { readUrl?: string } };
+        const url = data?.data?.readUrl;
+        if (url) { window.open(url, "_blank"); return; }
+      }
+      alert(`Could not open: ${fileName}`);
+    } catch {
+      alert(`Could not open evidence file: ${fileName}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleOpen()}
+      disabled={loading}
+      className="w-full flex items-center gap-3 rounded-md border border-hairline bg-canvas-soft px-3 py-2.5 text-left transition-colors hover:bg-canvas-soft-2 hover:border-hairline-strong disabled:opacity-60"
+    >
+      <span className="text-base shrink-0">{icon}</span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-medium text-ink truncate">{fileName}</span>
+        <span className="block text-[10px] text-mute mt-0.5">
+          {loading ? "Loading signed URL…" : "Click to view"}
+        </span>
+      </span>
+      <span className="shrink-0 text-xs font-medium text-link">
+        {loading ? "…" : "View ↗"}
+      </span>
+    </button>
+  );
+}
+
 export function FeedbackIndexPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -201,10 +257,10 @@ export function FeedbackPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-6">
           <Panel className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
               <InfoCell label="Volunteer" value={assignment.volunteerName} />
               <InfoCell label="Status" value={assignment.status} />
               <InfoCell label="Priority" value={assignment.needPriorityLevel} />
@@ -233,7 +289,7 @@ export function FeedbackPage() {
             ) : null}
           </Panel>
 
-          <Panel className="space-y-6 bg-canvas-soft">
+          <Panel className="space-y-6  bg-canvas-soft">
             <p className="text-xl font-semibold tracking-tight text-ink">Feedback Response</p>
             {!feedback && isVolunteer ? (
               <form
@@ -368,26 +424,51 @@ export function FeedbackPage() {
             ) : feedback ? (
               <div className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <InfoCell label="Visit completed" value={String(feedback.visitCompleted)} />
+                  <InfoCell label="Visit completed" value={feedback.visitCompleted ? "Yes" : "No"} />
                   <InfoCell label="Visit date" value={formatDateTime(feedback.visitDate)} />
                   <InfoCell label="Resolution" value={feedback.resolutionStatus} />
                   <InfoCell label="Affected count" value={String(feedback.actualAffectedCount ?? "n/a")} />
+                  {feedback.actualUrgencyAssessment && (
+                    <InfoCell label="Urgency assessment" value={feedback.actualUrgencyAssessment} />
+                  )}
+                  {feedback.escalationReason && (
+                    <InfoCell label="Escalation reason" value={feedback.escalationReason} />
+                  )}
                 </div>
-                <div className="rounded-md border border-hairline bg-canvas p-5 space-y-4">
-                  <div>
-                    <p className="label-caps mb-2 text-primary">Actual situation</p>
-                    <p className="text-sm leading-relaxed text-body">
-                      {feedback.actualSituationSummary ?? "No summary provided"}
-                    </p>
-                  </div>
-                  <div className="pt-4 border-t border-hairline">
-                    <p className="label-caps mb-2">Evidence paths</p>
-                    <div className="space-y-2 text-[11px] font-mono text-mute break-all">
-                      {feedback.evidenceGcsPaths.map((path) => (
-                        <div key={path}>{path}</div>
-                      ))}
-                      {feedback.evidenceGcsPaths.length === 0 && <p className="italic">No evidence attached.</p>}
+                <div className="rounded-md border border-hairline bg-canvas p-5 space-y-5">
+                  {feedback.actualSituationSummary && (
+                    <div>
+                      <p className="label-caps mb-2 text-primary">Observed Field Situation</p>
+                      <p className="text-sm leading-relaxed text-body whitespace-pre-wrap">
+                        {feedback.actualSituationSummary}
+                      </p>
                     </div>
+                  )}
+                  {feedback.actionTaken && (
+                    <div className={feedback.actualSituationSummary ? "pt-4 border-t border-hairline" : ""}>
+                      <p className="label-caps mb-2 text-primary">Action Taken</p>
+                      <p className="text-sm leading-relaxed text-body whitespace-pre-wrap">
+                        {feedback.actionTaken}
+                      </p>
+                    </div>
+                  )}
+                  {/* {feedback.extractionInaccuracies && (
+                    <div className="pt-4 border-t border-hairline">
+                      <p className="label-caps mb-2">Extraction Inaccuracies</p>
+                      <p className="text-sm leading-relaxed text-body">{feedback.extractionInaccuracies}</p>
+                    </div>
+                  )} */}
+                  <div className={feedback.actualSituationSummary || feedback.actionTaken || feedback.extractionInaccuracies ? "pt-4 border-t border-hairline" : ""}>
+                    <p className="label-caps mb-3">Evidence Files</p>
+                    {feedback.evidenceGcsPaths.length === 0 ? (
+                      <p className="text-xs text-mute italic">No evidence attached.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {feedback.evidenceGcsPaths.map((path, i) => (
+                          <EvidenceLink key={path} path={path} index={i} assignmentId={assignmentId} />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

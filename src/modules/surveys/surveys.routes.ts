@@ -102,4 +102,12 @@ surveysRouter.delete(
 	surveysController.deleteSurvey,
 );
 
+// Volunteer-accessible survey download — returns an HTML page for printing/saving
+surveysRouter.get(
+	"/:id/download",
+	allowRoles(["superadmin", "ngo_admin", "field_worker", "volunteer"]),
+	validate({ params: surveyIdParamsSchema }),
+	surveysController.downloadSurvey,
+);
+
 export default surveysRouter;

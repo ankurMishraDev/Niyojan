@@ -263,6 +263,26 @@ export class NeedsService {
 
 		return this.getNeedById(needId, user);
 	}
+
+	async updateNeed(
+		needId: string,
+		input: { summary?: string; urgency_score?: number; priority_level?: string; status?: string },
+		user: AuthenticatedUser,
+	) {
+		const need = await db("needs_analysis").where({ id: needId }).first();
+		if (!need) throw new AppError(404, "Need not found");
+		if (user.role !== "superadmin" && user.orgId !== need.org_id) {
+			throw new AppError(403, "Cross-organization access is not allowed");
+		}
+		await db("needs_analysis").where({ id: needId }).update({
+			...(input.summary !== undefined ? { summary: input.summary } : {}),
+			...(input.urgency_score !== undefined ? { urgency_score: input.urgency_score } : {}),
+			...(input.priority_level !== undefined ? { priority_level: input.priority_level } : {}),
+			...(input.status !== undefined ? { status: input.status } : {}),
+			updated_at: new Date(),
+		});
+		return this.getNeedById(needId, user);
+	}
 }
 
 export const needsService = new NeedsService();

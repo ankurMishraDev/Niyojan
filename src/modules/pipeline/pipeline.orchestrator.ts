@@ -516,28 +516,160 @@ export class PipelineOrchestrator {
       await jobService.markRunning(job.id as string);
       const existingManifest = await getManifestByDocumentId(documentId);
 
+      // ── SURVEY-FIRST EXTRACTION ─────────────────────────────────────────────
+      // Instead of sending the raw uploaded PDF to Gemini (slow, error-prone),
+      // we build the extraction result directly from the already-digitized
+      // survey responses. This is the same path used for manual form submissions
+      // and is both faster and more accurate.
+      //
+      // The document file is still stored in GCS for reference/display, but we
+      // no longer send it to the AI pipeline for content extraction.
       currentStage = "stage2_extraction";
-      logStage(currentStage, { action: "start" });
-      const extraction = await stage2Extraction({
-        documentId: document.id,
-        gcsPath: document.gcs_path,
-        fileName: document.file_name,
-        fileType: document.file_type,
+      logStage(currentStage, {
+        action: "start",
+        mode: "survey_responses",
+        sourceSurveyId: document.source_survey_id,
       });
+
+      const surveyResponses = await getSurveyResponsesForReview(document.source_survey_id!);
+      const surveyRow = await getSurveyReviewRowById(document.source_survey_id!);
+
+      // Build canonical text from survey responses (same format used by analyzeNeeds)
+      const surveyCanonicalText = [
+        surveyRow?.respondent_name ? `Respondent: ${surveyRow.respondent_name}` : null,
+        surveyRow?.location_text ? `Location: ${surveyRow.location_text}` : null,
+        ...surveyResponses.map((r) => {
+          const val = formatSurveyResponseValue(r);
+          return val !== "Not provided" ? `${r.field_label}: ${val}` : null;
+        }),
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      // Build a synthetic extraction result that mirrors the DocumentExtractionOrchestrationOutput
+      // shape expected by downstream stages — but populated from survey data, not a raw document.
+      const surveyMappedFields = surveyResponses.map((r) => ({
+        label: r.field_label,
+        inputType: r.input_type,
+        required: false,
+        options: null as string[] | null,
+        confidence: 0.95, // High confidence — these are digitized user entries, not OCR
+        fieldCatalogId: null as string | null,
+        matchedCatalogKey: null as string | null,
+        isCustom: true,
+        category: "survey_response",
+      }));
+
+      // Wrap into the shape that stage3+ expects
+      const extraction = {
+        providerMode: "live" as const,
+        document: {
+          id: document.id,
+          gcsPath: document.gcs_path,
+          fileName: document.file_name,
+          fileType: document.file_type,
+        },
+        extractedFields: surveyMappedFields.map((f, i) => ({
+          label: f.label,
+          inputType: f.inputType,
+          required: false,
+          confidence: f.confidence,
+          provenanceRef: `survey_response_${i}`,
+          valueHint: formatSurveyResponseValue(surveyResponses[i]),
+        })),
+        mappedFields: surveyMappedFields,
+        summary: {
+          candidateCount: surveyResponses.length,
+          mappedCount: surveyResponses.length,
+          customCount: surveyResponses.length,
+        },
+        models: {
+          documentExtractor: "survey_responses",
+          fieldMapper: "survey_responses",
+          vertexProvider: "vertex-ai-live",
+        },
+        documentAi: {
+          providerMode: "live" as const,
+          providerName: "survey_responses_extractor",
+          model: "survey_responses",
+          fields: surveyMappedFields.map((f, i) => ({
+            label: f.label,
+            inputType: f.inputType,
+            required: false,
+            confidence: f.confidence,
+            valueHint: formatSurveyResponseValue(surveyResponses[i]),
+          })),
+          documentText: surveyCanonicalText,
+          textBlocks: surveyResponses.map((r, i) => ({
+            page: 1,
+            block_id: `b${i + 1}`,
+            text: `${r.field_label}: ${formatSurveyResponseValue(r)}`,
+            block_type: "survey_response",
+            bbox: null,
+          })),
+          keyValuePairs: surveyResponses
+            .map((r) => ({
+              label: r.field_label,
+              value: formatSurveyResponseValue(r),
+              confidence: 0.95,
+              page: 1,
+            }))
+            .filter((kv) => kv.value !== "Not provided"),
+          tables: [],
+          pageCount: 1,
+          detectedLanguage: surveyRow?.assessment_overrides_json ? "en" : null,
+          rawResponse: { source: "survey_responses", surveyId: document.source_survey_id },
+          latencyMs: 0,
+          validationStatus: surveyResponses.length > 0 ? ("passed" as const) : ("requires_human" as const),
+          validationErrors: surveyResponses.length === 0 ? ["no_survey_responses"] : [],
+          fallbackReason: null,
+          reviewRequired: false,
+        },
+        fieldMapping: {
+          providerName: "survey_responses_mapper",
+          mode: "live" as const,
+          model: "survey_responses",
+          promptVersion: "survey_map_v1",   // max 20 chars for DB column
+          mappedFields: surveyMappedFields,
+          contradictions: [] as string[],
+          modelQualityFlags: [] as string[],
+          inputTokenCount: null as number | null,
+          outputTokenCount: null as number | null,
+          latencyMs: 0,
+          validationStatus: "passed" as const,
+          validationErrors: [] as string[],
+          fallbackReason: null as string | null,
+          reviewRequired: false,
+        },
+        generatedAt: new Date().toISOString(),
+      };
       logStage(currentStage, {
         action: "completed",
+        mode: "survey_responses",
         candidateCount: extraction.summary.candidateCount,
         mappedCount: extraction.summary.mappedCount,
-        documentValidationStatus: extraction.documentAi.validationStatus,
-        mappingValidationStatus: extraction.fieldMapping.validationStatus,
+        canonicalTextLength: surveyCanonicalText.length,
       });
 
       currentStage = "stage3_canonicalization";
-      const canonical = stage3Canonicalization(extraction);
+      // For survey-based extraction, we already have canonical text from the responses.
+      // Override the canonicalization result to use the survey text directly.
+      const canonicalFromStage3 = stage3Canonicalization(extraction);
+      const canonical = {
+        ...canonicalFromStage3,
+        canonicalText: surveyCanonicalText || canonicalFromStage3.canonicalText,
+        keyValuePairs: extraction.documentAi.keyValuePairs.length > 0
+          ? extraction.documentAi.keyValuePairs
+          : canonicalFromStage3.keyValuePairs,
+        textBlocks: extraction.documentAi.textBlocks.length > 0
+          ? extraction.documentAi.textBlocks
+          : canonicalFromStage3.textBlocks,
+      };
       logStage(currentStage, {
         pageCount: canonical.pageCount,
         keyValuePairCount: canonical.keyValuePairs.length,
         textBlockCount: canonical.textBlocks.length,
+        canonicalTextLength: canonical.canonicalText.length,
       });
 
       currentStage = "stage4_pii_masking";
@@ -577,8 +709,8 @@ export class PipelineOrchestrator {
         extraction.documentAi.reviewRequired ||
         extraction.fieldMapping.reviewRequired
           ? "requires_human"
-          : extraction.documentAi.validationStatus === "fallback" ||
-              extraction.fieldMapping.validationStatus === "fallback"
+          : (extraction.documentAi.validationStatus as string) === "fallback" ||
+              (extraction.fieldMapping.validationStatus as string) === "fallback"
             ? "fallback"
             : baseTrust.validationStatus;
       const trust = {

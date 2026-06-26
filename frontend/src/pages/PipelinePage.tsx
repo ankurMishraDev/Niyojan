@@ -22,6 +22,7 @@ export function PipelinePage() {
     queryFn: () => pipelineApi.queue(),
   });
 
+  
   useEffect(() => {
     if ((!selectedSurveyId || !intakeQuery.data?.some((item) => item.surveyId === selectedSurveyId)) && intakeQuery.data?.[0]) {
       setSelectedSurveyId(intakeQuery.data[0].surveyId);
@@ -206,7 +207,7 @@ export function PipelinePage() {
                             type="button"
                             variant="secondary"
                           >
-                            Copy ID
+                            Copy Survey ID
                           </Button>
                           <div className="flex gap-2">
                             {item.sourceDocumentId ? (
@@ -223,7 +224,7 @@ export function PipelinePage() {
                                 type="button"
                                 variant="danger"
                               >
-                                Del Doc
+                                Delete Doc
                               </Button>
                             ) : null}
                             <Link 
@@ -244,7 +245,7 @@ export function PipelinePage() {
                               type="button"
                               variant="danger"
                             >
-                              Del Survey
+                              Delete Survey
                             </Button>
                           </div>
                         </div>
@@ -298,7 +299,7 @@ export function PipelinePage() {
                   {analyzeSurveyMutation.isPending || startPipelineMutation.isPending
                     ? "Starting…"
                     : selectedDocumentId
-                      ? "Start Doc Pipeline"
+                      ? "Start Survey Pipeline"
                       : "Start Survey Pipeline"}
                 </Button>
               ) : null}
@@ -380,7 +381,7 @@ export function PipelinePage() {
                     </p>
                     {selectedIntakeItem.surveyStatus === "analyzed" ? (
                       <Link className="action-button-secondary w-full text-center" to={`/ai-review/surveys/${selectedIntakeItem.surveyId}`}>
-                        Open AI Review
+                        Open Review
                       </Link>
                     ) : null}
                   </div>
