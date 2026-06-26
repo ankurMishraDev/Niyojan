@@ -1,16 +1,62 @@
 import { useEffect, useState } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { LoaderBlock, PageHeader, Panel, Select, StatusBadge } from "@/components/ui";
-import { assignmentsApi, organizationsApi } from "@/lib/services";
+import { LoaderBlock, PageHeader, Panel, Select, StatusBadge, Input } from "@/components/ui";
+import { assignmentsApi, organizationsApi, volunteersApi } from "@/lib/services";
 import { formatDateTime, toneForStatus } from "@/lib/format";
 import { useAuth } from "@/features/auth/useAuth";
+
+// ── DownloadSurveyButton ──────────────────────────────────────────────────────
+// Uses the API client (which injects the Bearer token) to fetch the HTML,
+// then opens it as a blob URL so the browser can display/print it.
+function DownloadSurveyButton({ surveyId }: { surveyId: string }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleDownload = async () => {
+    setLoading(true);
+    try {
+      const { buildAuthHeaders } = await import("@/features/auth/authSession");
+      const headers = buildAuthHeaders() as Record<string, string>;
+      const response = await fetch(`/api/surveys/${surveyId}/download`, { headers });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const html = await response.text();
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank");
+      if (win) {
+        win.addEventListener("load", () => URL.revokeObjectURL(url), { once: true });
+      } else {
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      }
+    } catch {
+      alert("Download failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      className="action-button-secondary w-full sm:w-auto text-center"
+      onClick={() => void handleDownload()}
+      disabled={loading}
+      type="button"
+    >
+      {loading ? "Loading…" : "Download Survey"}
+    </button>
+  );
+}
+
+/** buildAuthHeader is no longer needed as a separate function */
 
 export function AssignmentsPage() {
   const location = useLocation();
   const { user } = useAuth();
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const isVolunteer = user?.role === "volunteer";
+  const [showReassign, setShowReassign] = useState(false);
+  const [newVolunteerId, setNewVolunteerId] = useState("");
+  const [reassignReason, setReassignReason] = useState("");
 
   const assignmentsQuery = useQuery({
     queryKey: ["assignments"],
@@ -33,6 +79,7 @@ export function AssignmentsPage() {
     enabled: Boolean(selectedAssignmentId),
     queryKey: ["assignment-detail", selectedAssignmentId],
     queryFn: () => assignmentsApi.get(selectedAssignmentId),
+    staleTime: 0, // always re-fetch so assessment overrides from AI Review are reflected
   });
 
   const updateStatusMutation = useMutation({
@@ -48,6 +95,28 @@ export function AssignmentsPage() {
     enabled: Boolean(orgId),
     queryKey: ["org-contact", orgId],
     queryFn: () => organizationsApi.get(orgId!),
+  });
+
+  const volunteersQuery = useQuery({
+    enabled: !isVolunteer && Boolean(selectedAssignmentId),
+    queryKey: ["volunteers-for-reassign"],
+    queryFn: () => volunteersApi.list({ page: 1, pageSize: 100, is_active: "true" }),
+  });
+
+  const reassignMutation = useMutation({
+    mutationFn: () => assignmentsApi.reassignVolunteer(selectedAssignmentId, {
+      volunteer_id: newVolunteerId,
+      reason: reassignReason || undefined,
+    }),
+    onSuccess: async () => {
+      setShowReassign(false);
+      setNewVolunteerId("");
+      setReassignReason("");
+      await Promise.all([assignmentsQuery.refetch(), detailQuery.refetch()]);
+    },
+    onError: (err: any) => {
+      alert(err?.message ?? "Reassign failed");
+    },
   });
 
   if (assignmentsQuery.isLoading) {
@@ -136,13 +205,13 @@ export function AssignmentsPage() {
                 <InfoRow label="Completed at" value={formatDateTime(detailQuery.data.completedAt)} />
               </div>
 
-              {/* NGO contact block — visible to volunteers so they can reach the NGO */}
-              {(orgQuery.data?.contactPhone || orgQuery.data?.contactEmail) && (
+              {/* NGO contact block — always show when org data is available */}
+              {orgQuery.data && (
                 <div className="rounded-md border border-hairline bg-canvas-soft-2 px-5 py-4 space-y-3">
                   <p className="label-caps">NGO Contact</p>
                   <div className="grid gap-3 grid-cols-2">
                     <InfoRow label="Organization" value={orgQuery.data?.name ?? "—"} />
-                    {orgQuery.data?.contactPhone && (
+                    {orgQuery.data?.contactPhone ? (
                       <div className="space-y-1">
                         <p className="label-caps">Phone</p>
                         <a
@@ -152,8 +221,10 @@ export function AssignmentsPage() {
                           {orgQuery.data.contactPhone}
                         </a>
                       </div>
+                    ) : (
+                      <InfoRow label="Phone" value="Not provided" />
                     )}
-                    {orgQuery.data?.contactEmail && (
+                    {orgQuery.data?.contactEmail ? (
                       <div className="space-y-1">
                         <p className="label-caps">Email</p>
                         <a
@@ -163,9 +234,14 @@ export function AssignmentsPage() {
                           {orgQuery.data.contactEmail}
                         </a>
                       </div>
+                    ) : (
+                      <InfoRow label="Email" value="Not provided" />
                     )}
                     {orgQuery.data?.addressText && (
-                      <InfoRow label="Address" value={orgQuery.data.addressText} />
+                      <div className="sm:col-span-2 space-y-1">
+                        <p className="label-caps">Address</p>
+                        <p className="text-sm font-medium text-ink break-words">{orgQuery.data.addressText}</p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -233,7 +309,8 @@ export function AssignmentsPage() {
                     <option value="cancelled">Cancelled</option>
                   </Select>
                 ) : null}
-                {detailQuery.data.surveyId && (
+                {/* Admin/NGO: view survey inside the app */}
+                {detailQuery.data.surveyId && !isVolunteer && (
                   <Link
                     className="action-button-secondary w-full sm:w-auto text-center"
                     to={`/surveys/${detailQuery.data.surveyId}`}
@@ -241,14 +318,10 @@ export function AssignmentsPage() {
                     View Full Survey
                   </Link>
                 )}
-                {/* {detailQuery.data.surveyId && (
-                  <Link
-                    className="action-button-secondary w-full sm:w-auto text-center"
-                    to={`/ai-review/${detailQuery.data.surveyId}`}
-                  >
-                    AI Review
-                  </Link>
-                )} */}
+                {/* Volunteer: download printable HTML — fetch with auth token, open as blob */}
+                {detailQuery.data.surveyId && isVolunteer && (
+                  <DownloadSurveyButton surveyId={detailQuery.data.surveyId} />
+                )}
                 <Link
                   className="action-button-secondary w-full sm:w-auto text-center"
                   to={`/feedback/assignments/${detailQuery.data.id}`}
@@ -256,6 +329,55 @@ export function AssignmentsPage() {
                   {isVolunteer ? "Submit Field Feedback" : "Open Feedback"}
                 </Link>
               </div>
+
+              {!isVolunteer && (
+                <div className="pt-4 border-t border-hairline space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-ink">Reassign Volunteer</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowReassign(!showReassign)}
+                      className="text-xs text-link hover:text-link-deep"
+                    >
+                      {showReassign ? "Cancel" : "Change Volunteer"}
+                    </button>
+                  </div>
+                  {showReassign && (
+                    <div className="space-y-3 p-4 rounded-md border border-hairline bg-canvas-soft-2">
+                      <div className="space-y-1">
+                        <p className="label-caps">Select New Volunteer</p>
+                        <Select
+                          value={newVolunteerId}
+                          onChange={(e) => setNewVolunteerId(e.target.value)}
+                        >
+                          <option value="">Choose a volunteer…</option>
+                          {(volunteersQuery.data?.items ?? []).map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.name || v.email || v.id} · {v.availabilityStatus}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="label-caps">Reason (optional)</p>
+                        <Input
+                          placeholder="Why is this volunteer being changed?"
+                          value={reassignReason}
+                          onChange={(e) => setReassignReason(e.target.value)}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void reassignMutation.mutate()}
+                        disabled={!newVolunteerId || reassignMutation.isPending}
+                        className="w-full rounded-pill bg-primary px-4 py-2 text-sm font-medium text-on-primary disabled:opacity-50 hover:bg-ink/90 transition-colors"
+                      >
+                        {reassignMutation.isPending ? "Reassigning…" : "Confirm Reassign"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </Panel>

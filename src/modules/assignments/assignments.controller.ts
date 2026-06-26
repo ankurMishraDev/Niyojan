@@ -63,6 +63,20 @@ class AssignmentsController {
 			next(error);
 		}
 	};
+
+	reassignVolunteer = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) throw new AppError(401, "Authentication required");
+			const result = await assignmentsService.reassignVolunteer(
+				req.params.id as string,
+				req.body,
+				req.user
+			);
+			return sendSuccess(res, result, "Volunteer reassigned");
+		} catch (error) {
+			next(error);
+		}
+	};
 }
 
 export const assignmentsController = new AssignmentsController();

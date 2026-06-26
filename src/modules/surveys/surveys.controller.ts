@@ -86,6 +86,19 @@ class SurveysController {
 			next(error);
 		}
 	};
+
+	downloadSurvey = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) throw new AppError(401, "Authentication is required");
+
+			const html = await surveysService.getSurveyDownloadHtml(req.params.id as string, req.user);
+			res.setHeader("Content-Type", "text/html; charset=utf-8");
+			res.setHeader("Content-Disposition", `inline; filename="survey-${req.params.id}.html"`);
+			return res.send(html);
+		} catch (error) {
+			next(error);
+		}
+	};
 }
 
 export const surveysController = new SurveysController();

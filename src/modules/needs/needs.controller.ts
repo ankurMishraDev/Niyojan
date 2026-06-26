@@ -46,6 +46,16 @@ class NeedsController {
 			next(error);
 		}
 	};
+
+	updateNeed = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) throw new AppError(401, "Authentication is required");
+			const need = await needsService.updateNeed(req.params.id as string, req.body, req.user);
+			return sendSuccess(res, need, "Need updated");
+		} catch (error) {
+			next(error);
+		}
+	};
 }
 
 export const needsController = new NeedsController();

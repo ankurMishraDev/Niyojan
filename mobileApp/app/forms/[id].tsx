@@ -92,10 +92,16 @@ export default function FillForm() {
           [JSON.stringify(currentAnswers), now, sid]
         );
       } else {
+        // Look up templateVersionId from the cached form so syncService can call
+        // surveysApi.create({ template_version_id: ... }) without hitting the network
+        const cachedForm = db.getFirstSync(
+          'SELECT templateVersionId FROM forms WHERE id = ?',
+          [id]
+        ) as { templateVersionId: string | null } | null;
         db.runSync(
-          `INSERT INTO surveys (id, formId, data, status, createdAt, updatedAt)
-           VALUES (?, ?, ?, 'draft', ?, ?)`,
-          [sid, id, JSON.stringify(currentAnswers), now, now]
+          `INSERT INTO surveys (id, formId, templateVersionId, data, status, createdAt, updatedAt)
+           VALUES (?, ?, ?, ?, 'draft', ?, ?)`,
+          [sid, id, cachedForm?.templateVersionId ?? null, JSON.stringify(currentAnswers), now, now]
         );
       }
     } catch (err) {

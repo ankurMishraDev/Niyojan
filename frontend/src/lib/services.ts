@@ -241,6 +241,8 @@ export const needsApi = {
   list: async (query?: Record<string, unknown>) =>
     api.paginated<Need>(await api.get<Need[]>("/needs", query)),
   get: async (id: string) => (await api.get<Need>(`/needs/${id}`)).data,
+  update: async (id: string, body: Record<string, unknown>) =>
+    (await api.patch<Need>(`/needs/${id}`, body)).data,
   attachSkills: async (id: string, body: Record<string, unknown>) =>
     (await api.post<Need>(`/needs/${id}/skills`, body)).data,
 };
@@ -261,6 +263,8 @@ export const assignmentsApi = {
     (await api.post<Assignment>("/assignments", body)).data,
   updateStatus: async (id: string, status: string) =>
     (await api.patch<Assignment>(`/assignments/${id}/status`, { status })).data,
+  reassignVolunteer: async (id: string, body: { volunteer_id: string; reason?: string }) =>
+    (await api.patch<Assignment>(`/assignments/${id}/volunteer`, body)).data,
 };
 
 export const organizationsApi = {

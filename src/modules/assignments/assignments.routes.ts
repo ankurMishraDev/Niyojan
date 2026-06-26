@@ -71,4 +71,16 @@ assignmentsRouter.patch(
 	assignmentsController.updateAssignmentStatus,
 );
 
+const reassignVolunteerBodySchema = z.object({
+	volunteer_id: uuidSchema,
+	reason: z.string().max(500).optional(),
+});
+
+assignmentsRouter.patch(
+	"/assignments/:id/volunteer",
+	allowRoles(["superadmin"]),
+	validate({ params: assignmentIdParamsSchema, body: reassignVolunteerBodySchema }),
+	assignmentsController.reassignVolunteer,
+);
+
 export default assignmentsRouter;

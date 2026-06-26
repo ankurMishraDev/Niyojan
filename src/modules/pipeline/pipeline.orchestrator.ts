@@ -1,4 +1,4 @@
-import { runDocumentPipeline } from "../../langgraph-pipeline/pipelineGraph";
+﻿import { runDocumentPipeline } from "../../langgraph-pipeline/pipelineGraph";
 import { generateSignedReadUrl } from "../../config/gcp";
 import { db } from "../../config/db";
 import { jobService } from "../../jobs/job.service";
@@ -516,28 +516,160 @@ export class PipelineOrchestrator {
       await jobService.markRunning(job.id as string);
       const existingManifest = await getManifestByDocumentId(documentId);
 
+      // ── SURVEY-FIRST EXTRACTION ─────────────────────────────────────────────
+      // Instead of sending the raw uploaded PDF to Gemini (slow, error-prone),
+      // we build the extraction result directly from the already-digitized
+      // survey responses. This is the same path used for manual form submissions
+      // and is both faster and more accurate.
+      //
+      // The document file is still stored in GCS for reference/display, but we
+      // no longer send it to the AI pipeline for content extraction.
       currentStage = "stage2_extraction";
-      logStage(currentStage, { action: "start" });
-      const extraction = await stage2Extraction({
-        documentId: document.id,
-        gcsPath: document.gcs_path,
-        fileName: document.file_name,
-        fileType: document.file_type,
+      logStage(currentStage, {
+        action: "start",
+        mode: "survey_responses",
+        sourceSurveyId: document.source_survey_id,
       });
+
+      const surveyResponses = await getSurveyResponsesForReview(document.source_survey_id!);
+      const surveyRow = await getSurveyReviewRowById(document.source_survey_id!);
+
+      // Build canonical text from survey responses (same format used by analyzeNeeds)
+      const surveyCanonicalText = [
+        surveyRow?.respondent_name ? `Respondent: ${surveyRow.respondent_name}` : null,
+        surveyRow?.location_text ? `Location: ${surveyRow.location_text}` : null,
+        ...surveyResponses.map((r) => {
+          const val = formatSurveyResponseValue(r);
+          return val !== "Not provided" ? `${r.field_label}: ${val}` : null;
+        }),
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      // Build a synthetic extraction result that mirrors the DocumentExtractionOrchestrationOutput
+      // shape expected by downstream stages — but populated from survey data, not a raw document.
+      const surveyMappedFields = surveyResponses.map((r) => ({
+        label: r.field_label,
+        inputType: r.input_type,
+        required: false,
+        options: null as string[] | null,
+        confidence: 0.95, // High confidence — these are digitized user entries, not OCR
+        fieldCatalogId: null as string | null,
+        matchedCatalogKey: null as string | null,
+        isCustom: true,
+        category: "survey_response",
+      }));
+
+      // Wrap into the shape that stage3+ expects
+      const extraction = {
+        providerMode: "live" as const,
+        document: {
+          id: document.id,
+          gcsPath: document.gcs_path,
+          fileName: document.file_name,
+          fileType: document.file_type,
+        },
+        extractedFields: surveyMappedFields.map((f, i) => ({
+          label: f.label,
+          inputType: f.inputType,
+          required: false,
+          confidence: f.confidence,
+          provenanceRef: `survey_response_${i}`,
+          valueHint: formatSurveyResponseValue(surveyResponses[i]),
+        })),
+        mappedFields: surveyMappedFields,
+        summary: {
+          candidateCount: surveyResponses.length,
+          mappedCount: surveyResponses.length,
+          customCount: surveyResponses.length,
+        },
+        models: {
+          documentExtractor: "survey_responses",
+          fieldMapper: "survey_responses",
+          vertexProvider: "vertex-ai-live",
+        },
+        documentAi: {
+          providerMode: "live" as const,
+          providerName: "survey_responses_extractor",
+          model: "survey_responses",
+          fields: surveyMappedFields.map((f, i) => ({
+            label: f.label,
+            inputType: f.inputType,
+            required: false,
+            confidence: f.confidence,
+            valueHint: formatSurveyResponseValue(surveyResponses[i]),
+          })),
+          documentText: surveyCanonicalText,
+          textBlocks: surveyResponses.map((r, i) => ({
+            page: 1,
+            block_id: `b${i + 1}`,
+            text: `${r.field_label}: ${formatSurveyResponseValue(r)}`,
+            block_type: "survey_response",
+            bbox: null,
+          })),
+          keyValuePairs: surveyResponses
+            .map((r) => ({
+              label: r.field_label,
+              value: formatSurveyResponseValue(r),
+              confidence: 0.95,
+              page: 1,
+            }))
+            .filter((kv) => kv.value !== "Not provided"),
+          tables: [],
+          pageCount: 1,
+          detectedLanguage: surveyRow?.assessment_overrides_json ? "en" : null,
+          rawResponse: { source: "survey_responses", surveyId: document.source_survey_id },
+          latencyMs: 0,
+          validationStatus: surveyResponses.length > 0 ? ("passed" as const) : ("requires_human" as const),
+          validationErrors: surveyResponses.length === 0 ? ["no_survey_responses"] : [],
+          fallbackReason: null,
+          reviewRequired: false,
+        },
+        fieldMapping: {
+          providerName: "survey_responses_mapper",
+          mode: "live" as const,
+          model: "survey_responses",
+          promptVersion: "survey_map_v1",   // max 20 chars for DB column
+          mappedFields: surveyMappedFields,
+          contradictions: [] as string[],
+          modelQualityFlags: [] as string[],
+          inputTokenCount: null as number | null,
+          outputTokenCount: null as number | null,
+          latencyMs: 0,
+          validationStatus: "passed" as const,
+          validationErrors: [] as string[],
+          fallbackReason: null as string | null,
+          reviewRequired: false,
+        },
+        generatedAt: new Date().toISOString(),
+      };
       logStage(currentStage, {
         action: "completed",
+        mode: "survey_responses",
         candidateCount: extraction.summary.candidateCount,
         mappedCount: extraction.summary.mappedCount,
-        documentValidationStatus: extraction.documentAi.validationStatus,
-        mappingValidationStatus: extraction.fieldMapping.validationStatus,
+        canonicalTextLength: surveyCanonicalText.length,
       });
 
       currentStage = "stage3_canonicalization";
-      const canonical = stage3Canonicalization(extraction);
+      // For survey-based extraction, we already have canonical text from the responses.
+      // Override the canonicalization result to use the survey text directly.
+      const canonicalFromStage3 = stage3Canonicalization(extraction);
+      const canonical = {
+        ...canonicalFromStage3,
+        canonicalText: surveyCanonicalText || canonicalFromStage3.canonicalText,
+        keyValuePairs: extraction.documentAi.keyValuePairs.length > 0
+          ? extraction.documentAi.keyValuePairs
+          : canonicalFromStage3.keyValuePairs,
+        textBlocks: extraction.documentAi.textBlocks.length > 0
+          ? extraction.documentAi.textBlocks
+          : canonicalFromStage3.textBlocks,
+      };
       logStage(currentStage, {
         pageCount: canonical.pageCount,
         keyValuePairCount: canonical.keyValuePairs.length,
         textBlockCount: canonical.textBlocks.length,
+        canonicalTextLength: canonical.canonicalText.length,
       });
 
       currentStage = "stage4_pii_masking";
@@ -577,8 +709,8 @@ export class PipelineOrchestrator {
         extraction.documentAi.reviewRequired ||
         extraction.fieldMapping.reviewRequired
           ? "requires_human"
-          : extraction.documentAi.validationStatus === "fallback" ||
-              extraction.fieldMapping.validationStatus === "fallback"
+          : (extraction.documentAi.validationStatus as string) === "fallback" ||
+              (extraction.fieldMapping.validationStatus as string) === "fallback"
             ? "fallback"
             : baseTrust.validationStatus;
       const trust = {
@@ -1081,6 +1213,30 @@ export class PipelineOrchestrator {
     if (user.role !== "superadmin" && user.orgId !== survey.org_id)
       throw new AppError(403, "Cross-organization access is not allowed");
 
+    // ── Find any document the NGO uploaded alongside this survey ─────────────
+    // Extra columns fetched here so the fallback path can build a signed URL
+    // without a second DB round-trip.
+    const linkedDocRow = await db("documents")
+      .where({ source_survey_id: surveyId })
+      .orderBy("created_at", "desc")
+      .select("id", "status", "gcs_path", "file_name", "file_type")
+      .first() as (Pick<DocumentRow, "id" | "status" | "gcs_path" | "file_name" | "file_type">) | undefined;
+
+    // ── Tier 1: full pipeline delegation ─────────────────────────────────────
+    // If the document has a completed pipeline manifest, delegate to
+    // getReviewPackage() which returns real AI reasoning + document signed URL.
+    if (linkedDocRow) {
+      try {
+        return await this.getReviewPackage(linkedDocRow.id, user);
+      } catch {
+        // Pipeline manifest not found (pipeline hasn't run yet, or failed).
+        // Fall through to Tier 2 — we still show the document preview.
+      }
+    }
+
+    // ── Tier 2: survey-based assessment ──────────────────────────────────────
+    // Build reasoning from survey needs. If the NGO uploaded a document, also
+    // generate its signed URL so the PDF preview renders in the admin UI.
     const [responses, surveyNeeds, reviews] = await Promise.all([
       getSurveyResponsesForReview(surveyId),
       getSurveyNeedsBySurveyId(surveyId),
@@ -1096,10 +1252,7 @@ export class PipelineOrchestrator {
       ]),
     );
     const latestReview = reviews[0] as
-      | {
-          approved_fields?: unknown;
-          field_corrections?: unknown;
-        }
+      | { approved_fields?: unknown; field_corrections?: unknown }
       | undefined;
     const trustedFields = applyFieldOverrides(rawTrustedFields, latestReview);
     const topUrgencyScore = surveyNeeds.reduce(
@@ -1125,14 +1278,47 @@ export class PipelineOrchestrator {
       .filter((value) => !value.endsWith(": Not provided"))
       .slice(0, 4);
     const caseSummary = surveyNeeds.length > 0
-      ? `This manually submitted survey appears to request ${surveyNeeds.length} area(s) of support. The strongest needs are ${surveyNeeds
+      ? `This survey appears to request ${surveyNeeds.length} area(s) of support. The strongest needs are ${surveyNeeds
           .slice(0, 2)
           .map((need) => String(need.summary))
           .join(" and ")}.`
-      : "This manually submitted survey has been reviewed, but no needs were detected automatically. The admin should still review the responses and consider volunteer support.";
+      : "This survey has been reviewed, but no needs were detected automatically. The admin should still review the responses and consider volunteer support.";
 
-    return {
-      document: {
+    // ── Build document info ───────────────────────────────────────────────────
+    // If an NGO uploaded a document, generate its signed URL so the PDF/image
+    // preview renders. If URL generation fails, fall back to the placeholder.
+    let documentInfo: {
+      id: string; fileName: string; fileType: string;
+      status: string; readUrl: string; readUrlExpiresAt: string;
+    };
+    let sourceDocumentId: string | null = null;
+
+    if (linkedDocRow) {
+      try {
+        const signed = await generateSignedReadUrl(linkedDocRow.gcs_path);
+        documentInfo = {
+          id: linkedDocRow.id,
+          fileName: linkedDocRow.file_name,
+          fileType: linkedDocRow.file_type,
+          status: linkedDocRow.status,
+          readUrl: signed.url,
+          readUrlExpiresAt: signed.expiresAt,
+        };
+        sourceDocumentId = linkedDocRow.id;
+      } catch {
+        // Signed URL generation failed — show placeholder, no PDF preview.
+        documentInfo = {
+          id: survey.id,
+          fileName: survey.respondent_name ? `Survey: ${survey.respondent_name}` : "Survey submission",
+          fileType: "survey/manual",
+          status: survey.status,
+          readUrl: "",
+          readUrlExpiresAt: "",
+        };
+      }
+    } else {
+      // No linked document — purely manual survey.
+      documentInfo = {
         id: survey.id,
         fileName: survey.respondent_name
           ? `Manual survey: ${survey.respondent_name}`
@@ -1141,8 +1327,12 @@ export class PipelineOrchestrator {
         status: survey.status,
         readUrl: "",
         readUrlExpiresAt: "",
-      },
-      sourceDocumentId: null,
+      };
+    }
+
+    return {
+      document: documentInfo,
+      sourceDocumentId,
       sourceSurveyId: survey.id,
       manifest: null,
       canonicalProjection: null,
@@ -1169,7 +1359,7 @@ export class PipelineOrchestrator {
         urgency_evidence_refs:
           evidenceRefs.length > 0
             ? evidenceRefs
-            : ["The review is based on the manually filled survey responses."],
+            : ["The review is based on the submitted survey responses."],
         need_category:
           surveyNeeds.length > 0 ? String(surveyNeeds[0].category) : "general",
         need_subcategory: null,
@@ -1183,7 +1373,7 @@ export class PipelineOrchestrator {
         verification_risk_reasons:
           surveyNeeds.length > 0
             ? [
-                "This is a manually filled survey, so an admin should confirm the detected needs before assignment.",
+                "An admin should confirm the detected needs before assignment.",
               ]
             : [
                 "No needs were detected automatically, so an admin should review the responses carefully.",

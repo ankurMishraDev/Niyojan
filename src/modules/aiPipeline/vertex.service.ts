@@ -276,6 +276,9 @@ export class VertexService {
 			fileData: options.fileData,
 		});
 		const rawText = getFirstCandidateText(payload);
+		// ── Debug: log full Gemini response for pipeline debugging ───────────────────
+		console.log(`[GEMINI-RAW] promptVersion=${options.promptVersion} model=${resolvedModel}`);
+		console.log(`[GEMINI-RAW] rawText (first 2000 chars):`, rawText.slice(0, 2000));
 		const output = parseStructuredJson(rawText, options.schema);
 		const usage = getUsage(payload);
 
@@ -366,6 +369,7 @@ export class VertexService {
 		})();
 
 		try {
+			console.log(`[REASONING] Starting reasoning. canonicalText length: ${input.canonicalText.length}, fields: ${input.fields.length}`);
 			// Convert the local fields format to MappedField format expected by the prompt
 			const mappedFields = input.fields.map(f => ({
 				label: f.label,
@@ -428,6 +432,7 @@ export class VertexService {
 		}>;
 	}) {
 		try {
+			console.log(`[SURVEY-NEEDS] Analyzing survey ${input.surveyId}. Responses: ${input.responses.length}`);
 			const prompt = [
 				"You analyze structured NGO household survey responses and return detected needs.",
 				"Return JSON only as an array.",

@@ -462,8 +462,9 @@ const getVolunteerByUserId = async (userId: string) => {
 };
 
 const getAssignmentRowById = async (assignmentId: string) => {
+	// Use LEFT JOIN so aggregate assignments (need_id IS NULL) are also returned
 	return (await db("task_assignments as ta")
-		.join("needs_analysis as n", "ta.need_id", "n.id")
+		.leftJoin("needs_analysis as n", "ta.need_id", "n.id")
 		.join("volunteers as v", "ta.volunteer_id", "v.id")
 		.join("users as u", "v.user_id", "u.id")
 		.where("ta.id", assignmentId)
@@ -471,6 +472,7 @@ const getAssignmentRowById = async (assignmentId: string) => {
 			"ta.id",
 			"ta.org_id",
 			"ta.need_id",
+			"ta.aggregate_need_id",
 			"ta.volunteer_id",
 			"ta.match_score",
 			"ta.match_reason_json",
@@ -479,6 +481,7 @@ const getAssignmentRowById = async (assignmentId: string) => {
 			"ta.completed_at",
 			"ta.created_at",
 			"ta.updated_at",
+			// For aggregate assignments n.* will be null — coalesce to aggregate data below
 			"n.survey_id as need_survey_id",
 			"n.category as need_category",
 			"n.summary as need_summary",
@@ -750,8 +753,9 @@ export class AssignmentsService {
 
 	async listAssignments(query: ListAssignmentsQuery, user: AuthenticatedUser) {
 		const { page, pageSize, offset } = getPaginationParams(query.page, query.pageSize);
+		// LEFT JOIN so aggregate assignments (need_id IS NULL) are included
 		const baseQuery = db("task_assignments as ta")
-			.join("needs_analysis as n", "ta.need_id", "n.id")
+			.leftJoin("needs_analysis as n", "ta.need_id", "n.id")
 			.join("volunteers as v", "ta.volunteer_id", "v.id")
 			.join("users as u", "v.user_id", "u.id");
 
@@ -835,6 +839,20 @@ export class AssignmentsService {
 		if (!canAccessAssignment(user, assignment)) {
 			throw new AppError(403, "Cross-organization access is not allowed");
 		}
+
+		// For aggregate assignments, enrich the need summary/category from aggregate_needs
+		if (!assignment.need_id && assignment.aggregate_need_id) {
+			const aggregate = await db("aggregate_needs")
+				.where({ id: assignment.aggregate_need_id })
+				.select("title", "need_category", "urgency_label", "member_count")
+				.first() as { title: string | null; need_category: string | null; urgency_label: string | null; member_count: number | null } | undefined;
+			if (aggregate) {
+				(assignment as any).need_summary = aggregate.title ?? `Cluster assignment — ${aggregate.need_category ?? "general"}`;
+				(assignment as any).need_category = aggregate.need_category ?? "general";
+				(assignment as any).need_priority_level = aggregate.urgency_label ?? "medium";
+			}
+		}
+
 		const context = await getAssignmentContext(assignment.need_survey_id);
 		return mapAssignment(assignment, context);
 	}
@@ -871,6 +889,50 @@ export class AssignmentsService {
 
 			return rows;
 		})) as AssignmentRow[];
+
+		const refreshed = await getAssignmentRowById(updated.id);
+		return mapAssignment(refreshed || updated);
+	}
+
+	async reassignVolunteer(
+		assignmentId: string,
+		input: { volunteer_id: string; reason?: string },
+		user: AuthenticatedUser,
+	) {
+		const assignment = await getAssignmentRowById(assignmentId);
+		if (!assignment) throw new AppError(404, "Assignment not found");
+		assertOrgScope(user, assignment.org_id);
+
+		const newVolunteer = await getVolunteerById(input.volunteer_id);
+		if (!newVolunteer) throw new AppError(404, "New volunteer not found");
+		if (!newVolunteer.is_active) throw new AppError(409, "Inactive volunteers cannot be assigned");
+
+		const [updated] = (await db("task_assignments")
+			.where({ id: assignmentId })
+			.update({
+				volunteer_id: input.volunteer_id,
+				status: "suggested",
+				match_reason_json: JSON.stringify({
+					...(typeof assignment.match_reason_json === "string"
+						? JSON.parse(assignment.match_reason_json)
+						: assignment.match_reason_json ?? {}),
+					reassigned_reason: input.reason ?? "Volunteer changed by admin",
+					previous_volunteer_id: assignment.volunteer_id,
+					reassigned_at: new Date().toISOString(),
+				}),
+				updated_at: new Date(),
+			})
+			.returning("*")) as AssignmentRow[];
+
+		await auditService.writeEvent(db as any, {
+			orgId: assignment.org_id,
+			eventType: "assignment_volunteer_reassigned",
+			entityType: "assignment",
+			entityId: assignmentId,
+			actorId: user.id,
+			oldValue: { volunteerId: assignment.volunteer_id },
+			newValue: { volunteerId: input.volunteer_id },
+		});
 
 		const refreshed = await getAssignmentRowById(updated.id);
 		return mapAssignment(refreshed || updated);

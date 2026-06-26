@@ -61,7 +61,7 @@ export async function runDocumentPipeline(
     documentId,
     orgId,
     userId,
-    surveyId, // crucial for input node validation
+    surveyId,  // inputNode uses this to load survey responses
     rawText: rawTextOverride || null,
     errors: [],
     nodeTimings: {},
@@ -73,7 +73,13 @@ export async function runDocumentPipeline(
     recommendedSkillKeys: [],
   };
 
-  // Using invoke, passing full initial state object matching the Annotation
   const result = await compiledPipeline.invoke(initialState);
+
+  // Propagate a clear failure if the pipeline reported one
+  if (result.pipelineStatus === "failed") {
+    const errMsg = (result.errors || []).join("; ") || "Pipeline failed in LangGraph";
+    throw new Error(errMsg);
+  }
+
   return result;
 }

@@ -133,7 +133,7 @@ export function ClusteringPage() {
                         type="button"
                         onClick={() => {
                           if (need.surveyId) {
-                            navigate(`/ai-review/${need.surveyId}`);
+                            navigate(`/ai-review/surveys/${need.surveyId}`);
                           }
                         }}
                         className="text-left min-w-0"
@@ -286,7 +286,7 @@ export function ClusteringPage() {
                               </div>
                               {surveyId ? (
                                 <Link
-                                  to={`/ai-review/${surveyId}`}
+                                  to={`/ai-review/surveys/${surveyId}`}
                                   className="shrink-0 inline-flex items-center gap-1 rounded border border-hairline bg-canvas-soft px-2 py-1 text-[10px] font-medium text-ink hover:bg-canvas-soft-2 transition-colors"
                                 >
                                   <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>

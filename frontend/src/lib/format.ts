@@ -27,15 +27,15 @@ export const sentence = (value: string) =>
 export const toneForStatus = (value?: string) => {
   const status = (value ?? "").toLowerCase();
 
-  if (["approved", "published", "completed", "resolved", "available", "open", "active"].includes(status)) {
+  if (["Approved", "Published", "Completed", "Resolved", "Available", "Open", "Active"].includes(status)) {
     return "success" as const;
   }
 
-  if (["critical", "failed", "rejected", "cancelled", "escalated", "unresolved"].includes(status)) {
+  if (["Critical", "Failed", "Rejected", "Cancelled", "Escalated", "Unresolved"].includes(status)) {
     return "danger" as const;
   }
 
-  if (["processing", "pending", "review_pending", "high", "in_progress", "matched", "assigned"].includes(status)) {
+  if (["Processing", "Pending", "Review Pending", "High", "In Progress", "Matched", "Assigned"].includes(status)) {
     return "warning" as const;
   }
 

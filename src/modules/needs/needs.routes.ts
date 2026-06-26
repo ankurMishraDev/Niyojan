@@ -28,7 +28,21 @@ const attachNeedSkillsBodySchema = z.object({
 	skill_ids: z.array(uuidSchema).min(1),
 });
 
+const updateNeedBodySchema = z.object({
+	summary: z.string().min(4).max(1000).optional(),
+	urgency_score: z.number().min(0).max(100).optional(),
+	priority_level: z.enum(["low", "medium", "high"]).optional(),
+	status: z.enum(["detected", "open", "matched", "closed"]).optional(),
+});
+
 needsRouter.use(requireAuth);
+
+needsRouter.patch(
+	"/:id",
+	allowRoles(["superadmin"]),
+	validate({ params: needIdParamsSchema, body: updateNeedBodySchema }),
+	needsController.updateNeed,
+);
 
 needsRouter.get(
 	"/",

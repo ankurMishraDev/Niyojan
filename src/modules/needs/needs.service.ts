@@ -21,6 +21,7 @@ type NeedRow = {
 	respondent_name?: string | null;
 	template_version_id?: string;
 	cluster_id?: string | null;
+	source_document_id?: string | null;
 };
 
 type NeedSkillRow = {
@@ -83,6 +84,9 @@ const mapNeed = (need: NeedRow, skills: NeedSkillRow[]) => {
 		templateVersionId: need.template_version_id ?? null,
 		clusterStatus: need.cluster_id ? "clustered" : "unclustered",
 		clusterId: need.cluster_id ?? null,
+		// sourceDocumentId is set when the survey was filled by uploading a document.
+		// Use this to route to /ai-review/:documentId instead of /ai-review/surveys/:surveyId.
+		sourceDocumentId: need.source_document_id ?? null,
 		skills: skills.map(mapNeedSkill),
 	};
 };
@@ -127,9 +131,23 @@ const getNeedRowById = async (needId: string) => {
 export class NeedsService {
 	async listNeeds(query: ListNeedsQuery, user: AuthenticatedUser) {
 		const { page, pageSize, offset } = getPaginationParams(query.page, query.pageSize);
+		// Subquery: the most recently created document linked to each survey (for AI review routing).
+		// Used to expose sourceDocumentId on needs so the frontend can route to
+		// /ai-review/:documentId (full pipeline assessment) instead of /ai-review/surveys/:surveyId.
+		const latestDocSubquery = db("documents as d_inner")
+			.select(
+				"d_inner.source_survey_id",
+				db.raw("(array_agg(d_inner.id order by d_inner.created_at desc))[1] as latest_doc_id"),
+			)
+			.whereNotNull("d_inner.source_survey_id")
+			.groupBy("d_inner.source_survey_id")
+			.as("ld");
+
 		const baseQuery = db("needs_analysis as n")
 			.join("surveys as s", "n.survey_id", "s.id")
-			.leftJoin("aggregate_need_members as anm", "n.id", "anm.needs_analysis_id");
+			.leftJoin("aggregate_need_members as anm", "n.id", "anm.needs_analysis_id")
+			.leftJoin(latestDocSubquery, "ld.source_survey_id", "n.survey_id")
+			.leftJoin("documents as d", "d.id", "ld.latest_doc_id");
 
 		if (user.role === "superadmin") {
 			if (query.org_id) {
@@ -177,7 +195,8 @@ export class NeedsService {
 				"s.longitude as survey_longitude",
 				"s.respondent_name",
 				"s.template_version_id",
-				"anm.aggregate_need_id as cluster_id"
+				"anm.aggregate_need_id as cluster_id",
+				db.raw("d.id as source_document_id")
 			)
 			.orderBy("n.created_at", "desc")
 			.offset(offset)
@@ -261,6 +280,26 @@ export class NeedsService {
 			});
 		});
 
+		return this.getNeedById(needId, user);
+	}
+
+	async updateNeed(
+		needId: string,
+		input: { summary?: string; urgency_score?: number; priority_level?: string; status?: string },
+		user: AuthenticatedUser,
+	) {
+		const need = await db("needs_analysis").where({ id: needId }).first();
+		if (!need) throw new AppError(404, "Need not found");
+		if (user.role !== "superadmin" && user.orgId !== need.org_id) {
+			throw new AppError(403, "Cross-organization access is not allowed");
+		}
+		await db("needs_analysis").where({ id: needId }).update({
+			...(input.summary !== undefined ? { summary: input.summary } : {}),
+			...(input.urgency_score !== undefined ? { urgency_score: input.urgency_score } : {}),
+			...(input.priority_level !== undefined ? { priority_level: input.priority_level } : {}),
+			...(input.status !== undefined ? { status: input.status } : {}),
+			updated_at: new Date(),
+		});
 		return this.getNeedById(needId, user);
 	}
 }

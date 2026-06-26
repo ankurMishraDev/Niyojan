@@ -43,6 +43,18 @@ class FeedbackController {
 		}
 	};
 
+	createEvidenceReadUrl = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			if (!req.user) throw new AppError(401, "Authentication is required");
+			const { gcs_path } = req.body as { gcs_path: string };
+			const { generateSignedReadUrl } = await import("../../config/gcp");
+			const signed = await generateSignedReadUrl(gcs_path);
+			return sendSuccess(res, { readUrl: signed.url, expiresAt: signed.expiresAt }, "Evidence read URL generated");
+		} catch (error) {
+			next(error);
+		}
+	};
+
 	closeNeed = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			if (!req.user) {

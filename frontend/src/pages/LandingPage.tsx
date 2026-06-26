@@ -36,7 +36,9 @@ const DOWNLOAD_APP_POINTS = [
 ];
 
 /** Replace with your actual APK / Play Store / App Store link */
-const DOWNLOAD_EXTERNAL_URL="https://expo.dev/accounts/ankur07/projects/niyojan-mobile/builds/763d10da-0c2a-43a6-b3ac-2bca57a106a0";
+const DOWNLOAD_EXTERNAL_URL =
+  "https://expo.dev/accounts/ankur07/projects/niyojan-mobile/builds/763d10da-0c2a-43a6-b3ac-2bca57a106a0";
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function extractDriveFileId(input: string): string | null {
